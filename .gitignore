@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Output files
+output/*.csv
+output/*.txt
+output/*.json
+!output/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+*.txt
+!requirements.txt
+!README*.txt
+
+# Temporary files
+*.tmp
+*.bak
+*_result.txt
+*_update*.txt
+final_*.txt
+
+# Environment variables
+.env
+.env.local
+.env.*.local

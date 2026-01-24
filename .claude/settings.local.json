@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3:*)",
+      "Bash(/usr/bin/python3:*)",
+      "Bash(ls -la src/test_generator.py*)",
+      "Bash(head:*)",
+      "Bash(python main_improved.py:*)",
+      "Bash(if [ -z \"$ADO_PAT\" ])",
+      "Bash(then echo \"ADO_PAT not set\")",
+      "Bash(else echo \"ADO_PAT is set\")",
+      "Bash(fi)",
+      "Bash(chmod:*)",
+      "Bash(grep:*)",
+      "Bash(pip install:*)"
+    ]
+  }
+}

@@ -1,0 +1,2834 @@
+"""
+Test Case Generator Module
+Generates test cases following all strict QA rules from acceptance criteria.
+"""
+import re
+from typing import Dict, List, Optional, Tuple
+
+import config
+
+
+class TestGenerator:
+    """Generates test cases from acceptance criteria following strict rules."""
+    
+    def __init__(self):
+        self.forbidden_words = config.FORBIDDEN_WORDS
+        self.forbidden_area_terms = config.FORBIDDEN_AREA_TERMS
+        self.allowed_areas = config.ALLOWED_AREAS
+    
+    def extract_feature_name(self, story_title: str) -> str:
+        """Extract feature name from story title."""
+        title = story_title.strip()
+        for prefix in ['As a', 'As an', 'I want', 'I need']:
+            if title.lower().startswith(prefix.lower()):
+                parts = title.split(',')
+                if len(parts) > 1:
+                    title = parts[0].replace(prefix, '').strip()
+                break
+        return title
+    
+    def identify_area_and_scenario(self, criterion: str, feature: str) -> Tuple[str, str]:
+        """Identify area and scenario from acceptance criterion following strict rules."""
+        criterion_lower = criterion.lower()
+        
+        # Identify UI surface (FROM WHERE)
+        ui_area = None
+        ui_keywords = {
+            'file menu': 'File Menu',
+            'edit menu': 'Edit Menu',
+            'tools menu': 'Tools Menu',
+            'properties panel': 'Properties Panel',
+            'dimensions panel': 'Dimensions Panel',
+            'canvas': 'Canvas',
+            'dialog': 'Dialog Window',
+            'modal': 'Modal Window',
+            'toolbar': 'Top Action Toolbar',
+            'top toolbar': 'Top Action Toolbar',
+            'action toolbar': 'Top Action Toolbar',
+        }
+        
+        for keyword, area in ui_keywords.items():
+            if keyword in criterion_lower:
+                ui_area = area
+                break
+        
+        if not ui_area:
+            if 'menu' in criterion_lower:
+                ui_area = 'Tools Menu'
+            elif 'panel' in criterion_lower:
+                ui_area = 'Properties Panel'
+            elif 'canvas' in criterion_lower or 'draw' in criterion_lower:
+                ui_area = 'Canvas'
+            else:
+                ui_area = 'Canvas'
+        
+        # Identify category (WHAT)
+        category = None
+        if 'available' in criterion_lower or 'accessible' in criterion_lower or 'activate' in criterion_lower:
+            category = 'Availability'
+        elif 'option' in criterion_lower or 'select' in criterion_lower or 'choice' in criterion_lower:
+            category = 'Options'
+        elif 'instant' in criterion_lower or 'immediately' in criterion_lower or 'update' in criterion_lower or 'apply' in criterion_lower:
+            category = 'Behavior'
+        elif 'proportion' in criterion_lower or 'dimension' in criterion_lower or 'distortion' in criterion_lower or 'position' in criterion_lower:
+            category = 'Geometry'
+        elif 'selection' in criterion_lower or 'selected' in criterion_lower or 'scope' in criterion_lower:
+            category = 'Scope'
+        elif 'undo' in criterion_lower or 'redo' in criterion_lower:
+            category = 'Undo Redo'
+        elif 'persist' in criterion_lower or 'stay' in criterion_lower or 'active' in criterion_lower:
+            category = 'Tool State'
+        elif 'disabled' in criterion_lower or 'error' in criterion_lower or 'fail' in criterion_lower or 'no selection' in criterion_lower:
+            category = 'Negative'
+        elif 'empty' in criterion_lower or 'repeat' in criterion_lower or 'combined' in criterion_lower or 'double' in criterion_lower:
+            category = 'Edge Case'
+        elif 'accessibility' in criterion_lower or 'wcag' in criterion_lower or 'keyboard' in criterion_lower or 'focus' in criterion_lower or 'aria' in criterion_lower:
+            category = 'Accessibility'
+        else:
+            category = 'Behavior'
+        
+        # Extract specific scenario (SCOPE/OUTCOME)
+        scenario = self.extract_scenario(criterion, ui_area)
+        
+        return category, scenario
+    
+    def _extract_action_type_for_undo_redo(self, criterion_lower: str, feature: str) -> str:
+        """Extract the specific action type being undone/redone from criterion."""
+        # Common action types
+        if 'measurement' in criterion_lower or 'dimension' in criterion_lower:
+            return 'measurement'
+        elif 'visibility' in criterion_lower or 'show' in criterion_lower or 'hide' in criterion_lower:
+            return 'visibility change'
+        elif 'rotate' in criterion_lower or 'rotation' in criterion_lower:
+            return 'rotation'
+        elif 'move' in criterion_lower:
+            return 'move'
+        elif 'delete' in criterion_lower or 'remove' in criterion_lower:
+            return 'deletion'
+        elif 'create' in criterion_lower or 'add' in criterion_lower:
+            return 'creation'
+        elif 'edit' in criterion_lower or 'modify' in criterion_lower:
+            return 'edit'
+        elif 'scale' in criterion_lower:
+            return 'scale change'
+        else:
+            return 'the action'
+    
+    def _generate_action_step_for_undo_redo(self, action_type: str, feature: str, criterion_lower: str) -> Optional[Dict[str, str]]:
+        """Generate the action step for Undo/Redo test based on action type."""
+        if 'measurement' in action_type or 'dimension' in action_type:
+            if 'diameter' in criterion_lower:
+                return {"action": "Select Diameter from the Dimensions menu.", "expected": ""}
+            elif 'menu' in criterion_lower:
+                return {"action": f"Select {feature} from the Dimensions menu.", "expected": ""}
+            else:
+                return {"action": f"Enable {feature} measurement toggle in Properties – Design panel.", "expected": ""}
+        elif 'visibility' in action_type:
+            return {"action": "Disable the Show Diameter visibility control.", "expected": ""}
+        elif 'rotation' in action_type:
+            return {"action": "Click and drag the rotation marker to rotate the object.", "expected": ""}
+        elif 'move' in action_type:
+            return {"action": "Move the selected object to a new position on the Canvas.", "expected": ""}
+        else:
+            # Generic action
+            return {"action": f"Perform {action_type} action.", "expected": ""}
+    
+    def extract_scenario(self, criterion: str, area: str) -> str:
+        """Extract specific scenario from acceptance criterion.
+        
+        Enhanced to create balanced scenarios answering: WHAT + HOW/CONDITION
+        Eliminates generic words like "Functionality", "General", "Validation"
+        """
+        scenario = criterion.strip()
+        
+        # Remove common prefixes
+        for prefix in ['verify that', 'ensure that', 'check that', 'test that', 'validate that',
+                       'acceptance criteria:', 'when active:', 'accessibility (phase 1):',
+                       'out of scope for phase 1:']:
+            if scenario.lower().startswith(prefix):
+                scenario = scenario[len(prefix):].strip(' :')
+                break
+        
+        # Enhanced extraction for balanced scenarios (WHAT + HOW/CONDITION)
+        criterion_lower = scenario.lower()
+        
+        # Measurement-specific scenarios
+        if 'measurement' in criterion_lower or 'dimension' in criterion_lower or 'diameter' in criterion_lower:
+            if 'create' in criterion_lower or 'generate' in criterion_lower:
+                if 'selected' in criterion_lower:
+                    shape_type = 'ellipse' if 'ellipse' in criterion_lower else 'selected object'
+                    scenario = f"Create {criterion_lower.split('create')[1].split('for')[0].strip() if 'create' in criterion_lower else 'diameter'} measurement for {shape_type}"
+                    else:
+                    scenario = "Create diameter measurement"
+            elif 'toggle' in criterion_lower or 'enable' in criterion_lower:
+                scenario = "Enable diameter measurement using toggle for selected ellipse"
+            elif 'visibility' in criterion_lower or 'show' in criterion_lower or 'hide' in criterion_lower:
+                scenario = "Show and hide diameter measurement using visibility control"
+            elif 'fixed' in criterion_lower or 'cannot be repositioned' in criterion_lower:
+                scenario = "Diameter measurement uses fixed standard placement and cannot be manually repositioned"
+            elif 'unit' in criterion_lower or 'imperial' in criterion_lower or 'metric' in criterion_lower:
+                scenario = "Diameter label reflects active Imperial or Metric unit system"
+            elif 'duplicate' in criterion_lower or 'reapplying' in criterion_lower:
+                scenario = "Reapplying Diameter does not create duplicate measurements"
+            elif 'no object' in criterion_lower or 'no selection' in criterion_lower:
+                scenario = "Diameter option behavior when no object is selected"
+            elif 'non-ellipse' in criterion_lower or 'wrong object' in criterion_lower:
+                scenario = "Diameter option behavior when a non-ellipse object is selected"
+            else:
+                scenario = "Diameter measurement creation and display"
+        
+        # Undo/Redo scenarios
+        elif 'undo' in criterion_lower or 'redo' in criterion_lower:
+            if 'add' in criterion_lower and 'remove' in criterion_lower:
+                scenario = "Undo and redo diameter add and remove actions"
+            elif 'undo' in criterion_lower and 'redo' in criterion_lower:
+                scenario = "Undo and redo operations"
+            else:
+                scenario = "Undo and redo functionality"
+        
+        # Extract key behavior/outcome
+        if ' can be ' in scenario.lower():
+            parts = scenario.lower().split(' can be ')
+            if len(parts) > 1:
+                scenario = parts[1].strip()
+        elif ' appears ' in scenario.lower() or 'appears near' in scenario.lower() or 'appears under' in scenario.lower():
+            # Extract what appears - generic pattern
+            if 'appears' in scenario.lower():
+                idx = scenario.lower().index('appears')
+                before_appears = scenario[:idx].strip()
+                # Extract the key noun/phrase before "appears"
+                words = before_appears.split()
+                if len(words) > 0:
+                    # Take last 2-4 words before "appears" for context
+                    scenario = ' '.join(words[-3:]) + ' appears' if len(words) >= 3 else before_appears + ' appears'
+                    else:
+                    scenario = 'Element appears'
+        elif ' can click and drag' in scenario.lower() or 'click and drag' in scenario.lower():
+            # Generic: extract what can be dragged
+            if 'marker' in scenario.lower():
+                scenario = 'User can click and drag marker'
+            elif 'handle' in scenario.lower():
+                scenario = 'User can click and drag handle'
+            else:
+                scenario = 'User can click and drag element'
+        elif 'shown next' in scenario.lower() or 'angle is shown' in scenario.lower() or 'displayed next' in scenario.lower():
+            # Generic: extract what is shown
+            if 'angle' in scenario.lower():
+                scenario = 'Angle is shown next to cursor'
+            elif 'value' in scenario.lower():
+                scenario = 'Value is shown next to cursor'
+            else:
+                scenario = 'Information is shown next to cursor'
+        elif 'shift' in scenario.lower() and ('lock' in scenario.lower() or 'step' in scenario.lower() or 'snap' in scenario.lower()):
+            # Generic: Shift key modifier behavior
+            if '15°' in scenario.lower() or '15 degree' in scenario.lower():
+                scenario = 'Shift locks to 15° steps'
+            elif 'step' in scenario.lower() or 'snap' in scenario.lower():
+                scenario = 'Shift locks to incremental steps'
+            else:
+                scenario = 'Shift key modifies behavior'
+        elif 'affects only' in scenario.lower() or 'only the selected' in scenario.lower():
+            scenario = 'Operation affects only selected object'
+        elif 'remains active' in scenario.lower() or 'stays active' in scenario.lower():
+            scenario = 'Tool remains active until another tool selected'
+        elif 'undo' in scenario.lower() or 'redo' in scenario.lower():
+            scenario = 'Operation is undoable via Undo/Redo'
+        elif 'opens' in scenario.lower() and ('window' in scenario.lower() or 'dialog' in scenario.lower()):
+            # Extract what opens
+            if 'informational' in scenario.lower() or 'info' in scenario.lower():
+                scenario = 'Informational window opens'
+            elif 'dialog' in scenario.lower():
+                scenario = 'Dialog window opens'
+            else:
+                scenario = 'Window opens'
+        elif 'displays' in scenario.lower() or 'displayed' in scenario.lower():
+            # Extract what is displayed
+            if 'name' in scenario.lower():
+                scenario = 'Application name is displayed'
+            elif 'version' in scenario.lower():
+                scenario = 'Version information is displayed'
+            elif 'info' in scenario.lower() or 'information' in scenario.lower():
+                scenario = 'Information is displayed'
+            else:
+                # Try to extract the subject
+                parts = scenario.lower().split('displays')
+                if len(parts) > 1 and parts[0].strip():
+                    scenario = parts[0].strip() + ' is displayed'
+                    else:
+                    scenario = 'Content is displayed'
+        elif 'wcag' in scenario.lower() or '508' in scenario.lower() or 'aria' in scenario.lower() or 'accessibility' in scenario.lower():
+            scenario = 'Complies with Section 508 / WCAG 2.1 AA standards'
+        elif ' is ' in scenario.lower():
+            parts = scenario.lower().split(' is ')
+            if len(parts) > 1:
+                scenario = parts[1].strip()
+        
+        # Clean up scenario
+        scenario = scenario.strip(' .-[]')
+        # Remove newlines
+        scenario = scenario.replace('\n', ' ').replace('\r', ' ').strip()
+        
+        # Handle incomplete scenarios - make them more descriptive
+        if not scenario or len(scenario.strip()) < 3:
+            scenario = "Feature behavior is verified"
+        elif scenario.lower().strip() in ['acceptance criteria', 'criteria', 'ac', 'acceptance criteria:']:
+            # Skip this - it's too generic, should be extracted from actual criterion content
+            # Return empty to signal this should be skipped
+            return ""
+        elif scenario.lower().endswith(':'):
+            scenario = scenario.rstrip(':').strip()
+            if not scenario or len(scenario.split()) < 2:
+                scenario = "Window content is displayed"
+            else:
+                scenario = scenario + " is displayed"
+        elif len(scenario.split()) < 3:  # Too short, likely incomplete
+            # Try to make it more descriptive
+            if 'window' in scenario.lower() or 'dialog' in scenario.lower():
+                scenario = f"{scenario} is displayed"
+            elif 'menu' in scenario.lower():
+                scenario = f"{scenario} is accessible"
+            elif 'name' in scenario.lower() or 'version' in scenario.lower() or 'info' in scenario.lower():
+                scenario = f"{scenario} is displayed correctly"
+            else:
+                scenario = f"{scenario} behavior is verified"
+        
+        # Capitalize first letter
+        if scenario:
+            scenario = scenario[0].upper() + scenario[1:]
+        
+        # Limit length but ensure it's meaningful
+        if len(scenario) > 60:
+            words = scenario[:60].split()
+            if len(words) > 1:
+                scenario = ' '.join(words[:-1])
+            else:
+                scenario = scenario[:57] + '...'
+        
+        return scenario
+    
+    def requires_object_interaction(self, criterion: str, feature: str = '') -> bool:
+        """Determine if test requires object interaction on Canvas.
+        
+        Generic logic: Checks for object interaction keywords in criterion.
+        Features that are informational/read-only (dialogs, menus) don't require objects
+        unless explicitly mentioned in the criterion.
+        """
+        criterion_lower = criterion.lower()
+        feature_lower = feature.lower() if feature else ''
+        
+        # Check if feature itself is informational/help/about
+        informational_feature_keywords = ['help', 'about', 'contact support', 'support', 'informational', 'version', 'copyright']
+        is_informational_feature = any(keyword in feature_lower for keyword in informational_feature_keywords)
+        
+        # Check if criterion explicitly mentions informational/dialog features
+        # These typically don't require object interaction unless explicitly stated
+        informational_keywords = ['dialog', 'window', 'informational', 'about', 'version', 'copyright', 'support link', 'contact us', 'support page', 'support information']
+        is_informational_criterion = any(keyword in criterion_lower for keyword in informational_keywords)
+        
+        # If feature or criterion is informational, don't require object interaction
+        # UNLESS explicitly about selecting objects on canvas
+        if is_informational_feature or is_informational_criterion:
+            # Only require object if explicitly about selecting objects on canvas
+            if 'select' in criterion_lower and ('object' in criterion_lower or 'shape' in criterion_lower or 'canvas' in criterion_lower):
+                return True
+            return False
+        
+        # Generic object interaction keywords
+        # Exclude false positives: "selecting it" (menu selection) vs "select object" (canvas selection)
+        object_action_keywords = [
+            'transform', 'edit', 'mirror', 'rotate', 'resize', 'delete', 'properties',
+            'dimensions', 'move', 'draw', 'shape', 'object', 'flip', 'scale',
+            'canvas', 'marker', 'handle', 'pivot', 'alignment'
+        ]
+        
+        # Check for object interaction keywords, but exclude "select" unless it's clearly about canvas objects
+        has_object_keyword = any(keyword in criterion_lower for keyword in object_action_keywords)
+        if has_object_keyword:
+            return True
+        
+        # Check for "select" only if it's clearly about canvas objects (not menu selection)
+        if 'select' in criterion_lower:
+            # Only require object if "select" is about objects/shapes on canvas, not menu items
+            if ('object' in criterion_lower or 'shape' in criterion_lower or 'canvas' in criterion_lower) and \
+               not any(menu_word in criterion_lower for menu_word in ['menu', 'option', 'item', 'link', 'selecting it', 'selecting the']):
+                return True
+        
+        return False
+    
+    def clean_forbidden_words(self, text: str) -> str:
+        """Remove forbidden words and phrases from text."""
+        if not text:
+            return text
+        
+        cleaned = text
+        
+        # Remove forbidden words
+        for forbidden in config.FORBIDDEN_WORDS:
+            # Case-insensitive replacement
+            pattern = re.compile(re.escape(forbidden), re.IGNORECASE)
+            cleaned = pattern.sub('', cleaned)
+        
+        # Remove "or" phrases - handle various patterns
+        # Pattern 1: "X or Y" -> "X"
+        cleaned = re.sub(r'\s+or\s+\w+', '', cleaned, flags=re.IGNORECASE)
+        # Pattern 2: "X, Y, or Z" -> "X"
+        cleaned = re.sub(r',\s*\w+\s*,?\s*or\s+\w+', '', cleaned, flags=re.IGNORECASE)
+        # Pattern 3: Standalone "or" word (with spaces)
+        cleaned = re.sub(r'\s+or\s+', ' ', cleaned, flags=re.IGNORECASE)
+        # Pattern 4: "or" at start/end
+        cleaned = re.sub(r'^\s*or\s+', '', cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r'\s+or\s*$', '', cleaned, flags=re.IGNORECASE)
+        
+        # Remove other forbidden phrases
+        forbidden_phrases = [
+            'if available',
+            'if supported',
+            'works correctly',
+            'as expected',
+            'works as expected',
+            'should be correct',
+            'no issues found',
+        ]
+        
+        for phrase in forbidden_phrases:
+            pattern = re.compile(re.escape(phrase), re.IGNORECASE)
+            cleaned = pattern.sub('', cleaned)
+        
+        # Clean up extra spaces and punctuation
+        cleaned = ' '.join(cleaned.split())
+        # Remove double punctuation
+        cleaned = re.sub(r'([.,;:])\s*\1+', r'\1', cleaned)
+        # Remove trailing commas and "or" remnants
+        cleaned = re.sub(r',\s*$', '', cleaned)
+        cleaned = cleaned.strip()
+        
+        return cleaned
+    
+    def is_accessibility_test(self, criterion: str) -> bool:
+        """Determine if criterion is about accessibility."""
+        criterion_lower = criterion.lower()
+        return any(term in criterion_lower for term in ['accessibility', 'wcag', '508', 'keyboard', 'focus', 'aria', 'voiceover', 'screen reader'])
+    
+    def extract_device_from_criterion(self, criterion: str) -> Optional[str]:
+        """Extract device/platform from criterion."""
+        criterion_lower = criterion.lower()
+        if 'windows' in criterion_lower or 'pc' in criterion_lower:
+            return 'Windows 11'
+        elif 'ipad' in criterion_lower or 'ios' in criterion_lower:
+            return 'iPad'
+        elif 'android' in criterion_lower:
+            return 'Android Tablet'
+        return None
+    
+    def generate_test_case_id(self, story_id: int, index: int) -> str:
+        """Generate test case ID: AC1 first, then 005, 010, 015..."""
+        if index == 0:
+            return f"{story_id}-AC1"
+        else:
+            number = index * 5
+            return f"{story_id}-{number:03d}"
+    
+    def generate_test_case_title(self, story_id: int, test_id: str, feature: str, category: str, 
+                                scenario: str, device: Optional[str] = None, 
+                                ui_area: Optional[str] = None) -> str:
+        """Generate test case title following strict format rules.
+        
+        Format: <StoryID>-XXX:<FeatureName> /<ConcreteArea> /<SpecificScenario>
+        Must answer: FROM WHERE (concrete UI surface), WHAT (specific behavior), SCOPE/OUTCOME
+        """
+        id_part = test_id.split('-')[1]
+        
+        # Ensure we have a concrete UI area (FROM WHERE) - never use forbidden category terms
+        # Default to Tools Menu if not specified, as most tools are accessed from there
+        concrete_area = ui_area if ui_area else 'Tools Menu'
+        
+        # Validate concrete_area is an allowed area
+        allowed_areas = [
+            'File Menu', 'Edit Menu', 'Tools Menu', 'Properties Panel', 
+            'Dimensions Panel', 'Canvas', 'Dialog Window', 'Modal Window', 
+            'Top Action Toolbar', 'Toolbar and Edit Menu'  # Special case for Undo/Redo AC1
+        ]
+        if concrete_area not in allowed_areas:
+            concrete_area = 'Tools Menu'  # Safe default
+        
+        # Format: FeatureName / ConcreteArea / SpecificScenario
+        title = f"{story_id}-{id_part}: {feature} / {concrete_area} / {scenario}"
+        
+        if device:
+            title += f" ({device})"
+        
+        return title
+    
+    def generate_steps_for_criterion(self, criterion: str, feature: str, area: str,
+                                     requires_object: bool = False, is_accessibility: bool = False,
+                                     device: Optional[str] = None) -> List[Dict[str, str]]:
+        """Generate test steps from acceptance criterion following strict rules.
+        
+        Creates actionable, deterministic steps that break down the criterion into
+        specific testable actions and verifications.
+        """
+        steps = []
+        criterion_lower = criterion.lower().strip()
+        criterion_original = criterion.strip()
+        
+        # Skip empty or header-only criteria
+        if not criterion_original or len(criterion_original) < 5:
+            return steps
+        
+        # Skip criteria that are just headers (e.g., "Acceptance Criteria:", "When active:")
+        header_patterns = ['acceptance criteria:', 'when active:', 'accessibility', 'out of scope']
+        if any(criterion_lower.startswith(pattern) for pattern in header_patterns) and ':' in criterion_original and len(criterion_original.split(':')) < 2:
+            return steps
+        
+        # Mandatory Step 1: PRE-REQ
+        steps.append({
+            "action": "PRE-REQ: ENV QuickDraw application is installed",
+            "expected": ""
+        })
+        
+        # Accessibility tool PRE-REQs (MANDATORY for accessibility tests)
+        if is_accessibility:
+            if device == 'Windows 11':
+                steps.append({
+                    "action": "PRE-REQ: Accessibility Insights for Windows tool is installed",
+                    "expected": ""
+                })
+            elif device == 'iPad':
+                steps.append({
+                    "action": "PRE-REQ: Apple built-in accessibility tools are available and enabled (e.g., VoiceOver)",
+                    "expected": ""
+                })
+            elif device == 'Android Tablet':
+                steps.append({
+                    "action": "PRE-REQ: Accessibility Scanner (Google) Free tool is installed",
+                    "expected": ""
+                })
+        
+        # Launch application
+        if device == 'Tablets':
+            steps.append({
+                "action": "Launch ENV QuickDraw application on tablet (iPad or Android Tablet).",
+                "expected": ""
+            })
+        else:
+            steps.append({
+                "action": "Launch the ENV QuickDraw application" if not device else f"Launch the ENV QuickDraw application on {device}",
+                "expected": ""
+            })
+        
+        # Object creation steps (if required) - MANDATORY RULE: Must include shape examples
+        if requires_object:
+            steps.append({
+                "action": "Draw a shape (e.g., rectangle or triangle) on the Canvas",
+                "expected": ""
+            })
+            steps.append({
+                "action": "Select the drawn shape",
+                "expected": ""
+            })
+        
+        # Parse criterion to extract actionable behaviors
+        tool_name = feature.replace(' Tool', '').replace(' tool', '').strip()
+        
+        # Identify UI surface and add navigation steps (expected values will be added by enforcement function)
+        if 'help menu' in criterion_lower:
+            steps.append({"action": "Open Help Menu.", "expected": ""})
+        elif 'tools menu' in criterion_lower or ('menu' in criterion_lower and 'help' not in criterion_lower):
+            if 'tools menu' in criterion_lower:
+                steps.append({"action": "Open Tools Menu.", "expected": ""})
+            elif 'file menu' in criterion_lower:
+                steps.append({"action": "Open File Menu.", "expected": ""})
+            elif 'edit menu' in criterion_lower:
+                steps.append({"action": "Open Edit Menu.", "expected": ""})
+        
+        if 'properties panel' in criterion_lower:
+            steps.append({"action": "Open Properties Panel.", "expected": ""})
+        
+        # For "About App" tests, ensure Help menu is opened and window is opened
+        # Check if this is a window content verification (name, version, copyright, support, window displays, close, additional fields)
+        is_about_app_feature = 'about' in feature.lower() or 'about app' in feature.lower()
+        is_window_content = any(keyword in criterion_lower for keyword in ['name', 'version', 'copyright', 'support', 'window displays', 'window is', 'close', 'additional fields', 'settings', 'actions'])
+        
+        if is_about_app_feature and is_window_content:
+            # For window content, we need to open Help Menu and select About App
+            if not any('Open Help Menu' in step.get('action', '') for step in steps):
+                steps.append({"action": "Open Help Menu.", "expected": ""})
+            if not any('Select About App' in step.get('action', '') for step in steps):
+                steps.append({"action": "Select About App option.", "expected": ""})
+        elif is_about_app_feature and ('appears' in criterion_lower or 'menu' in criterion_lower):
+            # For "appears" tests, just need to open menu
+            if not any('Open Help Menu' in step.get('action', '') for step in steps):
+                steps.append({"action": "Open Help Menu.", "expected": ""})
+        
+        # Parse specific behaviors from criterion
+        # Remove common prefixes
+        criterion_text = criterion_original
+        for prefix in ['verify that', 'ensure that', 'check that', 'test that', 'validate that', 
+                       'acceptance criteria:', 'when active:', 'accessibility (phase 1):',
+                       'out of scope for phase 1:']:
+            if criterion_text.lower().startswith(prefix):
+                criterion_text = criterion_text[len(prefix):].strip()
+                break
+        
+        # Remove trailing colons and clean up
+        criterion_text = criterion_text.strip(' :').strip()
+        
+        # Skip if criterion is empty or just a header
+        if not criterion_text or len(criterion_text) < 3:
+            steps.append({
+                "action": "Close/Exit the QuickDraw application",
+                "expected": ""
+            })
+            return steps
+        
+        # Generate specific action steps based on criterion content
+        
+        # Tool activation (setup only - no expected)
+        if 'activate' in criterion_lower or ('can be activated' in criterion_lower):
+            if 'tool' in criterion_lower or 'menu' in criterion_lower:
+                # Only add if it's setup, not verification
+                if 'verify' not in criterion_lower and 'check' not in criterion_lower:
+                    steps.append({"action": f"Activate {tool_name}.", "expected": ""})
+        
+        # Rotation-specific behaviors
+        if 'rotation marker' in criterion_lower or 'marker appears' in criterion_lower:
+            steps.append({"action": f"Activate {tool_name}.", "expected": ""})
+            steps.append({
+                "action": "Verify that a small rotation marker appears near the selected object.",
+                "expected": "Small rotation marker appears near the selected object on the Canvas."
+            })
+        
+        elif 'click and drag' in criterion_lower or 'drag this marker' in criterion_lower:
+            steps.append({"action": f"Activate {tool_name}.", "expected": ""})
+            steps.append({"action": "Click and drag the rotation marker.", "expected": ""})
+            if '0-360' in criterion_lower or '360°' in criterion_lower or 'any direction' in criterion_lower:
+                steps.append({
+                    "action": "Verify that the object rotates in any direction (0-360°).",
+                    "expected": "Selected object rotates in any direction (0-360°) on the Canvas."
+                })
+        
+        elif 'rotation angle' in criterion_lower or 'angle is shown' in criterion_lower or 'shown next to cursor' in criterion_lower:
+            steps.append({"action": f"Activate {tool_name}.", "expected": ""})
+            steps.append({"action": "Click and drag the rotation marker to rotate the object.", "expected": ""})
+            steps.append({
+                "action": "Verify that the current rotation angle is shown next to the cursor while rotating.",
+                "expected": "Current rotation angle is displayed next to the cursor during rotation."
+            })
+        
+        elif 'shift' in criterion_lower and ('lock' in criterion_lower or '15°' in criterion_lower or 'steps' in criterion_lower):
+            steps.append({"action": f"Activate {tool_name}.", "expected": ""})
+            steps.append({"action": "Hold Shift key and drag the rotation marker.", "expected": ""})
+            steps.append({
+                "action": "Verify that rotation locks to 15° steps for precise alignment.",
+                "expected": "Rotation locks to 15° incremental steps during drag operation."
+            })
+        
+        # Flip/Mirror-specific behaviors
+        elif 'flip' in criterion_lower or 'mirror' in criterion_lower:
+            if 'horizontal' in criterion_lower:
+                steps.append({"action": "Select Horizontal flip option.", "expected": ""})
+                steps.append({
+                    "action": "Verify that the object flips horizontally.",
+                    "expected": "Selected object is flipped horizontally on the Canvas."
+                })
+            elif 'vertical' in criterion_lower:
+                steps.append({"action": "Select Vertical flip option.", "expected": ""})
+                steps.append({
+                    "action": "Verify that the object flips vertically.",
+                    "expected": "Selected object is flipped vertically on the Canvas."
+                })
+            else:
+                steps.append({"action": f"Activate {tool_name}.", "expected": ""})
+                steps.append({
+                    "action": "Verify that flip options are available.",
+                    "expected": "Flip options are visible in the Tools Menu."
+                })
+        
+        # Measurement add/remove operations - Comprehensive template
+        elif 'measurement' in criterion_lower or 'dimension' in criterion_lower or 'diameter' in criterion_lower:
+            # Determine measurement type and entry point
+            measurement_type = 'Diameter' if 'diameter' in criterion_lower else feature
+            use_menu = 'menu' in criterion_lower or 'dimensions menu' in criterion_lower
+            use_panel = 'panel' in criterion_lower or 'properties' in criterion_lower or 'toggle' in criterion_lower
+            
+            # Ensure object setup for measurement tests
+            if requires_object and not any('Draw a shape' in step.get('action', '') for step in steps):
+                steps.append({
+                    "action": "Create a new drawing.",
+                    "expected": ""
+                })
+                # Use ellipse for diameter, generic shape for others
+                if 'diameter' in criterion_lower or 'ellipse' in criterion_lower:
+                    steps.append({
+                        "action": "Draw an ellipse on the Canvas.",
+                        "expected": ""
+                    })
+                    else:
+                    steps.append({
+                        "action": "Draw a shape (e.g., arrow, circle, triangle, rectangle) on the Canvas.",
+                        "expected": ""
+                    })
+                steps.append({
+                    "action": "Select the drawn object.",
+                    "expected": ""
+                })
+            
+            # Add measurement via menu or panel
+            if use_menu:
+                if 'dimensions menu' in criterion_lower or 'dimensions' in criterion_lower:
+                    steps.append({
+                        "action": "Open the Dimensions menu.",
+                        "expected": ""
+                    })
+                    steps.append({
+                        "action": f"Select {measurement_type}.",
+                        "expected": ""
+                    })
+                    else:
+                    steps.append({
+                        "action": f"Select {measurement_type} from the Dimensions menu.",
+                        "expected": ""
+                    })
+            elif use_panel:
+                steps.append({
+                    "action": "Open the Properties – Design panel.",
+                    "expected": ""
+                })
+                steps.append({
+                    "action": f"Enable the {measurement_type} measurement toggle.",
+                    "expected": ""
+                })
+            else:
+                # Default to menu if not specified
+                steps.append({
+                    "action": "Open the Dimensions menu.",
+                    "expected": ""
+                })
+                steps.append({
+                    "action": f"Select {measurement_type}.",
+                    "expected": ""
+                })
+            
+            # Verify measurement is created
+            steps.append({
+                "action": f"Verify a {measurement_type.lower()} line is drawn and a {measurement_type.lower()} label is displayed on the Canvas.",
+                "expected": f"{measurement_type} line and label are displayed for the selected object."
+            })
+            
+            # Additional verification based on criterion
+            if 'unit' in criterion_lower or 'imperial' in criterion_lower or 'metric' in criterion_lower:
+                steps.append({
+                    "action": f"Verify the {measurement_type.lower()} label displays a numeric value using the current unit system.",
+                    "expected": f"{measurement_type} label shows a numeric value and matches the active unit system."
+                })
+            
+            # Visibility toggle operations
+            if 'visibility' in criterion_lower or 'show' in criterion_lower or 'hide' in criterion_lower:
+                steps.append({
+                    "action": "Open the Properties – Design panel.",
+                    "expected": ""
+                })
+                steps.append({
+                    "action": "Disable the Show Diameter visibility control.",
+                    "expected": ""
+                })
+                steps.append({
+                    "action": "Verify the diameter line and label are hidden and do not occupy space on the Canvas UI.",
+                    "expected": "Diameter line and label are not visible after hiding."
+                })
+                steps.append({
+                    "action": "Enable the Show Diameter visibility control.",
+                    "expected": ""
+                })
+                steps.append({
+                    "action": "Verify the diameter line and label are visible again in the system-defined placement.",
+                    "expected": "Diameter line and label are visible after showing."
+                })
+            
+            # Fixed placement verification
+            if 'fixed' in criterion_lower or 'cannot be repositioned' in criterion_lower or 'placement' in criterion_lower:
+                steps.append({
+                    "action": "Attempt to drag the diameter label to a new location on the Canvas.",
+                    "expected": ""
+                })
+                steps.append({
+                    "action": "Verify the diameter label position does not change and remains in the system-defined placement.",
+                    "expected": "Diameter label cannot be manually repositioned and remains fixed by standard placement rules."
+                })
+        
+        # Undo/Redo - Comprehensive template
+        elif 'undo' in criterion_lower or 'redo' in criterion_lower:
+            # Determine the specific action being undone/redone from criterion
+            action_type = self._extract_action_type_for_undo_redo(criterion_lower, feature)
+            
+            # Comprehensive Undo/Redo steps: Create -> Action -> Verify -> Undo -> Verify -> Redo -> Verify
+            if requires_object:
+                # Ensure we have object setup (should already be there, but double-check)
+                if not any('Draw a shape' in step.get('action', '') for step in steps):
+                    steps.append({
+                        "action": "Create a new drawing.",
+                        "expected": ""
+                    })
+                    steps.append({
+                        "action": "Draw a shape (e.g., arrow, circle, triangle, rectangle) on the Canvas.",
+                        "expected": ""
+                    })
+                    steps.append({
+                        "action": "Select the drawn object.",
+                        "expected": ""
+                    })
+            
+            # Perform the specific action
+            action_step = self._generate_action_step_for_undo_redo(action_type, feature, criterion_lower)
+            if action_step:
+                steps.append(action_step)
+            
+            # Verify post-action state
+                steps.append({
+                "action": f"Verify that {action_type} is applied correctly.",
+                "expected": f"{action_type.capitalize()} is applied and visible on the Canvas."
+            })
+            
+            # Undo
+            steps.append({
+                "action": "Trigger Undo.",
+                "expected": ""
+            })
+            steps.append({
+                "action": f"Verify that {action_type} is removed and the object returns to its pre-action state.",
+                "expected": f"Object is restored to its pre-action state without {action_type}."
+            })
+            
+            # Redo
+            steps.append({
+                "action": "Trigger Redo.",
+                "expected": ""
+            })
+            steps.append({
+                "action": f"Verify that {action_type} is reapplied correctly.",
+                "expected": f"{action_type.capitalize()} is reapplied and matches the previous post-action state."
+            })
+            
+            # Additional Undo/Redo cycle if mentioned in criterion
+            if 'multiple' in criterion_lower or 'repeated' in criterion_lower:
+                steps.append({
+                    "action": "Trigger Undo again.",
+                    "expected": ""
+                })
+                steps.append({
+                    "action": "Verify that the object returns to its pre-action state again.",
+                    "expected": "Object is restored to its pre-action state."
+                })
+                steps.append({
+                    "action": "Trigger Redo again.",
+                    "expected": ""
+                })
+                steps.append({
+                    "action": "Verify that the action is reapplied again.",
+                    "expected": "Action is reapplied correctly."
+                })
+        
+        # Tool state persistence
+        elif 'remains active' in criterion_lower or 'tool remains active' in criterion_lower or 'stays active' in criterion_lower:
+            steps.append({"action": f"Activate {tool_name}.", "expected": ""})
+            steps.append({"action": "Select another drawing tool.", "expected": ""})
+            steps.append({
+                "action": "Verify that the previous tool is deactivated and the new tool becomes active.",
+                "expected": "Previous tool is deactivated and new tool becomes active in the toolbar."
+            })
+        
+        # Scope/Selection behaviors
+        elif 'selected object' in criterion_lower or 'only the selected' in criterion_lower or 'affects only' in criterion_lower:
+            steps.append({"action": f"Activate {tool_name}.", "expected": ""})
+            steps.append({
+                "action": "Verify that the operation affects only the selected object and does not change the overall Canvas layout.",
+                "expected": "Only the selected object is modified on the Canvas; other objects remain unchanged."
+            })
+        
+        # Accessibility - MANDATORY: Device-specific interaction models
+        elif 'accessibility' in criterion_lower or 'wcag' in criterion_lower or '508' in criterion_lower or 'aria' in criterion_lower:
+            # CRITICAL: For accessibility tests, always use story's UI area (from area parameter), not from criterion
+            # Accessibility tests verify navigation to the feature, so they must use the actual UI area
+            # where the feature is accessed (determined from story context), not what's mentioned in the criterion
+            nav_area = area if area and area not in ['Accessibility'] else 'Tools Menu'
+            
+            # Only override if criterion explicitly mentions a specific menu AND it matches story context
+            # But never use "Top Action Toolbar" from criterion - always use story's UI area
+            if 'help menu' in criterion_lower and ('help menu' in (area.lower() if area else '')):
+                nav_area = 'Help Menu'
+            elif 'tools menu' in criterion_lower or (area and 'tools menu' in area.lower()):
+                nav_area = 'Tools Menu'
+            elif 'file menu' in criterion_lower and ('file menu' in (area.lower() if area else '')):
+                nav_area = 'File Menu'
+            elif 'edit menu' in criterion_lower and ('edit menu' in (area.lower() if area else '')):
+                nav_area = 'Edit Menu'
+            
+            # CRITICAL: Use device-specific interaction model
+            # Windows 11: keyboard navigation
+            # iPad: touch with VoiceOver
+            # Android Tablet: touch with Accessibility Scanner
+            if device == 'iPad':
+                steps.append({"action": f"Open {nav_area} using touch and VoiceOver.", 
+                             "expected": f"{nav_area} opens and is displayed."})
+                steps.append({"action": f"Navigate to {tool_name} option using touch and VoiceOver.", 
+                             "expected": f"{tool_name} option is reached using touch and VoiceOver."})
+                steps.append({"action": f"Activate {tool_name} using touch and VoiceOver.", 
+                             "expected": f"{tool_name} Tool is activated using touch and VoiceOver."})
+                steps.append({
+                    "action": "Verify that touch navigation is fully functional with VoiceOver.",
+                    "expected": "All menu items and controls can be accessed using touch navigation with VoiceOver."
+                })
+            elif device == 'Android Tablet':
+                steps.append({"action": f"Open {nav_area} using touch.", 
+                             "expected": f"{nav_area} opens and is displayed."})
+                steps.append({"action": f"Navigate to {tool_name} option using touch.", 
+                             "expected": f"{tool_name} option is reached using touch."})
+                steps.append({"action": f"Activate {tool_name} using touch.", 
+                             "expected": f"{tool_name} Tool is activated using touch."})
+                steps.append({
+                    "action": "Verify that touch navigation is fully functional.",
+                    "expected": "All menu items and controls can be accessed using touch navigation."
+                })
+            else:
+                # Windows 11: keyboard navigation
+                steps.append({"action": f"Open {nav_area} using keyboard navigation.", 
+                             "expected": f"{nav_area} opens and is displayed."})
+                steps.append({"action": f"Navigate to {tool_name} option using keyboard navigation.", 
+                             "expected": f"{tool_name} option is reached using keyboard navigation."})
+                steps.append({"action": f"Activate {tool_name} using keyboard navigation.", 
+                             "expected": f"{tool_name} Tool is activated using keyboard navigation."})
+            steps.append({
+                "action": "Verify that keyboard navigation is fully functional with logical tab order.",
+                "expected": "All menu items and controls can be accessed using keyboard navigation with logical tab order."
+            })
+            
+            # MANDATORY: Always include all required accessibility validations (device-agnostic)
+            steps.append({
+                "action": "Verify that visible focus indicators are present on focused controls.",
+                "expected": "Visible focus indicators are displayed on all focused controls in the menu and toolbar."
+            })
+            steps.append({
+                "action": "Verify that focus order follows logical sequence.",
+                "expected": "Focus order follows logical sequence matching visual layout."
+            })
+            steps.append({
+                "action": "Verify that all controls have readable labels and correct ARIA roles.",
+                "expected": "All controls have meaningful accessible names and correct ARIA roles for assistive technologies."
+            })
+            
+            # Optional: Add contrast check if mentioned
+            if 'contrast' in criterion_lower:
+                steps.append({
+                    "action": "Verify that sufficient contrast ratio meets WCAG 2.1 AA standards.",
+                    "expected": "Contrast ratio meets WCAG 2.1 AA standards for all text and UI elements."
+                })
+        
+        # Generic verification (fallback - only if no specific pattern matched)
+        else:
+            # Generic: For dialog/window content, ensure navigation steps are added first
+            is_window_content = any(keyword in criterion_lower for keyword in ['name', 'version', 'copyright', 'support', 'window', 'dialog', 'informational', 'selecting it'])
+            
+            if is_window_content:
+                # Determine menu from criterion or use Help Menu as default for informational dialogs
+                menu_name = None
+                if 'help menu' in criterion_lower:
+                    menu_name = 'Help Menu'
+                elif 'tools menu' in criterion_lower:
+                    menu_name = 'Tools Menu'
+                elif 'file menu' in criterion_lower:
+                    menu_name = 'File Menu'
+                elif 'edit menu' in criterion_lower:
+                    menu_name = 'Edit Menu'
+                    else:
+                    menu_name = 'Help Menu'  # Default for informational dialogs
+                
+                # Ensure navigation steps are present
+                if not any(f'Open {menu_name}' in step.get('action', '') for step in steps):
+                    steps.append({"action": f"Open {menu_name}.", "expected": ""})
+                if not any(f'Select {tool_name}' in step.get('action', '') for step in steps):
+                    steps.append({"action": f"Select {tool_name} option.", "expected": ""})
+            
+            # Clean up criterion text for verification
+            verify_text = criterion_text
+            # Remove trailing periods/dashes/brackets that might be artifacts
+            verify_text = verify_text.rstrip(' .-[]')
+            
+            # Only add verification if we have meaningful content
+            if len(verify_text) > 10 and not verify_text.lower().startswith(('out of scope', 'phase 1')):
+                # Capitalize first letter
+                if verify_text:
+                    verify_text = verify_text[0].upper() + verify_text[1:] if len(verify_text) > 1 else verify_text.upper()
+                
+                # Create balanced expected value (what changed/observed + where + success)
+                # Try to infer location from context
+                expected_location = "on the Canvas"
+                if 'help menu' in criterion_lower or ('about app' in criterion_lower and 'menu' in criterion_lower):
+                    expected_location = "in the Help Menu"
+                elif 'menu' in criterion_lower and 'help' not in criterion_lower:
+                    expected_location = "in the menu"
+                elif 'dialog' in criterion_lower or 'window' in criterion_lower or 'about' in criterion_lower:
+                    expected_location = "in the About App dialog window"
+                elif 'panel' in criterion_lower:
+                    expected_location = "in the panel"
+                
+                # Generic: Check if this is dialog/window content (pattern-based, not feature-specific)
+                is_window_content = ('window' in criterion_lower or 'dialog' in criterion_lower or 
+                                              'name' in criterion_lower or 'version' in criterion_lower or 
+                                              'copyright' in criterion_lower or 'support' in criterion_lower or 
+                                              'close' in criterion_lower or 'additional fields' in criterion_lower or
+                                              'name' in verify_text.lower() or 'version' in verify_text.lower() or
+                                              'copyright' in verify_text.lower() or 'support' in verify_text.lower() or
+                                              'additional fields' in verify_text.lower() or 'settings' in verify_text.lower() or
+                                    'actions' in verify_text.lower() or 'informational' in criterion_lower)
+                
+                # Extract dialog/window name from feature or use generic term
+                dialog_name = f"{tool_name} dialog window" if tool_name else "dialog window"
+                
+                if is_window_content:
+                    # Clean up verify_text
+                    if 'displays' in verify_text.lower() or 'displays:' in verify_text.lower():
+                        verify_text = verify_text.replace('displays:', '').replace('displays', '').strip()
+                    if 'the window' in verify_text.lower() or verify_text.lower().strip() == 'the window':
+                        if 'close' in criterion_lower:
+                            expected = f"{dialog_name} closes when close action is performed."
+                        else:
+                            expected = f"{dialog_name} is displayed."
+                    elif 'close' in criterion_lower or 'close the window' in criterion_lower or 'user can close' in criterion_lower:
+                        expected = f"{dialog_name} closes when close action is performed."
+                    elif len(verify_text.split()) <= 3:  # Short text like "Application name"
+                        # Extract what is being verified (generic patterns)
+                        if 'name' in verify_text.lower():
+                            expected = f"Application name is displayed in the {dialog_name}."
+                        elif 'version' in verify_text.lower():
+                            expected = f"Full installed version string is displayed in the {dialog_name}."
+                        elif 'copyright' in verify_text.lower():
+                            expected = f"Dynamic copyright text is displayed in the {dialog_name}."
+                        elif 'support' in verify_text.lower() or 'link' in verify_text.lower():
+                            expected = f"Support link is displayed and clickable in the {dialog_name}."
+                        else:
+                            expected = f"{verify_text} is displayed in the {dialog_name}."
+                    else:
+                        # Remove any trailing artifacts and create balanced expected
+                        verify_text = verify_text.rstrip(' .-[]')
+                        # Handle specific cases (generic patterns)
+                        if 'selecting it' in verify_text.lower() or 'selecting' in verify_text.lower():
+                            expected = f"{dialog_name} opens when {tool_name} option is selected."
+                        elif 'additional fields' in verify_text.lower() or 'settings' in verify_text.lower() or 'actions' in verify_text.lower():
+                            expected = f"{dialog_name} contains only required fields with no additional fields, settings, or actions."
+                        else:
+                            expected = f"{verify_text} is displayed in the {dialog_name}."
+                    else:
+                    # Create balanced expected for non-window content
+                    verify_text = verify_text.rstrip(' .-[]')
+                    # Ensure we have proper format: what + where
+                    if verify_text and len(verify_text.split()) >= 2:
+                        expected = f"{verify_text} {expected_location}."
+                    else:
+                        expected = f"{verify_text} is displayed {expected_location}."
+                
+                # Create actionable verification step with complete action text
+                # Ensure action is complete and descriptive
+                if len(verify_text.split()) <= 3:  # Short text like "Application name"
+                    # Complete the action based on what we're verifying
+                    if 'name' in verify_text.lower():
+                        action_text = "Verify that Application name is displayed in the About App dialog window."
+                    elif 'version' in verify_text.lower():
+                        action_text = "Verify that Full installed version string is displayed in the About App dialog window."
+                    elif 'copyright' in verify_text.lower():
+                        action_text = "Verify that Dynamic copyright text is displayed in the About App dialog window."
+                    elif 'support' in verify_text.lower() or 'link' in verify_text.lower():
+                        action_text = "Verify that Support link is displayed and clickable in the About App dialog window."
+                    elif 'the window' in verify_text.lower() or verify_text.lower().strip() == 'the window':
+                        action_text = "Verify that About App dialog window is displayed."
+                    else:
+                        action_text = f"Verify that {verify_text} is displayed in the About App dialog window."
+                    else:
+                    # For longer text, ensure it's a complete sentence
+                    if not verify_text.endswith('.'):
+                        action_text = f"Verify that {verify_text}."
+                    else:
+                        action_text = f"Verify that {verify_text}"
+                
+                steps.append({
+                    "action": action_text,
+                    "expected": expected
+                })
+        
+        # Mandatory Final Step: Close application (no expected result)
+        steps.append({
+            "action": "Close/Exit the QuickDraw application",
+            "expected": ""
+        })
+        
+        # Post-process: Ensure expected values follow strict rules
+        # 1. All verification steps MUST have expected values
+        # 2. All setup/navigation steps MUST have empty expected values
+        steps = self._enforce_expected_value_rules(steps)
+        
+        # Clean forbidden words from all actions and expected results
+        for step in steps:
+            if step.get('action'):
+                step['action'] = self.clean_forbidden_words(step['action'])
+            if step.get('expected'):
+                step['expected'] = self.clean_forbidden_words(step['expected'])
+        
+        return steps
+    
+    def _enforce_expected_value_rules(self, steps: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        """Enforce strict expected value rules:
+        - Setup steps (PRE-REQ, Launch, Close, Draw, Select, Activate) have empty expected values
+        - Only verification steps (Verify, Execute undo/redo) have expected values
+        """
+        # Steps that should have NO expected values (setup/teardown steps)
+        no_expected_keywords = [
+            'pre-req:', 
+            'launch env quickdraw', 
+            'close/exit the quickdraw',
+            'draw a shape',
+            'select the drawn shape',
+            'select the shape',
+            'select the drawn',
+            'select another drawing tool',
+            'select another tool',
+        ]
+        
+        for step in steps:
+            action = step.get('action', '').lower()
+            expected = step.get('expected', '').strip()
+            
+            # Check if this step should have NO expected value
+            should_have_no_expected = any(keyword in action for keyword in no_expected_keywords)
+            
+            # Activation steps are setup steps (except undo/redo which are verification)
+            if 'activate' in action and 'undo' not in action and 'redo' not in action:
+                should_have_no_expected = True
+            
+            # Attempt actions are setup steps
+            if action.startswith('attempt to '):
+                should_have_no_expected = True
+            
+            if should_have_no_expected:
+                # These steps MUST have empty expected values
+                step['expected'] = ""
+            else:
+                # ALL other steps MUST have expected values (verification steps)
+                if not expected:
+                    # Generate balanced expected value based on action
+                    action_text = step.get('action', '')
+                    action_lower = action_text.lower()
+                    
+                    # Open menu/panel actions (handle with or without period)
+                    if action_lower.startswith('open ') or action_lower.startswith('open'):
+                        # Remove trailing period for matching
+                        action_clean = action_lower.rstrip('.')
+                        if 'help menu' in action_clean:
+                            step['expected'] = "Help Menu opens and is displayed."
+                        elif 'tools menu' in action_clean:
+                            step['expected'] = "Tools Menu opens and is displayed."
+                        elif 'file menu' in action_clean:
+                            step['expected'] = "File Menu opens and is displayed."
+                        elif 'edit menu' in action_clean:
+                            step['expected'] = "Edit Menu opens and is displayed."
+                        elif 'properties panel' in action_clean:
+                            step['expected'] = "Properties Panel opens and is displayed."
+                        elif 'dimensions panel' in action_clean:
+                            step['expected'] = "Dimensions Panel opens and is displayed."
+                        else:
+                            step['expected'] = "Menu opens and is displayed."
+                    
+                    # Select option actions (handle with or without period)
+                    elif action_lower.startswith('select ') or action_lower.startswith('select'):
+                        action_clean = action_lower.rstrip('.')
+                        if 'about app' in action_clean:
+                            step['expected'] = "About App option is selected and About App dialog window opens."
+                        elif 'horizontal flip' in action_clean:
+                            step['expected'] = "Horizontal flip option is selected."
+                        elif 'vertical flip' in action_clean:
+                            step['expected'] = "Vertical flip option is selected."
+                        elif 'shape' in action_clean:
+                            step['expected'] = "Shape is selected on the Canvas."
+                        else:
+                            step['expected'] = "Option is selected."
+                    
+                    # Activate undo/redo actions (verification, not setup)
+                    elif action_lower.startswith('activate ') and ('undo' in action_lower or 'redo' in action_lower):
+                        step['expected'] = "Undo/Redo functionality is activated."
+                    
+                    # Draw actions
+                    elif 'draw' in action_lower and 'shape' in action_lower:
+                        step['expected'] = "Shape is drawn on the Canvas."
+                    
+                    # Execute command actions (handle with or without period)
+                    elif action_lower.startswith('execute ') or action_lower.startswith('execute'):
+                        action_clean = action_lower.rstrip('.')
+                        if 'undo' in action_clean:
+                            step['expected'] = "Undo command is executed."
+                        elif 'redo' in action_clean:
+                            step['expected'] = "Redo command is executed."
+                        else:
+                            step['expected'] = "Command is executed."
+                    
+                    # Hold/Click and drag actions
+                    elif 'hold shift' in action_lower:
+                        step['expected'] = "Shift key is held down."
+                    elif 'click and drag' in action_lower:
+                        step['expected'] = "Drag operation is performed."
+                    
+                    # Attempt actions (handle with or without period)
+                    elif action_lower.startswith('attempt to ') or action_lower.startswith('attempt to'):
+                        step['expected'] = "Action is attempted."
+                    
+                    # Verify actions (should already have expected, but fallback)
+                    elif 'verify that' in action_lower or 'verify' in action_lower:
+                        if 'can be activated' in action_lower or 'is available' in action_lower or 'can be accessed' in action_lower:
+                            # Extract feature name from action
+                            if 'from the' in action_lower:
+                                parts = action_text.split('from the')
+                                if len(parts) > 1:
+                                    location = parts[1].split('.')[0].strip()
+                                    step['expected'] = f"Tool is visible and can be activated from the {location}."
+                                else:
+                                    step['expected'] = "Tool is visible and can be activated."
+                            else:
+                                step['expected'] = "Tool is visible and can be activated."
+                        elif 'about app dialog window' in action_lower:
+                            if 'displayed' in action_lower:
+                                step['expected'] = "About App dialog window is displayed."
+                            elif 'opens' in action_lower:
+                                step['expected'] = "About App dialog window opens."
+                            else:
+                                step['expected'] = "About App dialog window is displayed."
+                        elif 'application name' in action_lower:
+                            step['expected'] = "Application name is displayed in the About App dialog window."
+                        elif 'version' in action_lower:
+                            step['expected'] = "Full installed version string is displayed in the About App dialog window."
+                        elif 'copyright' in action_lower:
+                            step['expected'] = "Dynamic copyright text is displayed in the About App dialog window."
+                        elif 'support' in action_lower or 'link' in action_lower:
+                            step['expected'] = "Support link is displayed and clickable in the About App dialog window."
+                        elif 'canvas' in action_lower:
+                            if 'empty' in action_lower:
+                                step['expected'] = "Canvas displays no objects."
+                            else:
+                                step['expected'] = "Expected behavior is observed on the Canvas."
+                        elif 'appears' in action_lower:
+                            step['expected'] = f"{action_text.split('appears')[0].replace('Verify that', '').strip()} appears as expected."
+                        elif 'is deactivated' in action_lower or 'becomes active' in action_lower:
+                            step['expected'] = "Tool state changes correctly in the toolbar."
+                        else:
+                            # Generic verification - extract what's being verified
+                            verify_text = action_text.replace('Verify that', '').replace('Verify', '').strip().rstrip('.')
+                            if verify_text:
+                                step['expected'] = f"{verify_text} is observed."
+                            else:
+                                step['expected'] = "Expected behavior is observed."
+                    
+                    # Generic fallback for any other action
+                    else:
+                        step['expected'] = "Action is completed successfully."
+                
+                # Clean forbidden words from expected result
+                if step.get('expected'):
+                    step['expected'] = self.clean_forbidden_words(step['expected'])
+        
+        return steps
+    
+    def has_hotkeys(self, ac_text: str) -> bool:
+        """Check if acceptance criteria mentions hotkeys or keyboard shortcuts."""
+        ac_lower = ac_text.lower()
+        hotkey_keywords = ['hotkey', 'hot key', 'keyboard shortcut', 'shortcut key', 'ctrl+', 'cmd+', 
+                          'alt+', 'shift+', 'key combination', 'keystroke']
+        return any(keyword in ac_lower for keyword in hotkey_keywords)
+    
+    def generate_edge_case_tests(self, story_id: int, feature: str, feature_name: str, 
+                                ui_area: str, requires_object: bool, test_index: int) -> Tuple[List[Dict], int]:
+        """Generate comprehensive edge case tests."""
+        edge_cases = []
+        
+        # Edge Case 1: No selection (if tool requires object)
+        if requires_object:
+            no_selection_steps = [
+                {"action": "PRE-REQ: ENV QuickDraw application is installed", "expected": ""},
+                {"action": "Launch the ENV QuickDraw application", "expected": ""},
+                {"action": f"Open {ui_area}.", "expected": ""},
+                {"action": f"Activate {feature} without selecting any object on the Canvas.", "expected": ""},
+                {"action": "Verify that the tool is disabled.", 
+                 "expected": "Tool is disabled in the toolbar."},
+                {"action": "Close/Exit the QuickDraw application", "expected": ""}
+            ]
+            
+            # Apply expected value enforcement
+            no_selection_steps = self._enforce_expected_value_rules(no_selection_steps)
+            
+            # Clean forbidden words
+            for step in no_selection_steps:
+                if step.get('action'):
+                    step['action'] = self.clean_forbidden_words(step['action'])
+                if step.get('expected'):
+                    step['expected'] = self.clean_forbidden_words(step['expected'])
+            
+            tc_id = self.generate_test_case_id(story_id, test_index)
+            title = self.generate_test_case_title(story_id, tc_id, feature, "Negative", 
+                                                  "No Selection", None, ui_area)
+            objective = self.generate_objective(
+                title, "No Selection", feature, "Negative", ui_area, None, False
+            )
+            edge_cases.append({
+                "id": tc_id,
+                "title": title,
+                "steps": no_selection_steps,
+                "objective": objective,
+                "area": "Negative",
+                "requires_object": False,
+                "is_accessibility": False,
+                "device": None
+            })
+            test_index += 1
+        
+        # Edge Case 2: Multiple selections (if tool requires object)
+        if requires_object:
+            multiple_selection_steps = [
+                {"action": "PRE-REQ: ENV QuickDraw application is installed", "expected": ""},
+                {"action": "Launch the ENV QuickDraw application", "expected": ""},
+                {"action": "Draw multiple shapes (e.g., arrow, circle, triangle, rectangle) on the Canvas.", "expected": ""},
+                {"action": "Select multiple shapes on the Canvas.", "expected": ""},
+                {"action": f"Activate {feature}.", "expected": ""},
+                {"action": "Verify that the operation applies to all selected objects.", 
+                 "expected": "All selected objects are modified on the Canvas."},
+                {"action": "Close/Exit the QuickDraw application", "expected": ""}
+            ]
+            
+            # Apply expected value enforcement
+            multiple_selection_steps = self._enforce_expected_value_rules(multiple_selection_steps)
+            
+            # Clean forbidden words
+            for step in multiple_selection_steps:
+                if step.get('action'):
+                    step['action'] = self.clean_forbidden_words(step['action'])
+                if step.get('expected'):
+                    step['expected'] = self.clean_forbidden_words(step['expected'])
+            
+            tc_id = self.generate_test_case_id(story_id, test_index)
+            title = self.generate_test_case_title(story_id, tc_id, feature, "Edge Case", 
+                                                  "Multiple Selection", None, ui_area)
+            objective = self.generate_objective(
+                title, "Multiple Selection", feature, "Edge Case", ui_area, None, False
+            )
+            edge_cases.append({
+                "id": tc_id,
+                "title": title,
+                "steps": multiple_selection_steps,
+                "objective": objective,
+                "area": "Edge Case",
+                "requires_object": True,
+                "is_accessibility": False,
+                "device": None
+            })
+            test_index += 1
+        
+        # Edge Case 3: Empty Canvas (if tool requires object)
+        if requires_object:
+            empty_canvas_steps = [
+                {"action": "PRE-REQ: ENV QuickDraw application is installed", "expected": ""},
+                {"action": "Launch the ENV QuickDraw application", "expected": ""},
+                {"action": "Verify that Canvas is empty (no objects drawn).", "expected": "Canvas displays no objects."},
+                {"action": f"Open {ui_area}.", "expected": ""},
+                {"action": f"Attempt to activate {feature} on empty Canvas.", "expected": ""},
+                {"action": "Verify that the tool is disabled.", 
+                 "expected": "Tool is disabled in the toolbar."},
+                {"action": "Close/Exit the QuickDraw application", "expected": ""}
+            ]
+            
+            # Apply expected value enforcement
+            empty_canvas_steps = self._enforce_expected_value_rules(empty_canvas_steps)
+            
+            # Clean forbidden words
+            for step in empty_canvas_steps:
+                if step.get('action'):
+                    step['action'] = self.clean_forbidden_words(step['action'])
+                if step.get('expected'):
+                    step['expected'] = self.clean_forbidden_words(step['expected'])
+            
+            tc_id = self.generate_test_case_id(story_id, test_index)
+            title = self.generate_test_case_title(story_id, tc_id, feature, "Negative", 
+                                                  "Empty Canvas", None, ui_area)
+            objective = self.generate_objective(
+                title, "Empty Canvas", feature, "Negative", ui_area, None, False
+            )
+            edge_cases.append({
+                "id": tc_id,
+                "title": title,
+                "steps": empty_canvas_steps,
+                "objective": objective,
+                "area": "Negative",
+                "requires_object": False,
+                "is_accessibility": False,
+                "device": None
+            })
+            test_index += 1
+        
+        # Edge Case 4: Undo/Redo (if tool modifies objects)
+        if requires_object:
+            undo_steps = [
+                {"action": "PRE-REQ: ENV QuickDraw application is installed", "expected": ""},
+                {"action": "Launch the ENV QuickDraw application", "expected": ""},
+                {"action": "Draw a shape (e.g., rectangle or triangle) on the Canvas", "expected": ""},
+                {"action": "Select the drawn shape", "expected": ""},
+                {"action": f"Activate {feature} and perform an operation.", "expected": ""},
+                {"action": "Verify that the operation is applied.", "expected": "Operation is applied to the selected object on the Canvas."},
+                {"action": "Execute Undo command.", "expected": ""},
+                {"action": "Verify that the operation is undone and the object returns to its previous state.", 
+                 "expected": "Object is restored to its pre-change state on the Canvas."},
+                {"action": "Execute Redo command.", "expected": ""},
+                {"action": "Verify that the operation is redone and the object returns to the modified state.", 
+                 "expected": "Object returns to its modified state on the Canvas."},
+                {"action": "Close/Exit the QuickDraw application", "expected": ""}
+            ]
+            
+            # Apply expected value enforcement
+            undo_steps = self._enforce_expected_value_rules(undo_steps)
+            
+            # Clean forbidden words
+            for step in undo_steps:
+                if step.get('action'):
+                    step['action'] = self.clean_forbidden_words(step['action'])
+                if step.get('expected'):
+                    step['expected'] = self.clean_forbidden_words(step['expected'])
+            
+            tc_id = self.generate_test_case_id(story_id, test_index)
+            title = self.generate_test_case_title(story_id, tc_id, feature, "Undo Redo", 
+                                                  "Undo Redo Operation", None, ui_area)
+            objective = self.generate_objective(
+                title, "Undo Redo Operation", feature, "Undo Redo", ui_area, None, False
+            )
+            edge_cases.append({
+                "id": tc_id,
+                "title": title,
+                "steps": undo_steps,
+                "objective": objective,
+                "area": "Undo Redo",
+                "requires_object": True,
+                "is_accessibility": False,
+                "device": None
+            })
+            test_index += 1
+        
+        # Edge Case 5: Tool state persistence
+        tool_persistence_steps = [
+            {"action": "PRE-REQ: ENV QuickDraw application is installed", "expected": ""},
+            {"action": "Launch the ENV QuickDraw application", "expected": ""},
+            {"action": f"Open {ui_area}.", "expected": ""},
+            {"action": f"Activate {feature}.", "expected": ""},
+            {"action": "Verify that the tool remains active.", "expected": "Tool displays active state indicator in the toolbar."},
+            {"action": "Select another drawing tool.", "expected": ""},
+            {"action": "Verify that the previous tool is deactivated and the new tool becomes active.", 
+             "expected": "Previous tool is deactivated and new tool becomes active in the toolbar."},
+            {"action": "Close/Exit the QuickDraw application", "expected": ""}
+        ]
+        
+        # Apply expected value enforcement
+        tool_persistence_steps = self._enforce_expected_value_rules(tool_persistence_steps)
+        
+        # Clean forbidden words
+        for step in tool_persistence_steps:
+            if step.get('action'):
+                step['action'] = self.clean_forbidden_words(step['action'])
+            if step.get('expected'):
+                step['expected'] = self.clean_forbidden_words(step['expected'])
+        
+        tc_id = self.generate_test_case_id(story_id, test_index)
+        title = self.generate_test_case_title(story_id, tc_id, feature, "Tool State", 
+                                              "Tool Persistence", None, ui_area)
+        objective = self.generate_objective(
+            title, "Tool Persistence", feature, "Tool State", ui_area, None, False
+        )
+        edge_cases.append({
+            "id": tc_id,
+            "title": title,
+            "steps": tool_persistence_steps,
+            "objective": objective,
+            "area": "Tool State",
+            "requires_object": False,
+            "is_accessibility": False,
+            "device": None
+        })
+        test_index += 1
+        
+        return edge_cases, test_index
+    
+    def generate_platform_tests(self, story_id: int, feature: str, feature_name: str, 
+                               ui_area: str, base_test_case: Dict, test_index: int) -> Tuple[List[Dict], int]:
+        """Generate platform-specific tests (Windows 11 and Tablets) for functional tests.
+        
+        Note: iPad and Android Tablet share the same test case since they use the same inputs.
+        They will be separated during test execution. Only accessibility tests are separated
+        by device due to different testing tools.
+        """
+        platforms = [
+            ("Windows 11", "Windows desktop application"),
+            ("Tablets", "Tablet application (iPad/Android)")
+        ]
+        
+        platform_tests = []
+        
+        for device, device_desc in platforms:
+            # Create platform-specific version of the base test
+            platform_steps = []
+            for step in base_test_case['steps']:
+                # Add device-specific context to steps
+                action = step.get('action', '')
+                expected = step.get('expected', '')
+                
+                # Modify launch step to include device context
+                if 'Launch ENV QuickDraw application' in action:
+                    if device == "Tablets":
+                        action = "Launch ENV QuickDraw application on tablet (iPad or Android Tablet)."
+                    else:
+                        action = f"Launch ENV QuickDraw application on {device}."
+                
+                platform_steps.append({
+                    "action": action,
+                    "expected": expected
+                })
+            
+            # Add device-specific verification at the end (before close)
+            if platform_steps and 'Close/Exit' not in platform_steps[-1].get('action', ''):
+                # Find the last verification step to base expected on
+                last_verification = None
+                for step in reversed(platform_steps):
+                    if 'verify' in step.get('action', '').lower():
+                        last_verification = step.get('expected', '')
+                        break
+                
+                if last_verification:
+                    # Use balanced expected based on last verification
+                    if device == "Tablets":
+                        expected = last_verification.replace('.', ' on tablet (iPad or Android Tablet).')
+                    else:
+                        expected = last_verification.replace('.', f' on {device}.')
+                    else:
+                    if device == "Tablets":
+                        expected = "Operation completes successfully on tablet (iPad or Android Tablet)."
+                    else:
+                        expected = f"Operation completes successfully on {device}."
+                
+                if device == "Tablets":
+                    platform_steps.insert(-1, {
+                        "action": "Verify that the operation completes successfully on tablet (iPad or Android Tablet).",
+                        "expected": expected
+                    })
+                    else:
+                    platform_steps.insert(-1, {
+                        "action": f"Verify that the operation completes successfully on {device}.",
+                        "expected": expected
+                    })
+            
+            tc_id = self.generate_test_case_id(story_id, test_index)
+            # Extract scenario from base test title
+            base_title_parts = base_test_case['title'].split(' / ')
+            scenario = base_title_parts[-1] if len(base_title_parts) > 1 else "Platform Behavior"
+            category = base_test_case.get('area', 'Behavior')
+            
+            # For Tablets, use "Tablets" in title but note it covers both iPad and Android
+            title_device = device if device != "Tablets" else "Tablets"
+            title = self.generate_test_case_title(story_id, tc_id, feature, category, 
+                                                  scenario, title_device, ui_area)
+            
+            # Extract scenario from base test title for objective generation
+            base_scenario = base_test_case.get('title', '').split(' / ')[-1] if ' / ' in base_test_case.get('title', '') else "Platform Behavior"
+            objective = self.generate_objective(
+                title, base_scenario, feature, category, ui_area, device, False
+            )
+            platform_tests.append({
+                "id": tc_id,
+                "title": title,
+                "steps": platform_steps,
+                "objective": objective,
+                "area": category,
+                "requires_object": base_test_case.get('requires_object', False),
+                "is_accessibility": False,
+                "device": device
+            })
+            test_index += 1
+        
+        return platform_tests, test_index
+    
+    def generate_objective(self, title: str, scenario: str, feature: str, category: str, 
+                          ui_area: str, device: Optional[str] = None, 
+                          is_accessibility: bool = False) -> str:
+        """Generate intent-focused, QA validation objective following strict rules.
+        
+        Rules:
+        - Start with "Verify that..."
+        - Clear, concise, focused on intent (not steps)
+        - QA validation language (not user-story language)
+        - Avoid vague phrasing: "ensure", "confirm", "validate generally", "behaves correctly", "functions correctly"
+        - Reflect entry point, scenario scope, platform/tool when applicable
+        - For accessibility: explicitly mention labels, roles, keyboard access, focus indicators, assistive tools
+        - No out-of-scope features, no speculation, no verbatim AC restatement
+        """
+        scenario_lower = scenario.lower() if scenario else ''
+        feature_lower = feature.lower() if feature else ''
+        title_lower = title.lower() if title else ''
+        category_lower = category.lower() if category else ''
+        
+        # Parse title to extract components
+        # Format: "StoryID-ID: Feature / Entry Point / Scenario"
+        title_parts = []
+        if ' / ' in title:
+            # Remove ID prefix if present
+            title_without_id = title.split(': ', 1)[-1] if ': ' in title else title
+            title_parts = [p.strip() for p in title_without_id.split(' / ')]
+        
+        # Determine entry point from UI area or title
+        entry_point = None
+        if ui_area:
+            if 'menu' in ui_area.lower():
+                if 'help' in ui_area.lower():
+                    entry_point = "Help menu"
+                elif 'tools' in ui_area.lower():
+                    entry_point = "Tools menu"
+                elif 'file' in ui_area.lower():
+                    entry_point = "File menu"
+                elif 'edit' in ui_area.lower():
+                    entry_point = "Edit menu"
+                    else:
+                    entry_point = "menu"
+            elif 'panel' in ui_area.lower():
+                entry_point = "Properties panel"
+            elif 'canvas' in ui_area.lower():
+                entry_point = "Canvas"
+            elif 'dialog' in ui_area.lower() or 'window' in ui_area.lower():
+                entry_point = "dialog window"
+            elif 'toolbar' in ui_area.lower():
+                entry_point = "toolbar"
+        
+        # Extract entry point from title if not found
+        if not entry_point and len(title_parts) >= 2:
+            entry_point_part = title_parts[1]
+            if 'menu' in entry_point_part.lower():
+                entry_point = entry_point_part
+            elif 'canvas' in entry_point_part.lower():
+                entry_point = "Canvas"
+            elif 'panel' in entry_point_part.lower():
+                entry_point = entry_point_part
+        
+        # Extract scenario from title
+        scenario_from_title = title_parts[-1] if title_parts else scenario
+        
+        # Build objective based on feature and scenario
+        # IMPORTANT: Check accessibility FIRST before feature-specific logic
+        if is_accessibility:
+            # Accessibility objectives - must explicitly mention labels, roles, keyboard access, focus indicators, assistive tools
+            assistive_tech_name = ""
+            if device == "Windows 11":
+                assistive_tech_name = "screen readers and keyboard-only navigation"
+            elif device == "iPad":
+                assistive_tech_name = "VoiceOver"
+            elif device == "Android Tablet":
+                assistive_tech_name = "Accessibility Scanner and TalkBack"
+            else:
+                assistive_tech_name = "assistive technologies"
+                
+            if 'keyboard' in scenario_lower or 'keyboard access' in title_lower or 'keyboard navigation' in title_lower:
+                if entry_point:
+                    if device:
+                        device_text = "tablet (iPad or Android Tablet)" if device == "Tablets" else device
+                        objective = f"the {entry_point} supports keyboard-only access to all interactive controls on {device_text}, with logical tab order and visible focus indicators"
+                    else:
+                        objective = f"the {entry_point} supports keyboard-only access to all interactive controls, with logical tab order and visible focus indicators"
+                    else:
+                    if device:
+                        device_text = "tablet (iPad or Android Tablet)" if device == "Tablets" else device
+                        objective = f"all interactive controls support keyboard-only access on {device_text}, with logical tab order and visible focus indicators"
+                    else:
+                        objective = "all interactive controls support keyboard-only access, with logical tab order and visible focus indicators"
+            
+            elif 'focus' in scenario_lower or 'focus indicator' in title_lower:
+                if entry_point:
+                    if device:
+                        objective = f"visible focus indicators appear on all interactive elements within the {entry_point} on {device}, following logical tab order"
+                    else:
+                        objective = f"visible focus indicators appear on all interactive elements within the {entry_point}, following logical tab order"
+                    else:
+                    if device:
+                        objective = f"visible focus indicators appear on all interactive elements on {device}, following logical tab order"
+                    else:
+                        objective = "visible focus indicators appear on all interactive elements, following logical tab order"
+            
+            elif 'label' in scenario_lower or 'aria' in scenario_lower or 'role' in scenario_lower or 'meaningful' in scenario_lower:
+                if entry_point:
+                    if device:
+                        objective = f"all controls within the {entry_point} expose meaningful labels and correct ARIA roles to {assistive_tech_name} on {device}"
+                    else:
+                        objective = f"all controls within the {entry_point} expose meaningful labels and correct ARIA roles to {assistive_tech_name}"
+                    else:
+                    if device:
+                        objective = f"all controls expose meaningful labels and correct ARIA roles to {assistive_tech_name} on {device}"
+                    else:
+                        objective = f"all controls expose meaningful labels and correct ARIA roles to {assistive_tech_name}"
+            
+            elif 'contrast' in scenario_lower or 'sufficient contrast' in title_lower:
+                if entry_point:
+                    if device:
+                        objective = f"all text and interactive elements within the {entry_point} meet minimum contrast ratio requirements on {device}"
+                    else:
+                        objective = f"all text and interactive elements within the {entry_point} meet minimum contrast ratio requirements"
+                    else:
+                    if device:
+                        objective = f"all text and interactive elements meet minimum contrast ratio requirements on {device}"
+                    else:
+                        objective = "all text and interactive elements meet minimum contrast ratio requirements"
+            
+            elif 'touch' in scenario_lower or 'voiceover' in title_lower.lower():
+                if device == "iPad":
+                    if entry_point:
+                        objective = f"the {entry_point} is fully operable using touch gestures with VoiceOver on iPad, with proper labels and roles exposed"
+                    else:
+                        objective = "the feature is fully operable using touch gestures with VoiceOver on iPad, with proper labels and roles exposed"
+                elif device == "Android Tablet":
+                    if entry_point:
+                        objective = f"the {entry_point} is fully operable using touch gestures with TalkBack on Android Tablet, with proper labels and roles exposed"
+                    else:
+                        objective = "the feature is fully operable using touch gestures with TalkBack on Android Tablet, with proper labels and roles exposed"
+                    else:
+                    if entry_point:
+                        objective = f"the {entry_point} is fully operable using touch with {assistive_tech_name}, with proper labels and roles exposed"
+                    else:
+                        objective = f"the feature is fully operable using touch with {assistive_tech_name}, with proper labels and roles exposed"
+            
+            else:
+                # Generic accessibility objective - must mention specific accessibility aspects
+                if entry_point:
+                    if device:
+                        objective = f"the {entry_point} meets Section 508 / WCAG 2.1 AA standards on {device}, with keyboard navigation, visible focus indicators, meaningful labels, and correct ARIA roles exposed to {assistive_tech_name}"
+                    else:
+                        objective = f"the {entry_point} meets Section 508 / WCAG 2.1 AA standards, with keyboard navigation, visible focus indicators, meaningful labels, and correct ARIA roles exposed to {assistive_tech_name}"
+                    else:
+                    if device:
+                        objective = f"the feature meets Section 508 / WCAG 2.1 AA standards on {device}, with keyboard navigation, visible focus indicators, meaningful labels, and correct ARIA roles exposed to {assistive_tech_name}"
+                    else:
+                        objective = f"the feature meets Section 508 / WCAG 2.1 AA standards, with keyboard navigation, visible focus indicators, meaningful labels, and correct ARIA roles exposed to {assistive_tech_name}"
+        
+        elif 'about app' in feature_lower:
+            # About App specific objectives - avoid "functions correctly", "displayed correctly"
+            if 'availability' in scenario_lower or 'ac1' in title_lower or 'activate' in scenario_lower:
+                if entry_point:
+                    objective = f"the About App entry is available and accessible from the {entry_point}"
+                    else:
+                    objective = "the About App entry is available and accessible from the expected menu location"
+            elif 'appears' in scenario_lower or 'visible' in scenario_lower:
+                if device:
+                    device_text = "tablet (iPad or Android Tablet)" if device == "Tablets" else device
+                    objective = f"the About App option is visible under the Help menu on {device_text}"
+                    else:
+                    objective = "the About App option is visible under the Help menu"
+            elif 'window opens' in scenario_lower or 'informational window' in scenario_lower or 'dialog' in scenario_lower:
+                if device:
+                    device_text = "tablet (iPad or Android Tablet)" if device == "Tablets" else device
+                    objective = f"selecting About App from the Help menu opens an informational dialog window on {device_text}"
+                    else:
+                    objective = "selecting About App from the Help menu opens an informational dialog window"
+            elif 'application name' in scenario_lower or 'name' in scenario_lower:
+                objective = "the application name is displayed in the About App dialog window"
+            elif 'version' in scenario_lower:
+                objective = "the full installed version string is displayed in the About App dialog window"
+            elif 'copyright' in scenario_lower:
+                objective = "the dynamic copyright text is displayed in the About App dialog window"
+            elif 'support link' in scenario_lower or ('support' in scenario_lower and 'link' in scenario_lower):
+                objective = "the support link launches the correct destination in the default browser when clicked"
+            elif 'close' in scenario_lower or 'dismiss' in scenario_lower:
+                objective = "the About App dialog window can be dismissed using provided close controls without impacting the active drawing session"
+            elif 'additional fields' in scenario_lower or 'no additional' in scenario_lower or 'scope' in scenario_lower:
+                objective = "the About App dialog window contains only the defined informational fields with no additional inputs, settings, or actions"
+            else:
+                # Generic About App objective - be specific about what's validated
+                if entry_point:
+                    objective = f"the About App informational view provides essential application details when accessed from the {entry_point}"
+                    else:
+                    objective = "the About App informational view provides essential application details through the standard menu entry"
+        
+        elif 'mirror' in feature_lower:
+            # Mirror tool specific objectives - avoid "functions correctly"
+            if 'availability' in scenario_lower or 'ac1' in title_lower or 'activate' in scenario_lower:
+                if entry_point:
+                    objective = f"the Mirror tool is available and accessible from the {entry_point}"
+                    else:
+                    objective = "the Mirror tool is available and accessible from the Tools menu"
+            elif 'horizontal' in scenario_lower:
+                if device:
+                    objective = f"selected objects flip horizontally on the Canvas while preserving dimensions and position on {device}"
+                    else:
+                    objective = "selected objects flip horizontally on the Canvas while preserving dimensions and position"
+            elif 'vertical' in scenario_lower:
+                if device:
+                    objective = f"selected objects flip vertically on the Canvas while preserving dimensions and position on {device}"
+                    else:
+                    objective = "selected objects flip vertically on the Canvas while preserving dimensions and position"
+            elif 'no selection' in scenario_lower or 'disabled' in scenario_lower or 'not visible' in scenario_lower:
+                objective = "the Mirror tool shows appropriate disabled state or feedback when no object is selected"
+            elif 'multiple' in scenario_lower:
+                objective = "mirroring applies to multiple selected objects simultaneously"
+            elif 'undo' in scenario_lower:
+                objective = "mirror operations are reversible via Undo and Redo, restoring and reapplying object orientation"
+            else:
+                if entry_point:
+                    objective = f"the Mirror tool supports horizontal and vertical flipping of selected objects when accessed from the {entry_point}"
+                    else:
+                    objective = "the Mirror tool supports horizontal and vertical flipping of selected objects"
+        
+        elif 'rotate' in feature_lower or 'move.*rotate' in feature_lower:
+            # Rotate/Move-Rotate tool specific objectives - avoid "functions correctly"
+            if 'availability' in scenario_lower or 'ac1' in title_lower or 'activate' in scenario_lower:
+                if entry_point:
+                    objective = f"the Move – Rotate tool is available and accessible from the {entry_point}"
+                    else:
+                    objective = "the Move – Rotate tool is available and accessible from the Tools menu"
+            elif 'marker' in scenario_lower or 'rotation marker' in title_lower:
+                if 'not visible' in scenario_lower or 'disappears' in scenario_lower or 'no object selected' in scenario_lower:
+                    objective = "the rotation marker is not visible when no object is selected or when the tool is inactive"
+                elif 'appears' in scenario_lower or 'visible' in scenario_lower or 'only when' in scenario_lower:
+                    objective = "the rotation marker appears only when an object is selected and the Move – Rotate tool is active"
+                    else:
+                    objective = "the rotation marker visibility follows the expected state based on object selection and tool activation"
+            elif 'wrap-around' in scenario_lower or 'wrap around' in title_lower:
+                objective = "wrap-around behavior from 360 to 0 degrees is smooth and maintains object integrity"
+            elif 'rotation range' in scenario_lower or '0-360' in scenario_lower or ('full rotation' in title_lower and 'range' in scenario_lower):
+                objective = "objects rotate smoothly through the complete 0-360 degree range"
+            elif 'boundary' in scenario_lower and ('near 360' in scenario_lower or ('360' in title_lower and 'near' in scenario_lower)):
+                objective = "rotation handles boundary positions near 360 degrees without visual artifacts"
+            elif 'boundary' in scenario_lower or ('0 degree' in title_lower and 'boundary' in scenario_lower):
+                objective = "rotation handles boundary positions at 0 degrees without visual artifacts"
+            elif 'angle feedback' in scenario_lower or 'live rotation angle' in title_lower or 'angle display' in title_lower:
+                objective = "live rotation angle feedback displays near the cursor during interaction, updating consistently and remaining readable"
+            elif 'shift' in scenario_lower or '15 degree' in title_lower or 'step locking' in title_lower:
+                if 'consistent' in scenario_lower:
+                    objective = "rotation step locking to 15-degree increments works consistently across multiple rotation directions"
+                elif 'repeated' in scenario_lower:
+                    objective = "rotation step locking to 15-degree increments remains consistent across repeated interactions"
+                    else:
+                    objective = "holding Shift locks rotation to 15-degree increments for precise alignment"
+            elif 'rectangle' in scenario_lower or 'circle' in scenario_lower or 'line' in scenario_lower or 'arrow' in scenario_lower or 'text' in scenario_lower or 'annotation' in scenario_lower:
+                # Extract shape type from scenario or title
+                shape_type = None
+                for shape in ['rectangle', 'circle', 'line', 'arrow', 'text', 'annotation']:
+                    if shape in scenario_lower:
+                        shape_type = shape.capitalize()
+                        break
+                if not shape_type:
+                    # Try to extract from title
+                    for shape in ['Rectangle', 'Circle', 'Line', 'Arrow', 'Text', 'Annotation']:
+                        if shape in title:
+                            shape_type = shape
+                            break
+                if shape_type:
+                    objective = f"{shape_type} objects maintain geometry and proportions during rotation, with correct pivot behavior"
+                    else:
+                    objective = "objects maintain geometry and proportions during rotation, with correct pivot behavior"
+            elif 'only selected' in scenario_lower or 'affects only' in title_lower:
+                objective = "rotation affects only the selected object and does not alter other objects, alignment relationships, or Canvas layout"
+            elif 'alignment' in scenario_lower:
+                objective = "alignment relationships between objects remain unchanged during rotation"
+            elif 'canvas layout' in scenario_lower:
+                objective = "overall Canvas layout remains unchanged when rotating the selected object"
+            elif 'after moving' in scenario_lower or 'rotating after' in title_lower:
+                objective = "rotation operates correctly after moving an object"
+            elif 'multiple rotations' in scenario_lower or 'succession' in scenario_lower:
+                objective = "multiple rotations in succession maintain correct object orientation without cumulative errors"
+            elif 'different objects' in scenario_lower or 'one-by-one' in title_lower:
+                objective = "rotating different objects one-by-one within the same session operates correctly"
+            elif 'undo' in scenario_lower:
+                objective = "rotation operations are reversible via Undo, restoring object orientation and visual state"
+            elif 'redo' in scenario_lower:
+                objective = "rotation operations are reapplicable via Redo, restoring object orientation without cumulative drift"
+            elif 'multiple undo' in scenario_lower or 'multiple redo' in scenario_lower:
+                objective = "multiple Undo and Redo operations restore and reapply rotation correctly without cumulative drift"
+            elif 'tool remains active' in scenario_lower or 'tool state' in title_lower:
+                objective = "the Move – Rotate tool remains active until another drawing tool is selected"
+            elif 'switching tool' in scenario_lower or 'exits rotation' in title_lower:
+                objective = "switching to another tool properly exits rotation mode without leaving UI artifacts"
+            else:
+                if entry_point:
+                    objective = f"the Move – Rotate tool supports precise rotation of selected objects when accessed from the {entry_point}"
+                    else:
+                    objective = "the Move – Rotate tool supports precise rotation of selected objects using an on-object rotation handle"
+        
+        else:
+            # Generic objective generation based on category and scenario - avoid vague language
+            if 'availability' in scenario_lower or 'ac1' in title_lower or 'activate' in scenario_lower or category_lower == 'availability':
+                if entry_point:
+                    objective = f"the {feature} is available and accessible from the {entry_point}"
+                    else:
+                    objective = f"the {feature} is available and accessible from the expected entry point"
+            
+            elif category_lower == 'options' or 'option' in scenario_lower or 'select' in scenario_lower:
+                if entry_point:
+                    objective = f"the expected options are available and selectable from the {entry_point}"
+                    else:
+                    objective = "the expected options are available and selectable"
+            
+            elif category_lower == 'behavior' or 'update' in scenario_lower or 'apply' in scenario_lower:
+                if entry_point:
+                    objective = f"changes apply immediately when using the {entry_point}"
+                    else:
+                    objective = "changes apply immediately"
+            
+            elif category_lower == 'scope' or 'selection' in scenario_lower or 'only selected' in scenario_lower:
+                objective = "the feature applies only to the selected objects and respects selection scope"
+            
+            elif category_lower == 'undo redo' or 'undo' in scenario_lower:
+                objective = "operations are reversible via Undo and Redo, restoring and reapplying changes"
+            
+            elif category_lower == 'negative' or 'disabled' in scenario_lower or 'error' in scenario_lower:
+                objective = "the feature shows disabled states or error feedback when appropriate conditions are not met"
+            
+            elif category_lower == 'edge case':
+                objective = "the feature handles edge cases including empty states, multiple selections, and boundary conditions"
+            
+            else:
+                # Generic fallback - parse scenario from title to create specific objective
+                if scenario_from_title and len(scenario_from_title) > 3:
+                    # Convert scenario to objective format
+                    scenario_obj = scenario_from_title.lower()
+                    # Remove common prefixes
+                    scenario_obj = re.sub(r'^(test|verify|check|validate)\s+', '', scenario_obj)
+                    
+                    if entry_point:
+                        if device:
+                            device_text = "tablet (iPad or Android Tablet)" if device == "Tablets" else device
+                            objective = f"{scenario_obj} when accessed from the {entry_point} on {device_text}"
+                    else:
+                            objective = f"{scenario_obj} when accessed from the {entry_point}"
+                    else:
+                        if device:
+                            device_text = "tablet (iPad or Android Tablet)" if device == "Tablets" else device
+                            objective = f"{scenario_obj} on {device_text}"
+                        else:
+                            objective = scenario_obj
+                    else:
+                    # Last resort - be specific about what's being validated
+                    if entry_point:
+                        objective = f"the {feature} operates as expected when accessed from the {entry_point}"
+                    else:
+                        objective = f"the {feature} operates as expected"
+        
+        # Add device/platform mention if applicable (but not for accessibility, already included)
+        if device and not is_accessibility:
+            # Check if device is already mentioned
+            device_lower = device.lower()
+            objective_lower = objective.lower()
+            # Check if device text is already in objective (handle both "Tablets" and "tablet (iPad or Android Tablet)")
+            device_already_mentioned = (
+                f"on {device_lower}" in objective_lower or
+                (device == "Tablets" and "on tablet (ipad or android tablet)" in objective_lower) or
+                (device != "Tablets" and f"on {device_lower}" in objective_lower)
+            )
+            if not device_already_mentioned:
+                if device == "Tablets":
+                    objective = objective.rstrip('.') + " on tablet (iPad or Android Tablet)"
+                    else:
+                    objective = objective.rstrip('.') + f" on {device}"
+        
+        # Ensure objective starts with lowercase (will be capitalized by "Verify that")
+        objective = objective.strip()
+        if objective and objective[0].isupper():
+            objective = objective[0].lower() + objective[1:]
+        
+        # Ensure it ends with period
+        if not objective.endswith('.'):
+            objective += '.'
+        
+        # Add bold emphasis for key terms (feature name, UI surfaces, core outcomes)
+        objective = self._add_bold_emphasis_to_objective(objective, feature, entry_point, scenario_from_title)
+        
+        # Format: "Verify that [objective]"
+        return f"Verify that {objective}"
+    
+    def _add_bold_emphasis_to_objective(self, objective: str, feature: str, entry_point: Optional[str], scenario: str) -> str:
+        """Add bold HTML tags to key terms in objective for ADO formatting.
+        
+        Key terms to bold:
+        - Feature name
+        - Entry point (menu, panel, etc.)
+        - Core action/outcome words
+        """
+        result = objective
+        
+        # Bold feature name (if present)
+        if feature:
+            feature_clean = feature.replace(' Tool', '').replace(' tool', '').strip()
+            if feature_clean and feature_clean.lower() in result.lower():
+                # Find and bold the feature name
+                pattern = re.compile(re.escape(feature_clean), re.IGNORECASE)
+                result = pattern.sub(lambda m: f"<b>{m.group()}</b>", result)
+        
+        # Bold entry point (if present)
+        if entry_point:
+            entry_point_clean = entry_point.replace(' menu', '').replace(' panel', '').strip()
+            if entry_point_clean and entry_point_clean.lower() in result.lower():
+                # Find and bold entry point phrases
+                entry_patterns = [
+                    entry_point,
+                    entry_point_clean,
+                ]
+                for pattern_text in entry_patterns:
+                    if pattern_text.lower() in result.lower():
+                        pattern = re.compile(re.escape(pattern_text), re.IGNORECASE)
+                        result = pattern.sub(lambda m: f"<b>{m.group()}</b>", result)
+                        break
+        
+        # Bold key action/outcome words (common important terms)
+        key_terms = [
+            'Diameter', 'measurement', 'line', 'label', 'toggle', 'visibility',
+            'Undo', 'Redo', 'keyboard', 'focus', 'labels', 'roles', 'VoiceOver',
+            'Accessibility Scanner', 'Imperial', 'Metric', 'units', 'duplicate',
+            'fixed', 'placement', 'standard', 'non-ellipse', 'no object',
+        ]
+        for term in key_terms:
+            if term.lower() in result.lower():
+                pattern = re.compile(r'\b' + re.escape(term) + r'\b', re.IGNORECASE)
+                result = pattern.sub(lambda m: f"<b>{m.group()}</b>", result)
+        
+        return result
+    
+    def parse_qa_prep(self, qa_prep_text: str) -> List[str]:
+        """Parse QA Prep content into individual bullets, preserving order.
+        
+        QA Prep bullets define coverage dimensions and expansion rules.
+        Each bullet should be interpreted as a coverage dimension.
+        
+        Args:
+            qa_prep_text: QA Prep content from subtask
+            
+        Returns:
+            List of QA Prep bullets
+        """
+        if not qa_prep_text:
+            return []
+        
+        from src.ado_client import ADOClient
+        client = ADOClient()
+        # Reuse the same parsing logic as acceptance criteria
+        return client.parse_acceptance_criteria(qa_prep_text)
+    
+    def expand_test_case_with_qa_prep(self, base_test_case: Dict, ac_criterion: str, 
+                                      qa_prep_bullets: List[str], story_id: int, 
+                                      test_index: int) -> List[Dict]:
+        """Expand a test case using QA Prep bullets within the same AC scope.
+        
+        QA Prep bullets are interpreted as coverage dimensions:
+        - Entry point behavior
+        - Activation and visibility conditions
+        - Interaction mechanics
+        - Boundary conditions
+        - Scope isolation
+        - Stability across interactions
+        - Coverage across object types
+        
+        Args:
+            base_test_case: The base test case generated from AC
+            ac_criterion: The acceptance criterion this test case covers
+            qa_prep_bullets: List of QA Prep bullets to use for expansion
+            story_id: Story ID for test case ID generation
+            test_index: Current test index for ID generation
+            
+        Returns:
+            List of expanded test cases (includes base + expansions)
+        """
+        expanded_tests = [base_test_case]
+        
+        if not qa_prep_bullets:
+            return expanded_tests
+        
+        ac_lower = ac_criterion.lower()
+        
+        # Match QA Prep bullets to AC scope
+        # Only expand if QA Prep bullet is relevant to the current AC
+        for qa_bullet in qa_prep_bullets:
+            qa_lower = qa_bullet.lower()
+            
+            # Skip if QA Prep bullet doesn't relate to current AC scope
+            # Check for common keywords that indicate relevance
+            relevant_keywords = []
+            if 'boundary' in ac_lower or 'limit' in ac_lower:
+                relevant_keywords = ['boundary', 'limit', 'edge', 'min', 'max', 'wrap']
+            elif 'rotation' in ac_lower or 'rotate' in ac_lower:
+                relevant_keywords = ['rotation', 'rotate', 'angle', 'degree', '360', 'boundary']
+            elif 'object' in ac_lower or 'shape' in ac_lower:
+                relevant_keywords = ['object', 'shape', 'rectangle', 'circle', 'arrow', 'line', 'text']
+            elif 'undo' in ac_lower or 'redo' in ac_lower:
+                relevant_keywords = ['undo', 'redo', 'reversible', 'restore']
+            elif 'selection' in ac_lower or 'selected' in ac_lower:
+                relevant_keywords = ['selection', 'selected', 'scope', 'isolated']
+            elif 'tool' in ac_lower and 'active' in ac_lower:
+                relevant_keywords = ['tool', 'active', 'persist', 'state']
+            else:
+                # Generic relevance check
+                relevant_keywords = ['verify', 'test', 'check', 'validate']
+            
+            # Check if QA Prep bullet is relevant
+            is_relevant = any(keyword in qa_lower for keyword in relevant_keywords)
+            
+            if not is_relevant:
+                continue
+            
+            # Don't create expansion if it would duplicate the base test
+            # Only create if QA Prep adds meaningful coverage dimension
+            if len(qa_bullet.strip()) < 10:
+                continue
+            
+            # Create expanded test case
+            # Use QA Prep bullet to modify scenario or add verification steps
+            expanded_test = base_test_case.copy()
+            expanded_test['id'] = self.generate_test_case_id(story_id, test_index)
+            
+            # Deep copy steps to avoid modifying base test case
+            expanded_test['steps'] = [step.copy() for step in base_test_case['steps']]
+            
+            # Ensure "Draw a shape" step is included if requires_object is True
+            if expanded_test.get('requires_object', False):
+                has_draw_step = any('Draw a shape' in step.get('action', '') for step in expanded_test['steps'])
+                has_select_step = any('Select the drawn' in step.get('action', '') or 'Select the shape' in step.get('action', '') for step in expanded_test['steps'])
+                
+                if not has_draw_step:
+                    # Find launch step and insert draw/select steps after it
+                    launch_index = -1
+                    for i, step in enumerate(expanded_test['steps']):
+                        if 'Launch' in step.get('action', ''):
+                            launch_index = i
+                            break
+                    
+                    if launch_index >= 0:
+                        # Insert draw and select steps after launch
+                        expanded_test['steps'].insert(launch_index + 1, {
+                            "action": "Draw a shape (e.g., rectangle or triangle) on the Canvas",
+                            "expected": ""
+                        })
+                        if not has_select_step:
+                            expanded_test['steps'].insert(launch_index + 2, {
+                                "action": "Select the drawn shape",
+                                "expected": ""
+                            })
+            
+            # Modify title to reflect QA Prep expansion
+            # Extract key concept from QA Prep bullet for scenario
+            qa_scenario = self.extract_scenario(qa_bullet, base_test_case.get('area', 'Canvas'))
+            if qa_scenario and qa_scenario != base_test_case.get('title', '').split(' / ')[-1] if ' / ' in base_test_case.get('title', '') else '':
+                # Update scenario in title
+                title_parts = base_test_case['title'].split(' / ')
+                if len(title_parts) >= 3:
+                    title_parts[2] = qa_scenario[:60]  # Limit length
+                    expanded_test['title'] = ' / '.join(title_parts)
+                    else:
+                    expanded_test['title'] = base_test_case['title']
+            
+            # Add verification step based on QA Prep bullet
+            # This adds coverage without changing core test structure
+            if expanded_test['steps']:
+                # Insert verification step before Close/Exit
+                close_step = None
+                close_index = -1
+                for i, step in enumerate(expanded_test['steps']):
+                    if 'Close/Exit' in step.get('action', ''):
+                        close_step = step
+                        close_index = i
+                        break
+                
+                if close_index > 0:
+                    # Add QA Prep verification before close
+                    verification_action = f"Verify that {qa_bullet[:100]}."  # Limit length
+                    verification_action = self.clean_forbidden_words(verification_action)
+                    expected_result = f"{qa_bullet[:80]} is verified." if len(qa_bullet) > 20 else "Verification passes."
+                    expected_result = self.clean_forbidden_words(expected_result)
+                    expanded_test['steps'].insert(close_index, {
+                        "action": verification_action,
+                        "expected": expected_result
+                    })
+            
+            # Apply expected value enforcement and clean forbidden words
+            expanded_test['steps'] = self._enforce_expected_value_rules(expanded_test['steps'])
+            for step in expanded_test['steps']:
+                if step.get('action'):
+                    step['action'] = self.clean_forbidden_words(step['action'])
+                if step.get('expected'):
+                    step['expected'] = self.clean_forbidden_words(step['expected'])
+            
+            expanded_tests.append(expanded_test)
+            test_index += 1
+        
+        return expanded_tests
+    
+    def is_cancelled_or_out_of_scope(self, criterion: str) -> bool:
+        """Detect if an AC bullet is cancelled or out of scope.
+        
+        Returns True if criterion contains cancellation/out-of-scope indicators.
+        """
+        criterion_lower = criterion.lower()
+        cancellation_patterns = [
+            'cancelled',
+            'to be cancelled',
+            'out of scope',
+            'not in scope',
+            'not included',
+            'will not be',
+            'does not include',
+            'excluded from',
+        ]
+        return any(pattern in criterion_lower for pattern in cancellation_patterns)
+    
+    def generate_test_cases(self, story_data: Dict[str, str], ac_criteria: List[str] = None) -> List[Dict]:
+        """Generate test cases following all strict QA rules from top to bottom of AC.
+        
+        Uses QA Prep subtask content to expand coverage within AC scope.
+        One primary test case per AC bullet, expanded using QA Prep bullets.
+        
+        Args:
+            story_data: Story data dictionary (must include qa_prep_text)
+            ac_criteria: Pre-parsed acceptance criteria (optional, will parse if not provided)
+        """
+        story_id = story_data['story_id']
+        feature = self.extract_feature_name(story_data['title'])
+        ac_text = story_data['acceptance_criteria_text']
+        qa_prep_text = story_data.get('qa_prep_text', '')
+        
+        if ac_criteria is None:
+            from src.ado_client import ADOClient
+            client = ADOClient()
+            criteria = client.parse_acceptance_criteria(ac_text)
+        else:
+            criteria = ac_criteria
+        
+        # Filter out cancelled/out-of-scope criteria
+        valid_criteria = []
+        for criterion in criteria:
+            if not self.is_cancelled_or_out_of_scope(criterion):
+                valid_criteria.append(criterion)
+            else:
+                print(f"  ⚠ Skipping cancelled/out-of-scope criterion: {criterion[:80]}...")
+        criteria = valid_criteria
+        
+        # Parse QA Prep bullets for coverage expansion
+        qa_prep_bullets = self.parse_qa_prep(qa_prep_text) if qa_prep_text else []
+        
+        test_cases = []
+        
+        # AC1: Availability/Entry point test (mandatory first test)
+        combined_text = (story_data['title'] + ' ' + ac_text).lower()
+        ui_area = 'Tools Menu'
+        if 'properties panel' in combined_text:
+            ui_area = 'Properties Panel'
+        elif 'file menu' in combined_text:
+            ui_area = 'File Menu'
+        elif 'edit menu' in combined_text:
+            ui_area = 'Edit Menu'
+        
+        feature_name = feature.replace(' Tool', '').replace(' tool', '').strip()
+        if not feature_name:
+            feature_name = feature
+        
+        # Special handling for Undo/Redo AC1 - comprehensive acceptance test
+        feature_lower = feature.lower()
+        is_undo_redo = 'undo' in feature_lower and 'redo' in feature_lower
+        
+        if is_undo_redo:
+            # Comprehensive AC1 for Undo/Redo: Check Toolbar and Edit Menu, visibility, and disabled state
+        ac1_steps = [
+            {"action": "PRE-REQ: ENV QuickDraw application is installed", "expected": ""},
+                {"action": "Launch the ENV QuickDraw application", "expected": ""},
+                {"action": "Draw a shape (e.g., rectangle or triangle) on the Canvas", "expected": ""},
+                {"action": "Select the drawn shape", "expected": ""},
+                {"action": "Verify Undo and Redo buttons are visible in the Top Action Toolbar", 
+                 "expected": "Undo and Redo buttons are visible"},
+                {"action": "Open Edit menu", "expected": ""},
+                {"action": "Verify Undo and Redo commands are visible in the Edit menu", 
+                 "expected": "Undo and Redo menu commands are visible"},
+                {"action": "Verify Undo is disabled when no actions have been performed", 
+                 "expected": "Undo is disabled"},
+                {"action": "Verify Redo is disabled when no actions have been performed", 
+                 "expected": "Redo is disabled"},
+                {"action": "Close/Exit the QuickDraw application", "expected": ""}
+            ]
+            ac1_id = self.generate_test_case_id(story_id, 0)
+            # Use simplified feature name "Undo Redo" for title to match old template
+            ac1_title = self.generate_test_case_title(story_id, ac1_id, "Undo Redo", "Availability", 
+                                                      "Undo Redo Controls Available and Disabled State", 
+                                                      ui_area="Toolbar and Edit Menu")
+        else:
+            # Generic AC1 for other features
+            ac1_steps = [
+                {"action": "PRE-REQ: ENV QuickDraw application is installed", "expected": ""},
+                {"action": "Launch the ENV QuickDraw application", "expected": ""},
+            {"action": f"Open {ui_area}.", "expected": ""},
+            {"action": f"Verify that {feature} can be activated from the {ui_area} → {feature_name}.", 
+             "expected": f"{feature} is visible and can be activated from the {ui_area}."},
+                {"action": "Close/Exit the QuickDraw application", "expected": ""}
+            ]
+            
+            # Clean forbidden words from AC1 steps
+            for step in ac1_steps:
+                if step.get('action'):
+                    step['action'] = self.clean_forbidden_words(step['action'])
+                if step.get('expected'):
+                    step['expected'] = self.clean_forbidden_words(step['expected'])
+        ac1_id = self.generate_test_case_id(story_id, 0)
+        ac1_title = self.generate_test_case_title(story_id, ac1_id, feature, "Availability", 
+                                                  f"Activate {feature_name}", ui_area=ui_area)
+        
+        # Apply expected value enforcement to AC1 steps
+        ac1_steps = self._enforce_expected_value_rules(ac1_steps)
+        
+        # Ensure verification steps have expected results (enforcement might have removed them)
+        for step in ac1_steps:
+            action = step.get('action', '').lower()
+            if 'verify' in action and not step.get('expected', '').strip():
+                # Generate expected result for verification step
+                if 'can be activated' in action or 'is available' in action:
+                    if 'from the' in action:
+                        parts = step.get('action', '').split('from the')
+                        if len(parts) > 1:
+                            location = parts[1].split('.')[0].strip()
+                            step['expected'] = f"Tool is visible and can be activated from the {location}."
+                        else:
+                            step['expected'] = "Tool is visible and can be activated."
+                    else:
+                        step['expected'] = "Tool is visible and can be activated."
+                    else:
+                    step['expected'] = "Expected behavior is observed."
+        
+        # Clean forbidden words from AC1 steps (after enforcement)
+        for step in ac1_steps:
+            if step.get('action'):
+                step['action'] = self.clean_forbidden_words(step['action'])
+            if step.get('expected'):
+                step['expected'] = self.clean_forbidden_words(step['expected'])
+        
+        # Generate objective for AC1
+        if is_undo_redo:
+            ac1_objective = "Verify that Undo and Redo controls are available in both the Top Action Toolbar and Edit Menu, and that both controls are disabled when no actions have been performed."
+        else:
+            ac1_objective = f"Verify that the {feature} can be activated from the {ui_area} and displays an active state indicator consistent with the design."
+        
+        test_cases.append({
+            "id": ac1_id,
+            "title": ac1_title,
+            "steps": ac1_steps,
+            "objective": ac1_objective,
+            "area": "Availability",
+            "requires_object": is_undo_redo,  # Undo/Redo AC1 requires object interaction
+            "is_accessibility": False,
+            "device": None
+        })
+        
+        # Generate test cases for each acceptance criterion (top to bottom)
+        test_index = 1
+        functional_tests_for_platforms = []  # Track functional tests for platform variants
+        
+        for criterion in criteria:
+            criterion_clean = criterion.strip()
+            if not criterion_clean or len(criterion_clean) < 5:
+                continue
+            
+            # Skip header-only criteria (e.g., "Acceptance Criteria:", "When active:", "Out of scope:")
+            criterion_lower = criterion_clean.lower()
+            header_patterns = ['acceptance criteria:', 'acceptance criteria', 'when active:', 'accessibility (phase 1):', 
+                             'out of scope for phase 1:', 'design reference:']
+            
+            # Check if it's just a header with no content
+            is_header_only = False
+            for pattern in header_patterns:
+                if criterion_lower.strip() == pattern or criterion_lower.strip() == pattern.rstrip(':'):
+                    is_header_only = True
+                    break
+                elif criterion_lower.startswith(pattern):
+                    # Check if there's actual content after the header
+                    if ':' in criterion_clean:
+                        parts = criterion_clean.split(':', 1)
+                        if len(parts) < 2 or not parts[1].strip() or len(parts[1].strip()) < 5:
+                            is_header_only = True
+                            break
+            
+            if is_header_only:
+                continue  # Skip header-only lines
+            
+            # Skip hotkey tests if hotkeys are not mentioned in AC
+            if 'hotkey' in criterion_lower or 'keyboard shortcut' in criterion_lower or 'shortcut key' in criterion_lower:
+                if not self.has_hotkeys(ac_text):
+                    continue  # Skip if hotkeys not mentioned in overall AC
+            
+            is_accessibility = self.is_accessibility_test(criterion_clean)
+            requires_object = self.requires_object_interaction(criterion_clean, feature)
+            
+            category, scenario = self.identify_area_and_scenario(criterion_clean, feature)
+            
+            # Clean scenario - remove newlines and limit length
+            scenario = scenario.replace('\n', ' ').replace('\r', ' ').strip()
+            
+            # Skip if scenario is empty or too generic
+            if not scenario or scenario.lower() in ['feature behavior is verified', 'acceptance criteria', 'criteria']:
+                continue
+            
+            if len(scenario) > 60:
+                scenario = scenario[:57] + '...'
+            
+            # Identify UI area for title (FROM WHERE - must be concrete)
+            ui_area_for_test = None
+            
+            # CRITICAL: For accessibility tests, always use story's UI area (not from criterion)
+            # Accessibility tests verify keyboard navigation to the feature, so they must use
+            # the actual UI area where the feature is accessed (from story context)
+            if not is_accessibility:
+            ui_keywords = {
+                'tools menu': 'Tools Menu',
+                'file menu': 'File Menu',
+                'edit menu': 'Edit Menu',
+                'properties panel': 'Properties Panel',
+                'dimensions panel': 'Dimensions Panel',
+                'canvas': 'Canvas',
+                'dialog': 'Dialog Window',
+                'modal': 'Modal Window',
+                'toolbar': 'Top Action Toolbar',
+                'top toolbar': 'Top Action Toolbar',
+                'action toolbar': 'Top Action Toolbar',
+            }
+            
+            for keyword, area in ui_keywords.items():
+                if keyword in criterion_lower:
+                    ui_area_for_test = area
+                    break
+            
+                # Default to story's UI area (most tools are accessed from Tools Menu)
+            if not ui_area_for_test:
+                ui_area_for_test = ui_area if ui_area else 'Tools Menu'
+            
+            # CRITICAL FIX: If accessibility test, generate separate test cases for each device
+            if is_accessibility:
+                # Accessibility tests MUST be split by device (Windows 11, iPad, Android Tablet)
+                accessibility_devices = [
+                    ("Windows 11", "Accessibility Insights for Windows tool"),
+                    ("iPad", "Apple built-in accessibility tools are available and enabled (e.g., VoiceOver)"),
+                    ("Android Tablet", "Accessibility Scanner (Google) Free tool")
+                ]
+                
+                for device, tool_pre_req in accessibility_devices:
+                    # CRITICAL: Use ui_area_for_test (from story context) for accessibility tests, not area from criterion
+                    steps = self.generate_steps_for_criterion(
+                        criterion_clean, feature, ui_area_for_test, requires_object, is_accessibility, device
+                    )
+                    
+                    # Skip test cases with no meaningful steps (only PRE-REQ and Close)
+                    if len(steps) <= 2:
+                        continue
+                    
+                    tc_id = self.generate_test_case_id(story_id, test_index)
+                    title = self.generate_test_case_title(story_id, tc_id, feature, category, scenario, device, ui_area_for_test)
+                    
+                    # Clean title - remove newlines
+                    title = title.replace('\n', ' ').replace('\r', ' ').strip()
+                    
+                    # Generate objective following strict rules: intent-focused, natural, professional
+                    objective = self.generate_objective(
+                        title, scenario, feature, category, ui_area_for_test, device, is_accessibility
+                    )
+                    
+                    test_case = {
+                        "id": tc_id,
+                        "title": title,
+                        "steps": steps,
+                        "objective": objective,
+                        "area": category,
+                        "requires_object": requires_object,
+                        "is_accessibility": is_accessibility,
+                        "device": device
+                    }
+                    
+                    test_cases.append(test_case)
+                    
+                    # Expand accessibility test case using QA Prep bullets (within same AC scope)
+                    if qa_prep_bullets:
+                        expanded = self.expand_test_case_with_qa_prep(
+                            test_case, criterion_clean, qa_prep_bullets, story_id, test_index
+                        )
+                        # Add only new expansions (skip base test case which is already added)
+                        if len(expanded) > 1:
+                            test_cases.extend(expanded[1:])  # Skip first (base) test case
+                            test_index += len(expanded) - 1
+                        else:
+                            test_index += 1
+                    else:
+                    test_index += 1
+            else:
+                # Non-accessibility test - process normally
+                device = self.extract_device_from_criterion(criterion_clean)
+                
+                # For functional tests: combine iPad and Android Tablet into "Tablets"
+                # They use the same inputs and will be separated during execution
+                if device in ['iPad', 'Android Tablet']:
+                    device = 'Tablets'
+                
+                steps = self.generate_steps_for_criterion(
+                    criterion_clean, feature, category, requires_object, is_accessibility, device
+                )
+                
+                # Skip test cases with no meaningful steps (only PRE-REQ and Close)
+                if len(steps) <= 2:
+                    continue
+                
+                tc_id = self.generate_test_case_id(story_id, test_index)
+                title = self.generate_test_case_title(story_id, tc_id, feature, category, scenario, device, ui_area_for_test)
+                
+                # Clean title - remove newlines
+                title = title.replace('\n', ' ').replace('\r', ' ').strip()
+                
+                # Generate objective following strict rules: intent-focused, natural, professional
+                objective = self.generate_objective(
+                    title, scenario, feature, category, ui_area_for_test, device, is_accessibility
+                )
+                
+                test_case = {
+                    "id": tc_id,
+                    "title": title,
+                    "steps": steps,
+                    "objective": objective,
+                    "area": category,
+                    "requires_object": requires_object,
+                    "is_accessibility": is_accessibility,
+                    "device": device
+                }
+                
+                test_cases.append(test_case)
+                
+                # Expand test case using QA Prep bullets (within same AC scope)
+                if qa_prep_bullets:
+                    expanded = self.expand_test_case_with_qa_prep(
+                        test_case, criterion_clean, qa_prep_bullets, story_id, test_index
+                    )
+                    # Add only new expansions (skip base test case which is already added)
+                    if len(expanded) > 1:
+                        test_cases.extend(expanded[1:])  # Skip first (base) test case
+                        test_index += len(expanded) - 1
+                    else:
+                        test_index += 1
+                    else:
+                    test_index += 1
+                
+                # Track functional (non-accessibility) tests for platform variants
+                # Only track if no device specified (will generate Windows 11 and Tablets variants)
+                if not device:
+                    functional_tests_for_platforms.append(test_case)
+                
+        # Generate edge case tests (skip for informational/help features)
+        feature_lower = feature.lower() if feature else ''
+        informational_feature_keywords = ['help', 'about', 'contact support', 'support', 'informational', 'version', 'copyright']
+        is_informational_feature = any(keyword in feature_lower for keyword in informational_feature_keywords)
+        
+        has_object_interaction = any(tc.get('requires_object', False) for tc in test_cases)
+        if has_object_interaction and not is_informational_feature:
+            edge_cases, test_index = self.generate_edge_case_tests(
+                story_id, feature, feature_name, ui_area, True, test_index
+            )
+            test_cases.extend(edge_cases)
+        
+        # Generate platform-specific tests for key functional tests (Windows 11 and Tablets)
+        # Note: iPad and Android Tablet are combined into "Tablets" since they use the same inputs
+        # Only generate for a subset of important functional tests to avoid excessive duplication
+        key_functional_tests = [tc for tc in functional_tests_for_platforms 
+                               if tc.get('area') in ['Behavior', 'Options', 'Scope']][:3]
+        
+        for base_test in key_functional_tests:
+            platform_tests, test_index = self.generate_platform_tests(
+                story_id, feature, feature_name, ui_area, base_test, test_index
+            )
+            test_cases.extend(platform_tests)
+        
+        # MANDATORY: Always generate accessibility tests for all user stories (platform-specific)
+        # Accessibility tests MUST be split by device and include tool-specific pre-reqs
+        accessibility_platforms = [
+            ("Windows 11", "Accessibility Insights for Windows tool is installed"),
+            ("iPad", "Apple built-in accessibility tools are available and enabled (e.g., VoiceOver)"),
+            ("Android Tablet", "Accessibility Scanner (Google) Free tool is installed")
+        ]
+        
+        # Check which accessibility platforms are already covered
+        existing_accessibility_devices = set()
+        for tc in test_cases:
+            if tc.get('is_accessibility') and tc.get('device'):
+                existing_accessibility_devices.add(tc.get('device'))
+        
+        # Always generate accessibility tests for ALL platforms
+        # If some exist from AC parsing, we still need to ensure all three platforms are covered
+        for device, tool_pre_req in accessibility_platforms:
+            # Skip if this device already has an accessibility test
+            if device in existing_accessibility_devices:
+                continue
+            
+            ac_category = "Accessibility"
+            # Device-specific scenario description
+            if device == 'iPad':
+                ac_scenario = "Touch Access With VoiceOver / Focus Visibility / Labels And Roles"
+            elif device == 'Android Tablet':
+                ac_scenario = "Touch Access / Focus Visibility / Labels And Roles"
+            else:
+            ac_scenario = "Keyboard Navigation / Focus Visibility / Labels And Roles"
+            
+            # Determine UI area for accessibility test (where feature is accessed)
+            ac_ui_area = ui_area if ui_area else 'Tools Menu'
+            
+            # Generate comprehensive accessibility steps with all required validations
+            # MANDATORY: Device-specific launch step
+            launch_action = f"Launch ENV QuickDraw application on {device}." if device else "Launch the ENV QuickDraw application"
+            
+            # CRITICAL: Use device-specific interaction model
+            if device == 'iPad':
+            ac_steps = [
+                {"action": "PRE-REQ: ENV QuickDraw application is installed", "expected": ""},
+                {"action": f"PRE-REQ: {tool_pre_req}", "expected": ""},
+                    {"action": launch_action, "expected": ""},
+                    {"action": f"Open {ac_ui_area} using touch and VoiceOver.", 
+                     "expected": f"{ac_ui_area} opens and is displayed."},
+                    {"action": f"Navigate to {feature_name} option using touch and VoiceOver.", 
+                     "expected": f"{feature_name} option is reached using touch and VoiceOver."},
+                    {"action": f"Activate {feature_name} Tool using touch and VoiceOver.", 
+                     "expected": f"{feature_name} Tool is activated using touch and VoiceOver."},
+                    {"action": "Verify that touch navigation is fully functional with VoiceOver.", 
+                     "expected": "All menu items and controls can be accessed using touch navigation with VoiceOver."},
+                    {"action": "Verify that visible focus indicators are present on focused controls.", 
+                     "expected": "Visible focus indicators are displayed on all focused controls in the menu and toolbar."},
+                    {"action": "Verify that focus order follows logical sequence.", 
+                     "expected": "Focus order follows logical sequence matching visual layout."},
+                    {"action": "Verify that all controls have readable labels and correct ARIA roles.", 
+                     "expected": "All controls have meaningful accessible names and correct ARIA roles for assistive technologies."},
+                    {"action": "Close/Exit the QuickDraw application", "expected": ""}
+                ]
+            elif device == 'Android Tablet':
+                ac_steps = [
+                    {"action": "PRE-REQ: ENV QuickDraw application is installed", "expected": ""},
+                    {"action": f"PRE-REQ: {tool_pre_req}", "expected": ""},
+                    {"action": launch_action, "expected": ""},
+                    {"action": f"Open {ac_ui_area} using touch.", 
+                     "expected": f"{ac_ui_area} opens and is displayed."},
+                    {"action": f"Navigate to {feature_name} option using touch.", 
+                     "expected": f"{feature_name} option is reached using touch."},
+                    {"action": f"Activate {feature_name} Tool using touch.", 
+                     "expected": f"{feature_name} Tool is activated using touch."},
+                    {"action": "Verify that touch navigation is fully functional.", 
+                     "expected": "All menu items and controls can be accessed using touch navigation."},
+                    {"action": "Verify that visible focus indicators are present on focused controls.", 
+                     "expected": "Visible focus indicators are displayed on all focused controls in the menu and toolbar."},
+                    {"action": "Verify that focus order follows logical sequence.", 
+                     "expected": "Focus order follows logical sequence matching visual layout."},
+                    {"action": "Verify that all controls have readable labels and correct ARIA roles.", 
+                     "expected": "All controls have meaningful accessible names and correct ARIA roles for assistive technologies."},
+                    {"action": "Close/Exit the QuickDraw application", "expected": ""}
+                ]
+            else:
+                # Windows 11: keyboard navigation
+                ac_steps = [
+                    {"action": "PRE-REQ: ENV QuickDraw application is installed", "expected": ""},
+                    {"action": f"PRE-REQ: {tool_pre_req}", "expected": ""},
+                    {"action": launch_action, "expected": ""},
+                    {"action": f"Open {ac_ui_area} using keyboard navigation.", 
+                     "expected": f"{ac_ui_area} opens and is displayed."},
+                    {"action": f"Navigate to {feature_name} option using keyboard navigation.", 
+                     "expected": f"{feature_name} option is reached using keyboard navigation."},
+                    {"action": f"Activate {feature_name} Tool using keyboard navigation.", 
+                     "expected": f"{feature_name} Tool is activated using keyboard navigation."},
+                {"action": "Verify that keyboard navigation is fully functional with logical tab order.", 
+                 "expected": "All menu items and controls can be accessed using keyboard navigation with logical tab order."},
+                {"action": "Verify that visible focus indicators are present on focused controls.", 
+                 "expected": "Visible focus indicators are displayed on all focused controls in the menu and toolbar."},
+                {"action": "Verify that focus order follows logical sequence.", 
+                 "expected": "Focus order follows logical sequence matching visual layout."},
+                {"action": "Verify that all controls have readable labels and correct ARIA roles.", 
+                     "expected": "All controls have meaningful accessible names and correct ARIA roles for assistive technologies."},
+                    {"action": "Close/Exit the QuickDraw application", "expected": ""}
+            ]
+            
+            # Apply expected value enforcement
+            ac_steps = self._enforce_expected_value_rules(ac_steps)
+            
+            ac_tc_id = self.generate_test_case_id(story_id, test_index)
+            ac_title = self.generate_test_case_title(story_id, ac_tc_id, feature, ac_category, 
+                                                    ac_scenario, device, ui_area=ac_ui_area)
+            
+            # Ensure device appears in title (should already be handled by generate_test_case_title, but verify)
+            if device not in ac_title:
+                # Extract base title and add device
+                if ' / ' in ac_title:
+                    parts = ac_title.split(' / ')
+                    ac_title = ' / '.join(parts[:-1]) + f" / {parts[-1]} ({device})"
+                    else:
+                    ac_title = f"{ac_title} ({device})"
+            
+            # Generate objective using the standard method
+            objective = self.generate_objective(
+                ac_title, ac_scenario, feature, ac_category, ac_ui_area, device, is_accessibility=True
+            )
+            
+            test_cases.append({
+                "id": ac_tc_id,
+                "title": ac_title,
+                "steps": ac_steps,
+                "objective": objective,
+                "area": ac_category,
+                "requires_object": False,
+                "is_accessibility": True,
+                "device": device
+            })
+            test_index += 1
+        
+        # Final post-processing: Ensure all test cases meet validation rules
+        for tc in test_cases:
+            # 1. Ensure test cases with requires_object=True have "Draw a shape" step
+            if tc.get('requires_object', False):
+                has_draw = any('draw a shape' in step.get('action', '').lower() and 'on the canvas' in step.get('action', '').lower() 
+                              for step in tc['steps'])
+                has_select = any('select the drawn' in step.get('action', '').lower() or 'select the shape' in step.get('action', '').lower() 
+                                for step in tc['steps'])
+                
+                if not has_draw:
+                    # Find launch step and insert draw/select steps after it
+                    launch_index = -1
+                    for i, step in enumerate(tc['steps']):
+                        if 'Launch' in step.get('action', ''):
+                            launch_index = i
+                            break
+                    
+                    if launch_index >= 0:
+                        tc['steps'].insert(launch_index + 1, {
+                            "action": "Draw a shape (e.g., rectangle or triangle) on the Canvas",
+                            "expected": ""
+                        })
+                        if not has_select:
+                            tc['steps'].insert(launch_index + 2, {
+                                "action": "Select the drawn shape",
+                                "expected": ""
+                            })
+            
+            # 2. Ensure verification steps have expected results
+            for step in tc['steps']:
+                action = step.get('action', '').lower()
+                expected_raw = step.get('expected', '')
+                expected = expected_raw.strip() if expected_raw else ''
+                
+                if 'verify' in action and not expected:
+                    # Generate appropriate expected result based on action
+                    if 'can be activated' in action or 'is available' in action:
+                        if 'from the' in action:
+                            parts = step.get('action', '').split('from the')
+                            if len(parts) > 1:
+                                location = parts[1].split('.')[0].strip()
+                                step['expected'] = f"Tool is visible and can be activated from the {location}."
+                            else:
+                                step['expected'] = "Tool is visible and can be activated."
+                        else:
+                            step['expected'] = "Tool is visible and can be activated."
+                    else:
+                        step['expected'] = "Expected behavior is observed."
+                
+                # 3. Ensure setup steps don't have expected results
+                setup_patterns = [
+                    'pre-req:',
+                    'launch env quickdraw',
+                    'close/exit the quickdraw',
+                    'draw a shape',
+                    'select the drawn shape',
+                    'select the shape',
+                    'select another drawing tool',
+                    'select another tool',
+                ]
+                
+                is_setup = any(pattern in action for pattern in setup_patterns)
+                if 'activate' in action and 'undo' not in action and 'redo' not in action:
+                    is_setup = True
+                
+                if is_setup and expected:
+                    step['expected'] = ""
+            
+            # 4. Clean all actions and expected results for forbidden words
+            for step in tc['steps']:
+                if step.get('action'):
+                    step['action'] = self.clean_forbidden_words(step['action'])
+                if step.get('expected'):
+                    step['expected'] = self.clean_forbidden_words(step['expected'])
+            
+            # 5. Final check: Ensure verification steps still have expected results after cleaning
+            for step in tc['steps']:
+                action = step.get('action', '').lower()
+                expected_raw = step.get('expected', '')
+                expected = expected_raw.strip() if expected_raw else ''
+                
+                if 'verify' in action and not expected:
+                    # Generate appropriate expected result based on action
+                    if 'can be activated' in action or 'is available' in action:
+                        if 'from the' in action:
+                            parts = step.get('action', '').split('from the')
+                            if len(parts) > 1:
+                                location = parts[1].split('.')[0].strip()
+                                step['expected'] = f"Tool is visible and can be activated from the {location}."
+                            else:
+                                step['expected'] = "Tool is visible and can be activated."
+                        else:
+                            step['expected'] = "Tool is visible and can be activated."
+                    else:
+                        step['expected'] = "Expected behavior is observed."
+        
+        # Final validation gate: Coverage report
+        print("\n" + "=" * 80)
+        print("COVERAGE REPORT")
+        print("=" * 80)
+        print(f"Total test cases generated: {len(test_cases)}")
+        
+        # Map AC bullets to test cases
+        ac_mapping = {}
+        for i, criterion in enumerate(criteria, start=1):
+            ac_mapping[f"AC{i}"] = []
+        
+        # Group test cases by AC (approximate mapping based on order)
+        # AC1 is always first, then remaining ACs in order
+        ac_index = 1
+        for tc in test_cases:
+            tc_id = tc['id']
+            if 'AC1' in tc_id:
+                ac_mapping['AC1'].append(f"{tc_id}: {tc['title']}")
+            else:
+                # Map to AC based on order (approximate)
+                if ac_index < len(criteria):
+                    ac_key = f"AC{ac_index + 1}"
+                    if ac_key not in ac_mapping:
+                        ac_key = f"AC{ac_index}"
+                    ac_mapping[ac_key].append(f"{tc_id}: {tc['title']}")
+        
+        print("\nAC Bullet → Test Cases Mapping:")
+        for ac_key, test_list in ac_mapping.items():
+            if test_list:
+                print(f"  {ac_key}: {len(test_list)} test case(s)")
+                for test_info in test_list[:3]:  # Show first 3
+                    print(f"    - {test_info}")
+                if len(test_list) > 3:
+                    print(f"    ... and {len(test_list) - 3} more")
+        
+        # Platform-specific tests
+        platform_tests = [tc for tc in test_cases if tc.get('device')]
+        accessibility_tests = [tc for tc in test_cases if tc.get('is_accessibility')]
+        
+        print(f"\nPlatform-specific tests: {len(platform_tests)}")
+        if platform_tests:
+            device_counts = {}
+            for tc in platform_tests:
+                device = tc.get('device', 'Unknown')
+                device_counts[device] = device_counts.get(device, 0) + 1
+            for device, count in device_counts.items():
+                print(f"  - {device}: {count} test case(s)")
+        
+        print(f"Accessibility tests: {len(accessibility_tests)}")
+        if accessibility_tests:
+            acc_device_counts = {}
+            for tc in accessibility_tests:
+                device = tc.get('device', 'Unknown')
+                acc_device_counts[device] = acc_device_counts.get(device, 0) + 1
+            for device, count in acc_device_counts.items():
+                print(f"  - {device}: {count} test case(s)")
+        
+        print("=" * 80)
+        
+        return test_cases
