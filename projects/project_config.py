@@ -1,0 +1,413 @@
+"""
+Project configuration data classes for multi-project support.
+Defines the structure for application-specific configurations.
+"""
+from dataclasses import dataclass, field
+from typing import List, Dict, Optional, Any
+from pathlib import Path
+import yaml
+import os
+
+
+@dataclass
+class ApplicationConfig:
+    """Configuration for the application under test."""
+    name: str  # e.g., "ENV QuickDraw", "MediaPedia", "MyApp"
+    description: str = ""
+    app_type: str = "desktop"  # desktop, web, mobile, hybrid
+
+    # Step templates (these replace hardcoded ENV QuickDraw references)
+    prereq_template: str = "Pre-req: The {app_name} is installed"
+    launch_step: str = "Launch the {app_name}."
+    launch_expected: str = "Application loads successfully."
+    close_step: str = "Close the {app_name}."
+
+    # UI-specific configuration
+    main_ui_surfaces: List[str] = field(default_factory=lambda: [
+        'Main Menu', 'Toolbar', 'Canvas', 'Properties Panel', 'Dialog Window'
+    ])
+
+    # Entry point mappings (feature keywords -> UI locations)
+    entry_point_mappings: Dict[str, str] = field(default_factory=lambda: {
+        'import': 'File Menu',
+        'export': 'File Menu',
+        'save': 'File Menu',
+        'open': 'File Menu',
+        'new': 'File Menu',
+        'undo': 'Edit Menu',
+        'redo': 'Edit Menu',
+        'copy': 'Edit Menu',
+        'paste': 'Edit Menu',
+        'cut': 'Edit Menu',
+        'view': 'View Menu',
+        'zoom': 'View Menu',
+        'tool': 'Tools Menu',
+        'setting': 'Settings',
+        'preference': 'Settings',
+    })
+
+    # Platform support
+    supported_platforms: List[str] = field(default_factory=lambda: [
+        'Windows 11', 'macOS', 'iPad', 'Android Tablet'
+    ])
+
+    # Object interaction keywords (determines if object setup is needed)
+    object_interaction_keywords: List[str] = field(default_factory=lambda: [
+        'rotate', 'move', 'delete', 'select', 'resize', 'modify', 'edit',
+        'transform', 'flip', 'mirror', 'duplicate', 'copy', 'scale', 'reposition'
+    ])
+
+    def get_prereq_step(self) -> str:
+        """Get formatted prereq step for this application."""
+        return self.prereq_template.format(app_name=self.name)
+
+    def get_launch_step(self) -> str:
+        """Get formatted launch step for this application."""
+        return self.launch_step.format(app_name=self.name)
+
+    def get_close_step(self) -> str:
+        """Get formatted close step for this application."""
+        return self.close_step.format(app_name=self.name)
+
+    def determine_entry_point(self, feature_name: str, hints: List[str] = None) -> str:
+        """Determine the most appropriate entry point for a feature."""
+        if hints:
+            return hints[0]
+
+        feature_lower = feature_name.lower()
+        for keyword, entry_point in self.entry_point_mappings.items():
+            if keyword in feature_lower:
+                return entry_point
+
+        return 'Application Menu'
+
+    def requires_object_interaction(self, text: str) -> bool:
+        """Determine if the text indicates object interaction is needed."""
+        text_lower = text.lower()
+        return any(keyword in text_lower for keyword in self.object_interaction_keywords)
+
+
+@dataclass
+class ADOProjectConfig:
+    """Azure DevOps project configuration."""
+    organization: str  # e.g., "cdpinc", "contoso"
+    project: str  # e.g., "Env", "MediaPedia"
+    area_path: str  # e.g., "Env\\ENV Kanda", "MediaPedia\\US Team"
+    pat: Optional[str] = None  # Personal Access Token (from env var)
+
+    # User assignment
+    assigned_to: str = ""
+    default_state: str = "Design"
+
+    # Test suite naming pattern
+    test_suite_pattern: str = "{story_id} : {story_name}"
+
+    # QA Prep task naming pattern (None means no QA Prep exists)
+    qa_prep_pattern: Optional[str] = "Story {story_id}: QA Prep"
+
+    @property
+    def base_url(self) -> str:
+        """Get the base URL for ADO API calls."""
+        return f"https://dev.azure.com/{self.organization}/{self.project}"
+
+    def get_test_suite_prefix(self, story_id: str) -> str:
+        """Get the test suite name prefix for searching."""
+        return f"{story_id} :"
+
+
+@dataclass
+class TestRulesConfig:
+    """Test case generation rules configuration."""
+    # Forbidden words that must not appear in test output
+    forbidden_words: List[str] = field(default_factory=lambda: [
+        'or / OR', 'if available', 'if supported', 'ambiguous'
+    ])
+
+    # Generic area terms that should not be used as scenarios
+    forbidden_area_terms: List[str] = field(default_factory=lambda: [
+        'Functionality', 'Accessibility', 'Behavior', 'Validation', 'General', 'System'
+    ])
+
+    # Allowed area terms (UI surfaces)
+    allowed_areas: List[str] = field(default_factory=lambda: [
+        'File Menu', 'Edit Menu', 'Tools Menu', 'View Menu', 'Help Menu',
+        'Properties Panel', 'Canvas', 'Dialog Window', 'Modal Window', 'Toolbar'
+    ])
+
+    # Cancelled/out-of-scope indicators
+    cancelled_indicators: List[str] = field(default_factory=lambda: [
+        'cancelled', 'out of scope', 'to be cancelled', 'removed', 'not implemented',
+        'deprecated', 'superseded', 'will not be implemented'
+    ])
+
+    # Test ID configuration
+    first_test_id: str = "AC1"  # ID for the first test case
+    test_id_increment: int = 5  # Increment for subsequent test IDs (005, 010, 015...)
+
+
+@dataclass
+class ProjectConfig:
+    """
+    Complete project configuration combining application, ADO, and rules settings.
+    This is the main configuration class that projects use.
+    """
+    # Project identifier (used for config file naming)
+    project_id: str  # e.g., "env-quickdraw", "mediapedia-us"
+
+    # Sub-configurations
+    application: ApplicationConfig
+    ado: ADOProjectConfig
+    rules: TestRulesConfig = field(default_factory=TestRulesConfig)
+
+    # Output configuration
+    output_dir: str = "output"
+
+    # LLM configuration (inherited from global config by default)
+    llm_enabled: bool = True
+    llm_provider: str = "openai"
+    llm_model: str = "gpt-4o-mini"
+
+    # Objective formatting - key terms to bold
+    objective_key_term_patterns: List[str] = field(default_factory=lambda: [
+        # UI Surfaces
+        r'\b(?:File|Edit|Tools|View|Help|Insert|Format|Window) Menu\b',
+        r'\bProperties Panel\b',
+        r'\bToolbar\b',
+        r'\bCanvas\b',
+        r'\bDialog(?:\s+Window)?\b',
+        r'\bModal(?:\s+Window)?\b',
+        # Actions
+        r'\b(?:Undo|Redo|Cut|Copy|Paste|Delete|Duplicate)\b',
+        r'\b(?:Rotate|Mirror|Flip|Transform|Scale|Move|Resize)\b',
+        # Platforms
+        r'\b(?:Windows 11|Windows 10|macOS|iPad|Android Tablet|iPhone|Android Phone)\b',
+        # Accessibility
+        r'\bAccessibility Insights(?:\s+for\s+Windows)?\b',
+        r'\bVoiceOver\b',
+        r'\bAccessibility Scanner\b',
+        r'\bWCAG\s+\d+\.\d+\s+(?:A|AA|AAA)\b',
+        # States
+        r'\b(?:enabled|disabled|visible|hidden|selected|deselected)\b',
+    ])
+
+    @classmethod
+    def load_from_yaml(cls, yaml_path: str) -> 'ProjectConfig':
+        """Load project configuration from a YAML file."""
+        with open(yaml_path, 'r') as f:
+            data = yaml.safe_load(f)
+
+        return cls.from_dict(data)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ProjectConfig':
+        """Create ProjectConfig from a dictionary."""
+        # Extract application config
+        app_data = data.get('application', {})
+        application = ApplicationConfig(
+            name=app_data.get('name', 'Application'),
+            description=app_data.get('description', ''),
+            app_type=app_data.get('type', 'desktop'),
+            prereq_template=app_data.get('prereq_template', 'Pre-req: The {app_name} is installed'),
+            launch_step=app_data.get('launch_step', 'Launch the {app_name}.'),
+            launch_expected=app_data.get('launch_expected', 'Application loads successfully.'),
+            close_step=app_data.get('close_step', 'Close the {app_name}.'),
+            main_ui_surfaces=app_data.get('ui_surfaces', []),
+            entry_point_mappings=app_data.get('entry_point_mappings', {}),
+            supported_platforms=app_data.get('platforms', ['Windows 11', 'macOS']),
+            object_interaction_keywords=app_data.get('object_keywords', [])
+        )
+
+        # Extract ADO config
+        ado_data = data.get('ado', {})
+        ado = ADOProjectConfig(
+            organization=ado_data.get('organization', os.getenv('ADO_ORG', '')),
+            project=ado_data.get('project', os.getenv('ADO_PROJECT', '')),
+            area_path=ado_data.get('area_path', os.getenv('ADO_AREA_PATH', '')),
+            pat=os.getenv('ADO_PAT'),  # Always from env for security
+            assigned_to=ado_data.get('assigned_to', os.getenv('ASSIGNED_TO', '')),
+            default_state=ado_data.get('default_state', 'Design'),
+            test_suite_pattern=ado_data.get('test_suite_pattern', '{story_id} : {story_name}'),
+            qa_prep_pattern=ado_data.get('qa_prep_pattern', 'Story {story_id}: QA Prep')
+        )
+
+        # Extract rules config
+        rules_data = data.get('rules', {})
+        rules = TestRulesConfig(
+            forbidden_words=rules_data.get('forbidden_words', []),
+            forbidden_area_terms=rules_data.get('forbidden_area_terms', []),
+            allowed_areas=rules_data.get('allowed_areas', []),
+            cancelled_indicators=rules_data.get('cancelled_indicators', []),
+            first_test_id=rules_data.get('first_test_id', 'AC1'),
+            test_id_increment=rules_data.get('test_id_increment', 5)
+        )
+
+        return cls(
+            project_id=data.get('project_id', 'default'),
+            application=application,
+            ado=ado,
+            rules=rules,
+            output_dir=data.get('output_dir', 'output'),
+            llm_enabled=data.get('llm_enabled', True),
+            llm_provider=data.get('llm_provider', 'openai'),
+            llm_model=data.get('llm_model', 'gpt-4o-mini'),
+            objective_key_term_patterns=data.get('objective_patterns', [])
+        )
+
+    def to_yaml(self) -> str:
+        """Serialize configuration to YAML string."""
+        data = {
+            'project_id': self.project_id,
+            'application': {
+                'name': self.application.name,
+                'description': self.application.description,
+                'type': self.application.app_type,
+                'prereq_template': self.application.prereq_template,
+                'launch_step': self.application.launch_step,
+                'launch_expected': self.application.launch_expected,
+                'close_step': self.application.close_step,
+                'ui_surfaces': self.application.main_ui_surfaces,
+                'entry_point_mappings': self.application.entry_point_mappings,
+                'platforms': self.application.supported_platforms,
+                'object_keywords': self.application.object_interaction_keywords,
+            },
+            'ado': {
+                'organization': self.ado.organization,
+                'project': self.ado.project,
+                'area_path': self.ado.area_path,
+                'assigned_to': self.ado.assigned_to,
+                'default_state': self.ado.default_state,
+                'test_suite_pattern': self.ado.test_suite_pattern,
+                'qa_prep_pattern': self.ado.qa_prep_pattern,
+            },
+            'rules': {
+                'forbidden_words': self.rules.forbidden_words,
+                'forbidden_area_terms': self.rules.forbidden_area_terms,
+                'allowed_areas': self.rules.allowed_areas,
+                'cancelled_indicators': self.rules.cancelled_indicators,
+                'first_test_id': self.rules.first_test_id,
+                'test_id_increment': self.rules.test_id_increment,
+            },
+            'output_dir': self.output_dir,
+            'llm_enabled': self.llm_enabled,
+            'llm_provider': self.llm_provider,
+            'llm_model': self.llm_model,
+            'objective_patterns': self.objective_key_term_patterns,
+        }
+        return yaml.dump(data, default_flow_style=False, sort_keys=False)
+
+    def save(self, path: str = None) -> str:
+        """Save configuration to YAML file."""
+        if path is None:
+            path = f"projects/configs/{self.project_id}.yaml"
+
+        # Ensure directory exists
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+
+        with open(path, 'w') as f:
+            f.write(self.to_yaml())
+
+        return path
+
+
+# Predefined configurations for known projects
+def get_env_quickdraw_config() -> ProjectConfig:
+    """Get the default ENV QuickDraw configuration (current project)."""
+    return ProjectConfig(
+        project_id="env-quickdraw",
+        application=ApplicationConfig(
+            name="ENV QuickDraw",
+            description="Drawing and dimensioning application",
+            app_type="desktop",
+            prereq_template="Pre-req: The {app_name} App is installed",
+            launch_step="Launch the {app_name} application.",
+            launch_expected="Model space(Gray) and Canvas(white) space should be displayed",
+            close_step="Close the {app_name} App",
+            main_ui_surfaces=[
+                'File Menu', 'Edit Menu', 'Tools Menu', 'Dimensions Menu',
+                'Properties Panel', 'Dimensions Panel', 'Canvas',
+                'Dialog Window', 'Modal Window', 'Top Action Toolbar'
+            ],
+            entry_point_mappings={
+                'import': 'File Menu',
+                'export': 'File Menu',
+                'save': 'File Menu',
+                'open': 'File Menu',
+                'new': 'File Menu',
+                'undo': 'Edit Menu',
+                'redo': 'Edit Menu',
+                'copy': 'Edit Menu',
+                'paste': 'Edit Menu',
+                'cut': 'Edit Menu',
+                'view': 'View Menu',
+                'zoom': 'View Menu',
+                'pan': 'View Menu',
+                'tool': 'Tools Menu',
+                'draw': 'Tools Menu',
+                'shape': 'Tools Menu',
+                'dimension': 'Dimensions Menu',
+                'measure': 'Dimensions Menu',
+                'diameter': 'Dimensions Menu',
+                'propert': 'Properties Panel',
+                'setting': 'Settings',
+                'preference': 'Settings',
+            },
+            supported_platforms=['Windows 11', 'iPad', 'Android Tablet'],
+        ),
+        ado=ADOProjectConfig(
+            organization="cdpinc",
+            project="Env",
+            area_path="Env\\ENV Kanda",
+            assigned_to="gulzhas.mailybayeva@kandasoft.com",
+            default_state="Design",
+            test_suite_pattern="{story_id} : {story_name}",
+            qa_prep_pattern="Story {story_id}: QA Prep",
+        ),
+        rules=TestRulesConfig(
+            forbidden_words=['or / OR', 'if available', 'if supported', 'ambiguous'],
+            forbidden_area_terms=['Functionality', 'Accessibility', 'Behavior', 'Validation', 'General', 'System'],
+            allowed_areas=[
+                'File Menu', 'Edit Menu', 'Tools Menu', 'Dimensions Menu',
+                'Properties Panel', 'Dimensions Panel', 'Canvas',
+                'Dialog Window', 'Modal Window', 'Top Action Toolbar'
+            ],
+        ),
+    )
+
+
+def create_new_project_config(
+    project_id: str,
+    app_name: str,
+    ado_org: str,
+    ado_project: str,
+    area_path: str,
+    **kwargs
+) -> ProjectConfig:
+    """
+    Create a new project configuration with minimal required parameters.
+    Additional parameters can be customized via kwargs.
+    """
+    return ProjectConfig(
+        project_id=project_id,
+        application=ApplicationConfig(
+            name=app_name,
+            description=kwargs.get('description', ''),
+            app_type=kwargs.get('app_type', 'desktop'),
+            prereq_template=kwargs.get('prereq_template', f"Pre-req: The {app_name} is installed"),
+            launch_step=kwargs.get('launch_step', f"Launch the {app_name}."),
+            launch_expected=kwargs.get('launch_expected', 'Application loads successfully.'),
+            close_step=kwargs.get('close_step', f"Close the {app_name}."),
+            main_ui_surfaces=kwargs.get('ui_surfaces', []),
+            entry_point_mappings=kwargs.get('entry_point_mappings', {}),
+            supported_platforms=kwargs.get('platforms', ['Windows 11', 'macOS']),
+        ),
+        ado=ADOProjectConfig(
+            organization=ado_org,
+            project=ado_project,
+            area_path=area_path,
+            assigned_to=kwargs.get('assigned_to', ''),
+            default_state=kwargs.get('default_state', 'Design'),
+            test_suite_pattern=kwargs.get('test_suite_pattern', '{story_id} : {story_name}'),
+            qa_prep_pattern=kwargs.get('qa_prep_pattern'),  # None if not using QA Prep
+        ),
+        output_dir=kwargs.get('output_dir', 'output'),
+    )

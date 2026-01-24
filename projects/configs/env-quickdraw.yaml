@@ -1,0 +1,139 @@
+# ENV QuickDraw - Original project configuration
+# This is the default configuration that mirrors the original hardcoded values
+
+project_id: env-quickdraw
+
+application:
+  name: ENV QuickDraw
+  description: Drawing and dimensioning application for ENV platform
+  type: desktop
+
+  # Step templates
+  prereq_template: "Pre-req: The {app_name} App is installed"
+  launch_step: "Launch the {app_name} application."
+  launch_expected: "Model space(Gray) and Canvas(white) space should be displayed"
+  close_step: "Close the {app_name} App"
+
+  # Main UI surfaces in the application
+  ui_surfaces:
+    - File Menu
+    - Edit Menu
+    - Tools Menu
+    - Dimensions Menu
+    - Properties Panel
+    - Dimensions Panel
+    - Canvas
+    - Dialog Window
+    - Modal Window
+    - Top Action Toolbar
+
+  # Map feature keywords to their entry points
+  entry_point_mappings:
+    import: File Menu
+    export: File Menu
+    save: File Menu
+    open: File Menu
+    new: File Menu
+    undo: Edit Menu
+    redo: Edit Menu
+    copy: Edit Menu
+    paste: Edit Menu
+    cut: Edit Menu
+    view: View Menu
+    zoom: View Menu
+    pan: View Menu
+    tool: Tools Menu
+    draw: Tools Menu
+    shape: Tools Menu
+    dimension: Dimensions Menu
+    measure: Dimensions Menu
+    diameter: Dimensions Menu
+    propert: Properties Panel
+    setting: Settings
+    preference: Settings
+
+  # Supported platforms
+  platforms:
+    - Windows 11
+    - iPad
+    - Android Tablet
+
+  # Keywords indicating object interaction is needed
+  object_keywords:
+    - rotate
+    - move
+    - delete
+    - select
+    - resize
+    - modify
+    - edit
+    - transform
+    - flip
+    - mirror
+    - duplicate
+    - copy
+    - scale
+    - reposition
+
+ado:
+  organization: cdpinc
+  project: Env
+  area_path: "Env\\ENV Kanda"
+  assigned_to: gulzhas.mailybayeva@kandasoft.com
+  default_state: Design
+  test_suite_pattern: "{story_id} : {story_name}"
+  qa_prep_pattern: "Story {story_id}: QA Prep"
+
+rules:
+  forbidden_words:
+    - "or / OR"
+    - "if available"
+    - "if supported"
+    - "ambiguous"
+
+  forbidden_area_terms:
+    - Functionality
+    - Accessibility
+    - Behavior
+    - Validation
+    - General
+    - System
+
+  allowed_areas:
+    - File Menu
+    - Edit Menu
+    - Tools Menu
+    - Dimensions Menu
+    - Properties Panel
+    - Dimensions Panel
+    - Canvas
+    - Dialog Window
+    - Modal Window
+    - Top Action Toolbar
+
+  first_test_id: AC1
+  test_id_increment: 5
+
+output_dir: output
+llm_enabled: true
+llm_provider: openai
+llm_model: gpt-4o-mini
+
+# Patterns for bolding key terms in objectives
+objective_patterns:
+  - '\b(?:File|Edit|Tools|View|Help|Insert|Format|Window|Dimensions) Menu\b'
+  - '\bProperties Panel\b'
+  - '\bDimensions Panel\b'
+  - '\bTop Action Toolbar\b'
+  - '\bToolbar\b'
+  - '\bCanvas\b'
+  - '\bDialog(?:\s+Window)?\b'
+  - '\bModal(?:\s+Window)?\b'
+  - '\b(?:Undo|Redo|Cut|Copy|Paste|Delete|Duplicate)\b'
+  - '\b(?:Rotate|Mirror|Flip|Transform|Scale|Move|Resize)\b'
+  - '\b(?:Windows 11|Windows 10|macOS|iPad|Android Tablet)\b'
+  - '\bAccessibility Insights(?:\s+for\s+Windows)?\b'
+  - '\bVoiceOver\b'
+  - '\bAccessibility Scanner\b'
+  - '\bWCAG\s+\d+\.\d+\s+(?:A|AA|AAA)\b'
+  - '\b(?:enabled|disabled|visible|hidden|selected|deselected)\b'

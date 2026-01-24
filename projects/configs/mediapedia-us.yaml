@@ -1,0 +1,131 @@
+# MediaPedia US - Example configuration for a new project
+# This demonstrates how to configure the framework for a different application
+
+project_id: mediapedia-us
+
+application:
+  name: MediaPedia
+  description: Media management and publishing platform for US market
+  type: web  # web application
+
+  # Step templates - customize for your application
+  prereq_template: "Pre-req: User has a valid {app_name} account"
+  launch_step: "Navigate to the {app_name} application URL and log in."
+  launch_expected: "Dashboard is displayed with user's media library."
+  close_step: "Log out and close the browser."
+
+  # Main UI surfaces in MediaPedia
+  ui_surfaces:
+    - Dashboard
+    - Media Library
+    - Upload Panel
+    - Settings Menu
+    - User Profile
+    - Search Bar
+    - Navigation Menu
+    - Media Player
+    - Publishing Console
+    - Analytics Dashboard
+
+  # Map feature keywords to their entry points
+  entry_point_mappings:
+    upload: Upload Panel
+    import: Upload Panel
+    media: Media Library
+    library: Media Library
+    search: Search Bar
+    find: Search Bar
+    setting: Settings Menu
+    preference: Settings Menu
+    profile: User Profile
+    account: User Profile
+    publish: Publishing Console
+    analytics: Analytics Dashboard
+    report: Analytics Dashboard
+    play: Media Player
+    view: Media Player
+    dashboard: Dashboard
+
+  # Supported platforms (web-focused)
+  platforms:
+    - Chrome
+    - Safari
+    - Firefox
+    - Edge
+    - iPad
+    - Android Tablet
+
+  # Keywords indicating media/content interaction is needed
+  object_keywords:
+    - upload
+    - download
+    - play
+    - pause
+    - delete
+    - edit
+    - publish
+    - share
+    - select
+    - preview
+    - trim
+    - crop
+
+ado:
+  # Update these with your actual ADO settings
+  organization: your-org  # Will use ADO_ORG env var if not set
+  project: MediaPedia  # Will use ADO_PROJECT env var if not set
+  area_path: "MediaPedia\\US Team"  # Will use ADO_AREA_PATH env var if not set
+  assigned_to: ""  # Will use ASSIGNED_TO env var if not set
+  default_state: Design
+
+  # Test suite naming pattern - customize if your naming convention differs
+  test_suite_pattern: "{story_id} : {story_name}"
+
+  # QA Prep pattern - set to null if you don't use QA Prep tasks
+  # If null, the tool will generate test suites automatically
+  qa_prep_pattern: null  # MediaPedia doesn't use QA Prep tasks
+
+rules:
+  forbidden_words:
+    - "or / OR"
+    - "if available"
+    - "if supported"
+    - "ambiguous"
+    - "maybe"
+
+  forbidden_area_terms:
+    - Functionality
+    - Behavior
+    - Validation
+    - General
+    - System
+
+  allowed_areas:
+    - Dashboard
+    - Media Library
+    - Upload Panel
+    - Settings Menu
+    - User Profile
+    - Search Bar
+    - Navigation Menu
+    - Media Player
+    - Publishing Console
+    - Analytics Dashboard
+
+  first_test_id: AC1
+  test_id_increment: 5
+
+output_dir: output/mediapedia
+llm_enabled: true
+llm_provider: openai
+llm_model: gpt-4o-mini
+
+# Patterns for bolding key terms in objectives
+objective_patterns:
+  - '\b(?:Dashboard|Media Library|Upload Panel|Settings|Navigation)\b'
+  - '\b(?:Media Player|Publishing Console|Analytics)\b'
+  - '\b(?:upload|download|publish|share|stream)\b'
+  - '\b(?:Chrome|Safari|Firefox|Edge|iPad|Android)\b'
+  - '\b(?:video|audio|image|media|content)\b'
+  - '\b(?:enabled|disabled|visible|hidden|selected)\b'
+  - '\bWCAG\s+\d+\.\d+\s+(?:A|AA|AAA)\b'
