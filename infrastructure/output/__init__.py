@@ -1,3 +1,0 @@
-"""
-Output generator implementations.
-"""

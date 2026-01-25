@@ -1,507 +1,250 @@
-# Test Case Generation Framework
+# AI-Driven Test Case Generation Framework
 
-## Quick Start - CLI Commands
+A production-ready framework for automatically generating test cases from Azure DevOps user stories. Integrates with **GitHub Copilot via MCP** (Model Context Protocol) for AI-assisted test generation.
+
+---
+
+## Quick Start
+
+### 1. Setup
 
 ```bash
-# WORKFLOW 1: Generate test cases (rule-based + LLM correction)
-python3 workflows.py generate --story-id 272889
+# Create virtual environment (Python 3.10 required for spaCy)
+python3.10 -m venv venv310
+source venv310/bin/activate
 
-# WORKFLOW 1: Generate test cases (rule-based only, no LLM)
-python3 workflows.py generate --story-id 273166 --skip-correction
+# Install dependencies
+pip install -r requirements.txt
 
-# WORKFLOW 2: Generate + Upload to ADO test suite
-python3 workflows.py upload --story-id 272889
-
-# WORKFLOW 2: Preview upload without actually uploading
-python3 workflows.py upload --story-id 272889 --dry-run
-
-# WORKFLOW 3: Update objectives for existing test cases
-python3 workflows.py update-objectives --csv output/exported_from_ado.csv --objectives output/272889_OBJECTIVES.txt
-
-# WORKFLOW 3: Preview objective updates
-python3 workflows.py update-objectives --csv output/exported.csv --objectives output/objectives.txt --dry-run
+# Configure environment
+cp .env.example .env
+# Edit .env with your ADO_PAT and OPENAI_API_KEY
 ```
 
----
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Prerequisites](#prerequisites)
-3. [Installation](#installation)
-4. [Architecture](#architecture)
-5. [Workflows](#workflows)
-   - [Workflow 1: Generate](#workflow-1-generate)
-   - [Workflow 2: Upload](#workflow-2-upload)
-   - [Workflow 3: Update Objectives](#workflow-3-update-objectives)
-6. [Output Files](#output-files)
-7. [Configuration](#configuration)
-8. [Quality Rules](#quality-rules)
-9. [Troubleshooting](#troubleshooting)
-10. [Project Structure](#project-structure)
-
----
-
-## Overview
-
-This framework automates test case generation for Azure DevOps (ADO). It:
-
-1. **Fetches** story data from ADO (acceptance criteria, QA prep)
-2. **Generates** comprehensive test cases using rule-based logic
-3. **Corrects** test cases using LLM (optional, for quality enhancement)
-4. **Uploads** test cases to ADO test suites with formatted objectives
-
-### Key Features
-
-- **Rule-based generation**: Fast, deterministic test case creation
-- **LLM correction**: Optional enhancement using GPT-4o-mini
-- **Strict suite matching**: Only uploads to `{story_id} : {name}` pattern
-- **1:1 objective mapping**: Each test case has a formatted objective
-- **ADO-ready output**: CSV format compatible with ADO import
-
----
-
-## Prerequisites
-
-- Python 3.7+
-- Azure DevOps Personal Access Token (PAT)
-- OpenAI API key (optional, for LLM correction)
-
-### Required Python Packages
+### 2. Generate Tests (CLI)
 
 ```bash
-pip install requests beautifulsoup4 python-dotenv openai
+python mcp_server.py 272889
 ```
+
+### 3. Use with GitHub Copilot (MCP)
+
+1. Open [.vscode/mcp.json](.vscode/mcp.json) in VS Code
+2. Click **"Start"** button to start MCP server
+3. In Copilot Chat (Agent mode): `"generate tests for story 272889"`
 
 ---
 
-## Installation
+## MCP Tools (GitHub Copilot)
 
-1. **Clone/download** the project
+| Tool | Description | Example |
+|------|-------------|---------|
+| `generate_tests` | Generate tests and save to output folder | "generate tests for story 272889" |
+| `upload_tests` | Generate AND upload to ADO test suite | "upload tests for story 272889" |
+| `check_story` | Get story details from ADO | "check story 272889" |
+| `list_projects` | List available projects | "list projects" |
 
-2. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   # Or manually:
-   pip install requests beautifulsoup4 python-dotenv openai
-   ```
+### MCP Configuration
 
-3. **Create `.env` file** in project root:
-   ```bash
-   ADO_PAT=your_ado_personal_access_token
-   OPENAI_API_KEY=your_openai_api_key  # Optional
-   ```
+The MCP server is configured in [.vscode/mcp.json](.vscode/mcp.json):
 
-4. **Verify setup**:
-   ```bash
-   python3 workflows.py --help
-   ```
-
----
-
-## Architecture
-
+```json
+{
+  "servers": {
+    "test-gen": {
+      "type": "stdio",
+      "command": "/path/to/venv310/bin/python",
+      "args": ["/path/to/mcp_server.py"]
+    }
+  }
+}
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      workflows.py                           │
-│                   (Single Entry Point)                      │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────┐   │
-│  │  Generate   │  │   Upload    │  │ Update Objectives│   │
-│  │  Workflow   │  │  Workflow   │  │    Workflow      │   │
-│  └──────┬──────┘  └──────┬──────┘  └────────┬─────────┘   │
-│         │                │                   │             │
-├─────────┴────────────────┴───────────────────┴─────────────┤
-│                    IWorkflow Interface                      │
-│              (validate_inputs, execute)                     │
-├─────────────────────────────────────────────────────────────┤
-│                    WorkflowEngine                           │
-│              (registers and orchestrates)                   │
-└─────────────────────────────────────────────────────────────┘
-                              │
-          ┌───────────────────┼───────────────────┐
-          ▼                   ▼                   ▼
-   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-   │ ADO Client  │    │ Generators  │    │   Config    │
-   │ (API calls) │    │ (test logic)│    │  (settings) │
-   └─────────────┘    └─────────────┘    └─────────────┘
-```
-
-### Design Principles
-
-- **Single entry point**: All workflows through `workflows.py`
-- **Interface-based**: `IWorkflow` defines contract for all workflows
-- **Clean separation**: Each workflow is independent and testable
-- **Fail-fast**: Validation before execution
 
 ---
 
 ## Workflows
 
-### Workflow 1: Generate
+### Workflow 1: Generate Tests
 
-**Purpose**: Generate test cases locally without uploading to ADO.
+Generate test cases locally (saves CSV, objectives, JSON to `output/`).
 
-**Command**:
 ```bash
-python3 workflows.py generate --story-id <STORY_ID> [--skip-correction] [--output-dir <DIR>]
+# CLI
+python mcp_server.py 272889
+
+# MCP (Copilot)
+"generate tests for story 272889"
 ```
 
-**Options**:
-| Option | Description |
-|--------|-------------|
-| `--story-id` | Required. ADO story ID (e.g., 272889) |
-| `--skip-correction` | Skip LLM correction, use rule-based only |
-| `--output-dir` | Output directory (default: `output`) |
+**Output files:**
+- `272889_..._HYBRID_TESTS.csv` - ADO-ready CSV
+- `272889_..._HYBRID_OBJECTIVES.txt` - Objectives with HTML formatting
+- `272889_..._HYBRID_DEBUG.json` - Full debug data
 
-**Examples**:
+### Workflow 2: Upload Tests
+
+Generate AND upload to ADO test suite (auto-creates suite if needed).
+
 ```bash
-# With LLM correction (recommended)
-python3 workflows.py generate --story-id 272889
+# CLI
+python workflows.py upload --story-id 272889
 
-# Without LLM (faster, rule-based only)
-python3 workflows.py generate --story-id 272889 --skip-correction
-
-# Custom output directory
-python3 workflows.py generate --story-id 272889 --output-dir ./my_tests
+# MCP (Copilot)
+"upload tests for story 272889"
+"upload tests for story 272889 with dry_run=true"  # Preview only
 ```
 
-**Output Files**:
-```
-output/
-├── 272889_Feature_Name_HYBRID_TESTS.csv       # Test cases (ADO-ready)
-├── 272889_Feature_Name_HYBRID_OBJECTIVES.txt  # Formatted objectives
-└── 272889_Feature_Name_HYBRID_DEBUG.json      # Debug data
-```
+### Workflow 3: Check Story
 
-**Process**:
-```
-Story ID → Fetch from ADO → Rule-based generation → LLM correction → Save files
+Get story details and acceptance criteria from ADO.
+
+```bash
+# MCP (Copilot)
+"check story 272889"
+"what are the acceptance criteria for story 272889?"
 ```
 
 ---
 
-### Workflow 2: Upload
+## Multi-Project Support
 
-**Purpose**: Generate test cases AND upload to ADO test suite.
+### Available Projects
 
-**IMPORTANT**: Only uploads to test suite matching pattern `{story_id} : {name}`
-
-**Command**:
 ```bash
-python3 workflows.py upload --story-id <STORY_ID> [--dry-run] [--skip-correction] [--output-dir <DIR>]
+python setup_project.py list
 ```
 
-**Options**:
-| Option | Description |
-|--------|-------------|
-| `--story-id` | Required. ADO story ID |
-| `--dry-run` | Preview mode, no actual uploads |
-| `--skip-correction` | Skip LLM correction |
-| `--output-dir` | Output directory (default: `output`) |
+| Project | Application |
+|---------|-------------|
+| `env-quickdraw` | ENV QuickDraw (default) |
+| `mediapedia-us` | MediaPedia US |
 
-**Examples**:
+### Using Different Projects
+
 ```bash
-# Full upload (generate + upload)
-python3 workflows.py upload --story-id 272889
+# CLI
+python mcp_server.py 272889 mediapedia-us
 
-# Preview what would be uploaded
-python3 workflows.py upload --story-id 272889 --dry-run
-
-# Upload without LLM correction
-python3 workflows.py upload --story-id 272889 --skip-correction
+# MCP (Copilot)
+"generate tests for story 12345 in mediapedia-us project"
 ```
 
-**Test Suite Requirement**:
+### Create New Project
 
-The workflow **requires** a test suite with name pattern:
-```
-{story_id} : {story_name}
-```
-
-Example: `272889 : Object Transformation Tools (Rotate & Mirror)`
-
-If no matching suite is found, the workflow **fails** with an error.
-
-**Process**:
-```
-Story ID → Find test suite → Fail if not found → Generate tests → Upload → Add to suite
-```
-
----
-
-### Workflow 3: Update Objectives
-
-**Purpose**: Update Summary/Objective field for existing test cases in ADO.
-
-**Use Case**: When test cases are already uploaded but objectives need updating.
-
-**Command**:
 ```bash
-python3 workflows.py update-objectives --csv <CSV_FILE> --objectives <OBJECTIVES_FILE> [--dry-run]
-```
-
-**Options**:
-| Option | Description |
-|--------|-------------|
-| `--csv` | Required. CSV file exported from ADO (has work item IDs) |
-| `--objectives` | Required. Objectives TXT file (1:1 mapped) |
-| `--dry-run` | Preview mode, no actual updates |
-
-**Examples**:
-```bash
-# Update objectives
-python3 workflows.py update-objectives \
-  --csv output/272889_exported_from_ado.csv \
-  --objectives output/272889_OBJECTIVES.txt
-
-# Preview updates
-python3 workflows.py update-objectives \
-  --csv output/272889_exported.csv \
-  --objectives output/272889_OBJECTIVES.txt \
-  --dry-run
-```
-
-**Required CSV Format** (exported from ADO after upload):
-```csv
-ID,Work Item Type,Title,...
-278255,Test Case,272889-AC1: Feature / Area / Scenario,...
-278256,Test Case,272889-005: Feature / Area / Scenario,...
-```
-
-The `ID` column must contain ADO work item IDs.
-
-**Required Objectives Format**:
-```
-272889-AC1: Feature / Area / Scenario
-<b>Objective:</b> Verify that ...
-
-272889-005: Feature / Area / Scenario
-<b>Objective:</b> Verify that ...
-```
-
-**Process**:
-```
-CSV → Extract ADO IDs → Match with objectives → Update Summary field in ADO
-```
-
----
-
-## Output Files
-
-### CSV File (`*_TESTS.csv`)
-
-ADO-ready format for test case import:
-
-| Column | Description |
-|--------|-------------|
-| ID | ADO work item ID (empty for new, filled after export) |
-| Work Item Type | Always "Test Case" |
-| Title | Format: `{story_id}-{test_id}: {Feature} / {Area} / {Scenario}` |
-| TestStep | Step number |
-| Step Action | Action to perform |
-| Step Expected | Expected result |
-| Area Path | ADO area path |
-| AssignedTo | Assigned user |
-| State | Test case state (Design) |
-
-### Objectives File (`*_OBJECTIVES.txt`)
-
-1:1 mapped objectives with HTML formatting:
-
-```
-272889-AC1: Object Transformation Tools / Tools Menu / Feature Availability
-<b>Objective:</b> Verify that <b>Rotate</b>, <b>Mirror Horizontally</b>, and <b>Mirror Vertically</b> are available in <b>Tools Menu</b>
-
-272889-005: Object Transformation Tools / Tools Menu / Commands Availability
-<b>Objective:</b> Verify that transformation commands are <b>enabled</b> when an <b>object</b> is <b>selected</b>
-```
-
-### Debug JSON (`*_DEBUG.json`)
-
-Full data for debugging:
-
-```json
-{
-  "story_id": 272889,
-  "title": "Object Transformation Tools (Rotate & Mirror)",
-  "test_cases": [...],
-  "mode": "hybrid"
-}
+python setup_project.py create
 ```
 
 ---
 
 ## Configuration
 
-### Environment Variables (`.env`)
+### Environment Variables (.env)
 
 ```bash
-# Required for ADO access
+# Required
 ADO_PAT=your_personal_access_token
+ADO_ORG=your_organization
+ADO_PROJECT=your_project
 
-# Optional for LLM correction
-OPENAI_API_KEY=your_openai_api_key
+# Optional
+OPENAI_API_KEY=sk-...  # For LLM correction
+ADO_AREA_PATH=Project\\Team
+ASSIGNED_TO=your.email@company.com
 ```
 
-### Config File (`config.py`)
+### Project Configuration
 
-```python
-# ADO Settings
-ADO_ORG = "cdpinc"
-ADO_PROJECT = "Env"
-ADO_AREA_PATH = "Env\\ENV Kanda"
+Projects are configured in `projects/configs/*.yaml`:
 
-# Test Case Defaults
-ASSIGNED_TO = "your.email@domain.com"
-DEFAULT_STATE = "Design"
-
-# LLM Settings
-LLM_MODEL = "gpt-4o-mini"  # Recommended for speed/cost
-LLM_TIMEOUT = 90           # Seconds
+```yaml
+project_id: my-app
+application:
+  name: My Application
+  type: web
+  prereq_template: "Pre-req: User has access to {app_name}"
+  launch_step: "Navigate to {app_name}."
+ado:
+  organization: my-org
+  project: MyProject
+  area_path: "MyProject\\Team"
 ```
 
 ---
 
-## Quality Rules
+## Output Files
 
-### Title Format
+| File | Purpose |
+|------|---------|
+| `*_TESTS.csv` | ADO import-ready test cases |
+| `*_OBJECTIVES.txt` | Formatted objectives (HTML) |
+| `*_DEBUG.json` | Full data for debugging |
+
+### CSV Format (ADO Import)
+
+| Column | Description |
+|--------|-------------|
+| Title | `{story_id}-{test_id}: Feature / Area / Scenario` |
+| TestStep | Step number |
+| Step Action | What to do |
+| Step Expected | Expected result |
+| Area Path | ADO area path |
+
+---
+
+## Architecture
 
 ```
-{story_id}-{test_id}: {Feature} / {Area} / {Scenario}
+test_gen/
+├── mcp_server.py          # MCP server + CLI entry point
+├── workflows.py           # Full workflow engine
+├── setup_project.py       # Project setup tool
+│
+├── core/                  # Domain layer
+│   ├── interfaces/        # Abstractions
+│   └── services/          # Test generation logic
+│
+├── infrastructure/        # External services
+│   ├── ado/               # Azure DevOps client
+│   └── export/            # CSV/Objective generators
+│
+├── projects/              # Multi-project support
+│   └── configs/           # YAML configurations
+│
+├── llm/                   # LLM providers
+├── output/                # Generated files
+└── .vscode/
+    └── mcp.json           # MCP configuration
 ```
-
-**Examples**:
-- `272889-AC1: Object Transformation / Tools Menu / Feature Availability`
-- `272889-005: Object Transformation / Canvas / Rotate Functionality`
-
-### Test ID Sequence
-
-| ID | Type |
-|----|------|
-| AC1 | First test (availability) |
-| 005 | Second test |
-| 010 | Third test |
-| 015 | Fourth test |
-| ... | Increment by 5 |
-
-### Forbidden Elements
-
-**Words** (never use):
-- `or` / `OR`
-- `if available`
-- `if supported`
-- `if applicable`
-
-**Areas** (use specific UI surfaces instead):
-- `Functionality`
-- `Behavior` (alone)
-- `General`
-- `Validation`
-
-**Use Instead**:
-- Tools Menu, File Menu, Edit Menu
-- Properties Panel, Canvas
-- Dialog Window, Top Action Toolbar
-
-### Required Structure
-
-| Step | Requirement |
-|------|-------------|
-| First | PRE-REQ step (empty expected) |
-| Last | Close/Exit step (empty expected) |
-| Verification | Must have expected result |
 
 ---
 
 ## Troubleshooting
 
-### "No test suite found matching pattern"
+### MCP not working in Copilot
+1. Check VS Code version is 1.102+
+2. Open [.vscode/mcp.json](.vscode/mcp.json) and click "Start"
+3. Use Agent mode in Copilot Chat
 
-**Cause**: Test suite name doesn't match `{story_id} : {name}` pattern.
+### "Story not found"
+- Verify story ID exists in ADO
+- Check `ADO_PAT` token is valid
 
-**Solution**:
-1. Check ADO for test suite name
-2. Ensure format is exactly: `272889 : Story Name` (space before colon)
-3. Create test suite if it doesn't exist
-
-### "OPENAI_API_KEY not configured"
-
-**Cause**: LLM correction requires OpenAI API key.
-
-**Solutions**:
-1. Add to `.env`: `OPENAI_API_KEY=your_key`
-2. Or use `--skip-correction` flag
-
-### "LLM correction taking too long"
-
-**Cause**: Large test cases or slow API response.
-
-**Solutions**:
-1. Use `--skip-correction` for faster generation
-2. Check OpenAI API status
-3. Timeout is 90 seconds by default
-
-### "No test cases found in CSV"
-
-**Cause**: CSV doesn't have ADO work item IDs.
-
-**Solution**: Export CSV from ADO after uploading test cases. The `ID` column must contain work item IDs.
-
-### "Failed to fetch story"
-
-**Cause**: Invalid story ID or ADO connection issue.
-
-**Solutions**:
-1. Verify story ID exists in ADO
-2. Check `ADO_PAT` is valid and not expired
-3. Verify network connectivity
-
----
-
-## Project Structure
-
-```
-test_gen/
-├── workflows.py              # Main CLI entry point (3 workflows)
-├── config.py                 # Configuration settings
-├── correct_with_llm.py       # LLM correction logic
-├── README.md                 # This file
-├── .env                      # Environment variables (create this)
-│
-├── src/                      # Core modules
-│   ├── ado_client.py         # ADO API client
-│   ├── comprehensive_test_generator.py  # Rule-based generation
-│   ├── csv_generator.py      # CSV output
-│   ├── objective_generator.py # Objective formatting
-│   └── test_suite_uploader.py # ADO upload
-│
-├── core/                     # Clean architecture layer
-│   ├── domain/               # Domain entities
-│   ├── interfaces/           # Interfaces/ports
-│   └── services/             # Domain services
-│
-├── llm/                      # LLM provider abstraction
-│   ├── factory.py            # Provider factory
-│   └── openai_provider.py    # OpenAI implementation
-│
-└── output/                   # Generated files
-    ├── *_TESTS.csv
-    ├── *_OBJECTIVES.txt
-    └── *_DEBUG.json
+### "MCP not installed"
+```bash
+source venv310/bin/activate
+pip install mcp
 ```
 
 ---
 
 ## Version
 
-**v2.0** - Clean workflow framework with three distinct workflows.
+**v4.0** - GitHub Copilot MCP integration with 3 main workflows.
 
-### Changelog
-
-- Unified CLI entry point (`workflows.py`)
-- Strict test suite matching (`{story_id} : {name}`)
-- Improved error handling and validation
-- Dry-run support for all workflows
-- Better progress indicators
+### Recent Changes
+- MCP server for GitHub Copilot integration
+- 3 main workflows: generate, upload, check_story
+- Simplified CLI: `python mcp_server.py <story_id>`
+- Quality enhancement with LLM correction
+- Multi-project YAML configuration

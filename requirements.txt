@@ -6,6 +6,10 @@ pyyaml>=6.0.0  # For project configuration files
 
 # LLM Providers
 openai>=1.0.0
+anthropic>=0.21.0  # Claude API
+
+# NLP (optional but recommended)
+spacy>=3.7.0
 
 # Testing
 pytest>=7.4.0
@@ -13,3 +17,6 @@ pytest-cov>=4.1.0
 
 # Optional: for future enhancements
 # pydantic>=2.0.0  # If switching from dataclasses
+
+# Note: After installing spaCy, download the English model:
+# python -m spacy download en_core_web_sm

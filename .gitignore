@@ -43,3 +43,10 @@ final_*.txt
 .env
 .env.local
 .env.*.local
+
+# MCP config (contains local paths)
+.mcp.json
+
+# Claude settings (local)
+.claude/
+venv310/

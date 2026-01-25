@@ -165,8 +165,8 @@ class TestSuiteCreator:
         if not test_case_ids:
             return True
 
-        url = (f"{self.base_url}/_apis/test/Plans/{plan_id}/suites/{suite_id}"
-               f"/testcases?api-version=7.0")
+        url = (f"{self.base_url}/_apis/testplan/Plans/{plan_id}/suites/{suite_id}"
+               f"/testcases?api-version=7.1")
 
         # Build the payload
         test_cases = [{"id": tc_id} for tc_id in test_case_ids]
@@ -188,7 +188,7 @@ class TestSuiteCreator:
 
     def _find_test_plan(self, plan_name: str) -> Optional[TestPlanInfo]:
         """Find an existing test plan by name."""
-        url = f"{self.base_url}/_apis/test/plans?api-version=7.0"
+        url = f"{self.base_url}/_apis/testplan/plans?api-version=7.1"
 
         try:
             response = requests.get(url, auth=self.auth, headers=self.headers)
@@ -215,7 +215,7 @@ class TestSuiteCreator:
         iteration_path: str = None
     ) -> TestPlanInfo:
         """Create a new test plan."""
-        url = f"{self.base_url}/_apis/test/plans?api-version=7.0"
+        url = f"{self.base_url}/_apis/testplan/plans?api-version=7.1"
 
         payload = {
             "name": plan_name,
@@ -248,7 +248,7 @@ class TestSuiteCreator:
 
     def _find_test_suite(self, plan_id: int, story_id: str) -> Optional[TestSuiteInfo]:
         """Find an existing test suite by story ID prefix."""
-        url = f"{self.base_url}/_apis/test/Plans/{plan_id}/suites?api-version=7.0"
+        url = f"{self.base_url}/_apis/testplan/Plans/{plan_id}/suites?api-version=7.1"
 
         try:
             response = requests.get(url, auth=self.auth, headers=self.headers)
@@ -283,8 +283,8 @@ class TestSuiteCreator:
         # Get the root suite ID first
         root_suite_id = self._get_root_suite_id(plan_id)
 
-        url = (f"{self.base_url}/_apis/test/Plans/{plan_id}/suites/{root_suite_id}"
-               f"?api-version=7.0")
+        url = (f"{self.base_url}/_apis/testplan/Plans/{plan_id}/suites/{root_suite_id}"
+               f"?api-version=7.1")
 
         payload = {
             "suiteType": "staticTestSuite",
@@ -313,7 +313,7 @@ class TestSuiteCreator:
 
     def _get_root_suite_id(self, plan_id: int) -> int:
         """Get the root suite ID for a test plan."""
-        url = f"{self.base_url}/_apis/test/Plans/{plan_id}?api-version=7.0"
+        url = f"{self.base_url}/_apis/testplan/Plans/{plan_id}?api-version=7.1"
 
         try:
             response = requests.get(url, auth=self.auth, headers=self.headers)

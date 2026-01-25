@@ -22,6 +22,19 @@ class ApplicationConfig:
     launch_expected: str = "Application loads successfully."
     close_step: str = "Close the {app_name}."
 
+    # Feature constraints - CRITICAL for accurate test generation
+    # Features that DO NOT exist in this application (prevents generating impossible tests)
+    unavailable_features: List[str] = field(default_factory=list)
+    # Example: ["multi-object selection", "batch processing", "cloud sync"]
+
+    # Feature aliases - map AC terminology to actual feature names
+    feature_aliases: Dict[str, str] = field(default_factory=dict)
+    # Example: {"multi-select": "single object selection only", "GPS": "Set Base Coordinates"}
+
+    # Feature notes - warnings/notes about feature limitations
+    feature_notes: Dict[str, str] = field(default_factory=dict)
+    # Example: {"rotate": "Only 90-degree rotations supported"}
+
     # UI-specific configuration
     main_ui_surfaces: List[str] = field(default_factory=lambda: [
         'Main Menu', 'Toolbar', 'Canvas', 'Properties Panel', 'Dialog Window'
@@ -85,6 +98,67 @@ class ApplicationConfig:
         """Determine if the text indicates object interaction is needed."""
         text_lower = text.lower()
         return any(keyword in text_lower for keyword in self.object_interaction_keywords)
+
+    def is_feature_available(self, feature_text: str) -> bool:
+        """Check if a feature is available in this application."""
+        text_lower = feature_text.lower()
+        for unavailable in self.unavailable_features:
+            if unavailable.lower() in text_lower:
+                return False
+        return True
+
+    def get_feature_warning(self, feature_text: str) -> Optional[str]:
+        """Get any warnings/notes about a feature."""
+        text_lower = feature_text.lower()
+        for feature_key, note in self.feature_notes.items():
+            if feature_key.lower() in text_lower:
+                return note
+        return None
+
+    def resolve_feature_alias(self, ac_text: str) -> str:
+        """Replace AC terminology with actual feature names if aliases exist."""
+        result = ac_text
+        for alias, actual in self.feature_aliases.items():
+            if alias.lower() in ac_text.lower():
+                # Add note about the alias
+                result = result + f" [Note: {alias} → {actual}]"
+        return result
+
+    def check_ac_feasibility(self, ac_text: str) -> Dict[str, Any]:
+        """
+        Check if an AC can be tested with this application's capabilities.
+
+        Returns:
+            Dict with 'feasible' bool, 'warnings' list, and 'blocked_reasons' list
+        """
+        result = {
+            'feasible': True,
+            'warnings': [],
+            'blocked_reasons': [],
+            'notes': []
+        }
+
+        text_lower = ac_text.lower()
+
+        # Check for unavailable features
+        for unavailable in self.unavailable_features:
+            if unavailable.lower() in text_lower:
+                result['feasible'] = False
+                result['blocked_reasons'].append(
+                    f"Feature '{unavailable}' is not available in {self.name}"
+                )
+
+        # Check for feature notes/warnings
+        for feature_key, note in self.feature_notes.items():
+            if feature_key.lower() in text_lower:
+                result['warnings'].append(note)
+
+        # Check for aliases
+        for alias, actual in self.feature_aliases.items():
+            if alias.lower() in text_lower:
+                result['notes'].append(f"'{alias}' maps to '{actual}'")
+
+        return result
 
 
 @dataclass
@@ -322,6 +396,24 @@ def get_env_quickdraw_config() -> ProjectConfig:
             launch_step="Launch the {app_name} application.",
             launch_expected="Model space(Gray) and Canvas(white) space should be displayed",
             close_step="Close the {app_name} App",
+            # FEATURE CONSTRAINTS - Critical for accurate test generation
+            unavailable_features=[
+                "multi-object selection",
+                "multi-select",
+                "batch processing",
+                "cloud sync",
+                "real-time collaboration",
+                "version history",
+            ],
+            feature_aliases={
+                "GPS": "Set Base Coordinates dialog",
+                "coordinates": "Set Base Coordinates dialog",
+            },
+            feature_notes={
+                "rotate": "Rotation uses system default logic (typically 90-degree increments)",
+                "mirror": "Mirror operations preserve relative positions",
+                "transform": "Commands are only enabled when at least one object is selected",
+            },
             main_ui_surfaces=[
                 'File Menu', 'Edit Menu', 'Tools Menu', 'Dimensions Menu',
                 'Properties Panel', 'Dimensions Panel', 'Canvas',

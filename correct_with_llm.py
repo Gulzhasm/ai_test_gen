@@ -35,10 +35,10 @@ load_dotenv()
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.ado_client import ADOClient
-from src.comprehensive_test_generator import ComprehensiveTestGenerator
-from src.csv_generator import CSVGenerator
-from src.objective_generator import ObjectiveGenerator
+from infrastructure.ado import ADOStoryRepository
+from infrastructure.export import CSVGenerator, ObjectiveGenerator
+from core.services import GenericTestGenerator
+from projects import get_project_manager
 import config
 
 # LLM correction imports
@@ -120,9 +120,9 @@ Remove from ALL step actions and expected results:
 - Optional/conditional phrasing
 
 ## D) STEP STRUCTURE
-1. First step: "Pre-req: The ENV QuickDraw App is installed" (empty expected)
-2. Second step: "Launch the ENV QuickDraw application." (expected: "Model space(Gray) and Canvas(white) space should be displayed")
-3. Last step: "Close the ENV QuickDraw App" (empty expected)
+1. First step: Pre-requisite step (empty expected) - typically "Pre-req: The application is installed" or similar
+2. Second step: Launch/Navigate step with application-specific expected result
+3. Last step: Close/Exit/Log out step (empty expected)
 
 ## E) ID SEQUENCE
 - AC1 for first test (availability)
@@ -214,10 +214,26 @@ Output corrected and enhanced JSON only: {"test_cases": [...]}"""
 class LLMCorrector:
     """Corrects and enhances test cases using LLM."""
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-4o-mini"):
+    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-4o-mini", app_config=None):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.model = model
         self._client: Optional[OpenAI] = None
+        self._app_config = app_config
+
+        # Default step templates (can be overridden by app_config)
+        self._app_name = "Application"
+        self._prereq = "Pre-req: The application is installed"
+        self._launch_expected = ""
+        self._close = "Close the application"
+
+        if app_config:
+            self._app_name = getattr(app_config, 'name', self._app_name)
+            if hasattr(app_config, 'get_prereq_step'):
+                self._prereq = app_config.get_prereq_step()
+            if hasattr(app_config, 'launch_expected'):
+                self._launch_expected = app_config.launch_expected or ""
+            if hasattr(app_config, 'get_close_step'):
+                self._close = app_config.get_close_step()
 
     @property
     def client(self) -> Optional[OpenAI]:
@@ -339,50 +355,50 @@ Expected total: 15-25 comprehensive test cases."""
             return test_cases
 
     def _post_process_corrections(self, test_cases: List[Dict], story_id: str) -> List[Dict]:
-        """Post-process LLM corrections to ensure structure compliance based on approved 270479 patterns."""
+        """Post-process LLM corrections to ensure structure compliance."""
         for tc in test_cases:
             steps = tc.get('steps', [])
 
-            # Ensure first step is PRE-REQ (standardized format)
+            # Ensure first step is PRE-REQ (using configured template)
             if steps and 'pre-req' not in steps[0].get('action', '').lower():
                 steps.insert(0, {
                     'step': 1,
-                    'action': 'Pre-req: The ENV QuickDraw App is installed',
+                    'action': self._prereq,
                     'expected': ''
                 })
             elif steps:
                 # Standardize PRE-REQ format
-                steps[0]['action'] = 'Pre-req: The ENV QuickDraw App is installed'
+                steps[0]['action'] = self._prereq
                 steps[0]['expected'] = ''
 
-            # Ensure second step is Launch with standard expected
+            # Ensure second step is Launch with configured expected
             if len(steps) >= 2:
                 action_lower = steps[1].get('action', '').lower()
-                if 'launch' in action_lower:
-                    steps[1]['expected'] = 'Model space(Gray) and Canvas(white) space should be displayed'
+                if 'launch' in action_lower or 'navigate' in action_lower:
+                    if self._launch_expected:
+                        steps[1]['expected'] = self._launch_expected
 
-            # Ensure last step is Close with empty expected (standardized format)
+            # Ensure last step is Close with empty expected (using configured template)
             if steps:
                 last_step = steps[-1]
-                if 'close' not in last_step.get('action', '').lower() and 'exit' not in last_step.get('action', '').lower():
+                if 'close' not in last_step.get('action', '').lower() and 'exit' not in last_step.get('action', '').lower() and 'log out' not in last_step.get('action', '').lower():
                     steps.append({
                         'step': len(steps) + 1,
-                        'action': 'Close the ENV QuickDraw App',
+                        'action': self._close,
                         'expected': ''
                     })
                 else:
                     # Standardize close step format
-                    last_step['action'] = 'Close the ENV QuickDraw App'
+                    last_step['action'] = self._close
                     last_step['expected'] = ''
 
             # Clear expected for routine steps (PRE-REQ and Close only mandatory empty)
-            # Other steps can have expected based on context
             for step in steps:
                 action_lower = step.get('action', '').lower()
                 # Only force empty for PRE-REQ and Close
                 if 'pre-req' in action_lower:
                     step['expected'] = ''
-                elif 'close the env' in action_lower:
+                elif 'close' in action_lower or 'exit' in action_lower or 'log out' in action_lower:
                     step['expected'] = ''
 
             # Renumber steps
@@ -418,16 +434,29 @@ def generate_and_correct(
     # Step 1: Fetch story data from ADO
     print("Step 1: Fetching story data from ADO...")
     try:
-        ado_client = ADOClient()
-        story_data = ado_client.fetch_story_comprehensive(story_id)
+        # Get project configuration
+        project_manager = get_project_manager()
+        project_manager.load_from_directory()
+        project_config = project_manager.get_or_create_default()
+
+        # Ensure PAT is set
+        if not project_config.ado.pat:
+            import os
+            project_config.ado.pat = os.getenv('ADO_PAT')
+
+        story_repo = ADOStoryRepository(project_config.ado)
+        story = story_repo.get_story(story_id)
+        if not story:
+            print(f"ERROR: Failed to fetch story {story_id}")
+            return False
+        qa_prep = story_repo.get_qa_prep(story_id) or ''
     except Exception as e:
         print(f"ERROR: Failed to fetch story: {e}")
         return False
 
-    title = story_data['title']
-    description = story_data['description']
-    acceptance_criteria = story_data['acceptance_criteria']
-    qa_prep = story_data['qa_prep']
+    title = story.title
+    description = story.description
+    acceptance_criteria = story.acceptance_criteria
 
     print(f"  Title: {title}")
     print(f"  Description: {len(description)} chars")
@@ -440,7 +469,7 @@ def generate_and_correct(
 
     # Step 2: Generate test cases with non-LLM generator
     print("\nStep 2: Generating test cases (rule-based)...")
-    generator = ComprehensiveTestGenerator()
+    generator = GenericTestGenerator(project_config)
     test_cases = generator.generate_test_cases(
         story_data={'story_id': story_id, 'title': title},
         criteria=acceptance_criteria,
@@ -456,7 +485,11 @@ def generate_and_correct(
             print("\n  ⚠ OPENAI_API_KEY not configured, skipping LLM correction")
         else:
             print("\nStep 3: Correcting test cases with LLM...")
-            corrector = LLMCorrector(api_key=api_key, model=config.LLM_MODEL)
+            corrector = LLMCorrector(
+                api_key=api_key,
+                model=config.LLM_MODEL,
+                app_config=project_config.application
+            )
             test_cases = corrector.correct_test_cases(
                 test_cases=test_cases,
                 story_id=str(story_id),

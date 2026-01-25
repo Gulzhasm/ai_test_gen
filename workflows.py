@@ -1,24 +1,29 @@
 #!/usr/bin/env python3
 """
-Test Case Workflows - Clean, Generic, Extendable Framework
+Generic Test Case Workflows - Multi-Project Support
 
-Three workflows:
-1. generate    - Generate test cases (rule-based + optional LLM correction)
-2. upload      - Generate + Upload to ADO test suite (strict {story_id} : {name} pattern)
-3. update-objectives - Update objectives for existing test cases from CSV mapping
+Enhanced workflow engine supporting:
+1. Multiple project configurations (YAML-based)
+2. Application discovery for new projects
+3. Auto test suite creation (for projects without QA Prep)
+4. Backward compatibility with existing ENV QuickDraw usage
 
 Usage:
-    python3 workflows.py generate --story-id 272889
-    python3 workflows.py upload --story-id 272889
-    python3 workflows.py update-objectives --csv <file> --objectives <file>
+    # Using default project (env-quickdraw)
+    python3 workflows_generic.py generate --story-id 272889
 
-Architecture:
-    - WorkflowEngine: Orchestrates workflow execution
-    - IWorkflow: Interface for all workflows
-    - Each workflow is a separate class implementing IWorkflow
+    # Using specific project
+    python3 workflows_generic.py generate --story-id 12345 --project mediapedia-us
+
+    # Initialize new project
+    python3 workflows_generic.py init-project --name "My App" --org "myorg" --project "MyProject"
+
+    # Discover project from stories
+    python3 workflows_generic.py discover --story-id 12345 --project-name "mediapedia-us"
 """
 import argparse
 import sys
+import os
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -30,6 +35,10 @@ load_dotenv()
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
+
+from projects import ProjectConfig, ProjectManager, ApplicationDiscovery, get_project_manager
+from projects.project_config import create_new_project_config, get_env_quickdraw_config
+from projects.test_suite_creator import TestSuiteCreator, QAPrepGenerator
 
 
 # =============================================================================
@@ -74,8 +83,8 @@ class IWorkflow(ABC):
         pass
 
     @abstractmethod
-    def execute(self, **kwargs) -> WorkflowResult:
-        """Execute the workflow."""
+    def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
+        """Execute the workflow with project configuration."""
         pass
 
     @abstractmethod
@@ -85,17 +94,13 @@ class IWorkflow(ABC):
 
 
 # =============================================================================
-# WORKFLOW 1: Generate Test Cases
+# WORKFLOW 1: Generate Test Cases (Generic)
 # =============================================================================
 
 class GenerateWorkflow(IWorkflow):
     """
-    Generate test cases using rule-based generator + optional LLM correction.
-
-    Outputs:
-    - CSV file (ADO-ready format)
-    - Objectives TXT file (1:1 mapped)
-    - Debug JSON file
+    Generate test cases using project configuration.
+    Uses GenericTestGenerator for project-agnostic generation.
     """
 
     @property
@@ -104,7 +109,7 @@ class GenerateWorkflow(IWorkflow):
 
     @property
     def description(self) -> str:
-        return "Generate test cases (rule-based + optional LLM correction)"
+        return "Generate test cases using project configuration"
 
     def validate_inputs(self, **kwargs) -> Optional[str]:
         story_id = kwargs.get('story_id')
@@ -114,21 +119,19 @@ class GenerateWorkflow(IWorkflow):
             return "story_id must be a positive integer"
         return None
 
-    def execute(self, **kwargs) -> WorkflowResult:
-        import os
+    def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
         import json
-        from src.ado_client import ADOClient
-        from src.comprehensive_test_generator import ComprehensiveTestGenerator
-        from src.csv_generator import CSVGenerator
-        from src.objective_generator import ObjectiveGenerator
-        import config
+        from infrastructure.ado import ADOStoryRepository
+        from infrastructure.export import CSVGenerator, ObjectiveGenerator
+        from core.services import GenericTestGenerator
 
         story_id = kwargs['story_id']
-        output_dir = kwargs.get('output_dir', 'output')
+        output_dir = kwargs.get('output_dir') or config.output_dir or 'output'
         skip_correction = kwargs.get('skip_correction', False)
 
         print(f"\n{'='*60}")
         print(f"WORKFLOW: Generate Test Cases")
+        print(f"Project: {config.project_id} ({config.application.name})")
         print(f"Story ID: {story_id}")
         print(f"Mode: {'Rule-based only' if skip_correction else 'Rule-based + LLM Correction'}")
         print(f"{'='*60}\n")
@@ -136,20 +139,30 @@ class GenerateWorkflow(IWorkflow):
         # Step 1: Fetch story data
         print("[1/3] Fetching story data from ADO...")
         try:
-            ado_client = ADOClient()
-            story_data = ado_client.fetch_story_comprehensive(story_id)
+            # Ensure PAT is set
+            if not config.ado.pat:
+                config.ado.pat = os.getenv('ADO_PAT')
+
+            story_repo = ADOStoryRepository(config.ado)
+            story = story_repo.get_story(story_id)
+            if not story:
+                return WorkflowResult(
+                    status=WorkflowStatus.FAILED,
+                    message=f"Failed to fetch story {story_id}"
+                )
+            qa_prep = story_repo.get_qa_prep(story_id) or ''
         except Exception as e:
             return WorkflowResult(
                 status=WorkflowStatus.FAILED,
                 message=f"Failed to fetch story: {e}"
             )
 
-        title = story_data['title']
-        acceptance_criteria = story_data['acceptance_criteria']
-        qa_prep = story_data['qa_prep']
+        title = story.title
+        acceptance_criteria = story.acceptance_criteria
 
         print(f"  Title: {title}")
         print(f"  Acceptance Criteria: {len(acceptance_criteria)} items")
+        print(f"  QA Prep: {'Found' if qa_prep else 'Not found (will auto-generate)'}")
 
         if not acceptance_criteria:
             return WorkflowResult(
@@ -157,9 +170,9 @@ class GenerateWorkflow(IWorkflow):
                 message="No acceptance criteria found"
             )
 
-        # Step 2: Generate test cases
+        # Step 2: Generate test cases using GenericTestGenerator
         print("\n[2/3] Generating test cases...")
-        generator = ComprehensiveTestGenerator()
+        generator = GenericTestGenerator(config)
         test_cases = generator.generate_test_cases(
             story_data={'story_id': story_id, 'title': title},
             criteria=acceptance_criteria,
@@ -168,15 +181,15 @@ class GenerateWorkflow(IWorkflow):
         print(f"  Generated {len(test_cases)} test cases")
 
         # Optional LLM correction
-        if not skip_correction:
+        if not skip_correction and config.llm_enabled:
             test_cases = self._apply_llm_correction(
-                test_cases, story_id, title, acceptance_criteria, qa_prep
+                config, test_cases, story_id, title, acceptance_criteria, qa_prep
             )
 
         # Step 3: Save outputs
         print("\n[3/3] Saving outputs...")
         output_files = self._save_outputs(
-            story_id, title, test_cases, output_dir, skip_correction
+            config, story_id, title, test_cases, output_dir, skip_correction
         )
 
         print(f"\n{'='*60}")
@@ -199,6 +212,7 @@ class GenerateWorkflow(IWorkflow):
 
     def _apply_llm_correction(
         self,
+        config: ProjectConfig,
         test_cases: List[Dict],
         story_id: int,
         title: str,
@@ -206,9 +220,6 @@ class GenerateWorkflow(IWorkflow):
         qa_prep: str
     ) -> List[Dict]:
         """Apply LLM correction to generated test cases."""
-        import os
-        import config
-
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key or api_key == "your-api-key-here":
             print("  OPENAI_API_KEY not configured, skipping LLM correction")
@@ -217,7 +228,11 @@ class GenerateWorkflow(IWorkflow):
         try:
             from correct_with_llm import LLMCorrector
             print("  Applying LLM corrections (this may take 30-60 seconds)...")
-            corrector = LLMCorrector(api_key=api_key, model=config.LLM_MODEL)
+            corrector = LLMCorrector(
+                api_key=api_key,
+                model=config.llm_model,
+                app_config=config.application
+            )
             corrected = corrector.correct_test_cases(
                 test_cases=test_cases,
                 story_id=str(story_id),
@@ -233,6 +248,7 @@ class GenerateWorkflow(IWorkflow):
 
     def _save_outputs(
         self,
+        config: ProjectConfig,
         story_id: int,
         title: str,
         test_cases: List[Dict],
@@ -240,10 +256,8 @@ class GenerateWorkflow(IWorkflow):
         skip_correction: bool
     ) -> Dict[str, str]:
         """Save generated outputs to files."""
-        import os
         import json
-        from src.csv_generator import CSVGenerator
-        from src.objective_generator import ObjectiveGenerator
+        from infrastructure.export import CSVGenerator, ObjectiveGenerator
 
         os.makedirs(output_dir, exist_ok=True)
 
@@ -272,6 +286,8 @@ class GenerateWorkflow(IWorkflow):
             json.dump({
                 'story_id': story_id,
                 'title': title,
+                'project': config.project_id,
+                'application': config.application.name,
                 'test_cases': test_cases,
                 'mode': 'hybrid' if not skip_correction else 'rule_based'
             }, f, indent=2)
@@ -282,19 +298,13 @@ class GenerateWorkflow(IWorkflow):
 
 
 # =============================================================================
-# WORKFLOW 2: Generate + Upload
+# WORKFLOW 2: Generate + Upload (with Auto Suite Creation)
 # =============================================================================
 
 class UploadWorkflow(IWorkflow):
     """
     Generate test cases and upload to ADO test suite.
-
-    STRICT: Only uploads to test suite matching pattern "{story_id} : {name}"
-
-    Steps:
-    1. Find matching test suite (fail fast if not found)
-    2. Generate test cases
-    3. Upload to ADO with Summary field populated
+    Supports auto-creation of test suites for projects without pre-existing ones.
     """
 
     @property
@@ -303,7 +313,7 @@ class UploadWorkflow(IWorkflow):
 
     @property
     def description(self) -> str:
-        return "Generate + Upload to ADO test suite (strict {story_id} : {name} pattern)"
+        return "Generate + Upload to ADO (with optional auto suite creation)"
 
     def validate_inputs(self, **kwargs) -> Optional[str]:
         story_id = kwargs.get('story_id')
@@ -313,52 +323,88 @@ class UploadWorkflow(IWorkflow):
             return "story_id must be a positive integer"
         return None
 
-    def execute(self, **kwargs) -> WorkflowResult:
+    def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
         import time
-        from src.ado_client import ADOClient
-        from src.test_suite_uploader import TestSuiteUploader
-        from src.objective_generator import ObjectiveGenerator
-        import config
+        import requests
+        from infrastructure.ado import ADOHttpClient, ADOStoryRepository, ADOTestSuiteRepository
+        from infrastructure.export import ObjectiveGenerator
 
         story_id = kwargs['story_id']
-        output_dir = kwargs.get('output_dir', 'output')
+        output_dir = kwargs.get('output_dir') or config.output_dir or 'output'
         skip_correction = kwargs.get('skip_correction', False)
         dry_run = kwargs.get('dry_run', False)
+        auto_create_suite = kwargs.get('auto_create_suite', True)
 
         print(f"\n{'='*60}")
         print(f"WORKFLOW: Generate + Upload")
+        print(f"Project: {config.project_id} ({config.application.name})")
         print(f"Story ID: {story_id}")
         print(f"Mode: {'Dry Run' if dry_run else 'Live Upload'}")
+        print(f"Auto-create suite: {'Yes' if auto_create_suite else 'No'}")
         print(f"{'='*60}\n")
 
         # Initialize clients
         try:
-            ado_client = ADOClient()
-            suite_uploader = TestSuiteUploader(ado_client)
+            # Ensure PAT is set
+            if not config.ado.pat:
+                config.ado.pat = os.getenv('ADO_PAT')
+
+            ado_http_client = ADOHttpClient(
+                organization=config.ado.organization,
+                project=config.ado.project,
+                pat=config.ado.pat
+            )
+            suite_repo = ADOTestSuiteRepository(config.ado)
+            story_repo = ADOStoryRepository(config.ado)
         except Exception as e:
             return WorkflowResult(
                 status=WorkflowStatus.FAILED,
                 message=f"Failed to initialize ADO client: {e}"
             )
 
-        # Step 1: Find matching test suite (fail fast)
+        # Step 1: Find or create test suite
         print("[1/4] Finding test suite...")
-        suite_info = suite_uploader.find_test_suite_by_story_id(story_id)
+        suite_info = suite_repo.find_suite_by_story_id(story_id)
 
         if not suite_info:
-            return WorkflowResult(
-                status=WorkflowStatus.FAILED,
-                message=f"No test suite found matching pattern '{story_id} : ...'\n"
-                        f"Please create a test suite with name format: '{story_id} : {{story_name}}'"
-            )
+            if auto_create_suite:
+                print(f"  No suite found. Creating new test suite...")
+                try:
+                    # Fetch story title for suite name
+                    story = story_repo.get_story(story_id)
+                    story_title = story.title if story else f"Story {story_id}"
 
-        print(f"  Found: {suite_info['name']}")
-        print(f"  Suite ID: {suite_info['id']}, Plan ID: {suite_info['plan_id']}")
+                    suite_creator = TestSuiteCreator(config)
+                    plan_info, suite_info_obj = suite_creator.create_test_organization(
+                        story_id=str(story_id),
+                        story_name=story_title
+                    )
+                    suite_info = {
+                        'id': suite_info_obj.id,
+                        'name': suite_info_obj.name,
+                        'plan_id': plan_info.id
+                    }
+                    print(f"  Created: {suite_info['name']}")
+                except Exception as e:
+                    return WorkflowResult(
+                        status=WorkflowStatus.FAILED,
+                        message=f"Failed to create test suite: {e}"
+                    )
+            else:
+                return WorkflowResult(
+                    status=WorkflowStatus.FAILED,
+                    message=f"No test suite found matching pattern '{story_id} : ...'\n"
+                            f"Use --auto-create-suite to create one automatically."
+                )
+        else:
+            print(f"  Found: {suite_info['name']}")
+            print(f"  Suite ID: {suite_info['id']}, Plan ID: {suite_info['plan_id']}")
 
-        # Step 2: Generate test cases (reuse GenerateWorkflow)
+        # Step 2: Generate test cases
         print("\n[2/4] Generating test cases...")
         generate_workflow = GenerateWorkflow()
         gen_result = generate_workflow.execute(
+            config,
             story_id=story_id,
             output_dir=output_dir,
             skip_correction=skip_correction
@@ -389,7 +435,7 @@ class UploadWorkflow(IWorkflow):
 
         # Live upload
         upload_results = self._upload_test_cases(
-            ado_client, suite_info, test_cases
+            config, ado_http_client, suite_info, test_cases
         )
 
         # Step 4: Summary
@@ -412,6 +458,7 @@ class UploadWorkflow(IWorkflow):
 
     def _upload_test_cases(
         self,
+        config: ProjectConfig,
         ado_client,
         suite_info: Dict,
         test_cases: List[Dict]
@@ -419,8 +466,7 @@ class UploadWorkflow(IWorkflow):
         """Upload test cases to ADO test suite."""
         import time
         import requests
-        from src.objective_generator import ObjectiveGenerator
-        import config
+        from infrastructure.export import ObjectiveGenerator
 
         results = {'created': [], 'failed': []}
         objective_gen = ObjectiveGenerator()
@@ -438,7 +484,7 @@ class UploadWorkflow(IWorkflow):
 
             # Create test case
             work_item_id = self._create_test_case(
-                ado_client, title, steps, objective, tc_id, objective_gen
+                config, ado_client, title, steps, objective, tc_id, objective_gen
             )
 
             if work_item_id:
@@ -459,6 +505,7 @@ class UploadWorkflow(IWorkflow):
 
     def _create_test_case(
         self,
+        config: ProjectConfig,
         ado_client,
         title: str,
         steps: List[Dict],
@@ -468,23 +515,22 @@ class UploadWorkflow(IWorkflow):
     ) -> Optional[int]:
         """Create a test case work item."""
         import requests
-        import config
 
         url = f"{ado_client.base_url}/_apis/wit/workitems/$Test Case?api-version=7.1"
 
         # Build steps XML
         steps_xml = self._build_steps_xml(steps)
 
-        # Format objective - starts directly with "Objective: Verify that..."
+        # Format objective
         formatted_objective = ""
         if objective:
             formatted_objective = objective_gen.format_objective_for_ado(objective)
 
         patch_doc = [
             {"op": "add", "path": "/fields/System.Title", "value": title},
-            {"op": "add", "path": "/fields/System.AssignedTo", "value": config.ASSIGNED_TO},
-            {"op": "add", "path": "/fields/System.State", "value": config.DEFAULT_STATE},
-            {"op": "add", "path": "/fields/System.AreaPath", "value": config.ADO_AREA_PATH},
+            {"op": "add", "path": "/fields/System.AssignedTo", "value": config.ado.assigned_to},
+            {"op": "add", "path": "/fields/System.State", "value": config.ado.default_state},
+            {"op": "add", "path": "/fields/System.AreaPath", "value": config.ado.area_path},
             {"op": "add", "path": "/fields/Microsoft.VSTS.TCM.Steps", "value": steps_xml}
         ]
 
@@ -540,201 +586,273 @@ class UploadWorkflow(IWorkflow):
 
 
 # =============================================================================
-# WORKFLOW 3: Update Objectives
+# WORKFLOW 3: Initialize New Project
 # =============================================================================
 
-class UpdateObjectivesWorkflow(IWorkflow):
+class InitProjectWorkflow(IWorkflow):
     """
-    Update objectives for existing test cases from CSV mapping.
-
-    Requires:
-    - CSV file with ADO work item IDs (exported after upload)
-    - Objectives TXT file (1:1 mapped by test case ID)
+    Initialize a new project configuration.
+    Creates YAML config file for the project.
     """
 
     @property
     def name(self) -> str:
-        return "update-objectives"
+        return "init-project"
 
     @property
     def description(self) -> str:
-        return "Update objectives for existing test cases from CSV mapping"
+        return "Initialize a new project configuration"
 
     def validate_inputs(self, **kwargs) -> Optional[str]:
-        csv_file = kwargs.get('csv_file')
-        objectives_file = kwargs.get('objectives_file')
-
-        if not csv_file:
-            return "csv_file is required"
-        if not objectives_file:
-            return "objectives_file is required"
-
-        import os
-        if not os.path.exists(csv_file):
-            return f"CSV file not found: {csv_file}"
-        if not os.path.exists(objectives_file):
-            return f"Objectives file not found: {objectives_file}"
-
+        app_name = kwargs.get('app_name')
+        if not app_name:
+            return "app_name is required"
         return None
 
-    def execute(self, **kwargs) -> WorkflowResult:
-        import re
-        import csv
-        import time
-        from src.ado_client import ADOClient
-        import config
-
-        csv_file = kwargs['csv_file']
-        objectives_file = kwargs['objectives_file']
-        dry_run = kwargs.get('dry_run', False)
+    def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
+        app_name = kwargs['app_name']
+        project_id = kwargs.get('project_id') or app_name.lower().replace(' ', '-')
+        ado_org = kwargs.get('ado_org') or os.getenv('ADO_ORG', '')
+        ado_project = kwargs.get('ado_project') or os.getenv('ADO_PROJECT', '')
+        area_path = kwargs.get('area_path') or os.getenv('ADO_AREA_PATH', '')
+        interactive = kwargs.get('interactive', False)
 
         print(f"\n{'='*60}")
-        print(f"WORKFLOW: Update Objectives")
-        print(f"CSV: {csv_file}")
-        print(f"Objectives: {objectives_file}")
-        print(f"Mode: {'Dry Run' if dry_run else 'Live Update'}")
+        print(f"WORKFLOW: Initialize New Project")
+        print(f"Application: {app_name}")
+        print(f"Project ID: {project_id}")
         print(f"{'='*60}\n")
 
-        # Step 1: Parse CSV for ADO IDs
-        print("[1/3] Parsing CSV for ADO work item IDs...")
-        ado_id_map = self._parse_csv_for_ado_ids(csv_file)
-        print(f"  Found {len(ado_id_map)} test cases")
+        # Create discovery for interactive mode
+        discovery = ApplicationDiscovery()
 
-        if not ado_id_map:
-            return WorkflowResult(
-                status=WorkflowStatus.FAILED,
-                message="No test cases with ADO IDs found in CSV"
-            )
+        if interactive:
+            print("Interactive mode - answer the following questions:\n")
+            responses = {}
 
-        # Step 2: Parse objectives file
-        print("\n[2/3] Parsing objectives file...")
-        objectives_map = self._parse_objectives_file(objectives_file)
-        print(f"  Found {len(objectives_map)} objectives")
+            for question in discovery.get_discovery_questions():
+                q_text = question['question']
+                hint = question.get('hint', '')
 
-        if not objectives_map:
-            return WorkflowResult(
-                status=WorkflowStatus.FAILED,
-                message="No objectives found in objectives file"
-            )
+                if hint:
+                    print(f"{q_text}")
+                    print(f"  Hint: {hint}")
+                else:
+                    print(f"{q_text}")
 
-        # Step 3: Update ADO
-        print("\n[3/3] Updating ADO test cases...")
+                if question.get('type') == 'multi':
+                    response = input("  > ").strip()
+                elif 'options' in question:
+                    for i, opt in enumerate(question['options'], 1):
+                        print(f"  {i}. {opt}")
+                    choice = input("  > ").strip()
+                    try:
+                        response = question['options'][int(choice) - 1]
+                    except (ValueError, IndexError):
+                        response = question['options'][0]
+                else:
+                    response = input("  > ").strip()
 
-        if dry_run:
-            print("\n[DRY RUN - No actual updates]\n")
-            for tc_id, ado_id in sorted(ado_id_map.items()):
-                if tc_id in objectives_map:
-                    print(f"  [{tc_id}] Would update ADO ID {ado_id}")
+                responses[question['id']] = response
+                print()
 
-            return WorkflowResult(
-                status=WorkflowStatus.SUCCESS,
-                message=f"Dry run: Would update {len(ado_id_map)} test cases",
-                data={'dry_run': True}
-            )
+            discovered = discovery.discover_interactive(app_name, responses)
+        else:
+            # Minimal discovery
+            discovered = discovery._get_minimal_discovery(app_name)
 
-        # Live update
-        client = ADOClient()
-        results = {'updated': 0, 'failed': 0, 'skipped': 0}
-
-        for tc_id, ado_id in sorted(ado_id_map.items()):
-            if tc_id not in objectives_map:
-                print(f"  [{tc_id}] No objective found, skipping")
-                results['skipped'] += 1
-                continue
-
-            objective_html = objectives_map[tc_id]
-            success = self._update_summary(client, ado_id, objective_html)
-
-            if success:
-                print(f"  [{tc_id}] Updated ADO ID {ado_id}")
-                results['updated'] += 1
-            else:
-                print(f"  [{tc_id}] Failed to update ADO ID {ado_id}")
-                results['failed'] += 1
-
-            time.sleep(0.3)
-
-        print(f"\n{'='*60}")
-        print("UPDATE COMPLETE")
-        print(f"{'='*60}")
-        print(f"  Updated: {results['updated']}")
-        print(f"  Failed: {results['failed']}")
-        print(f"  Skipped: {results['skipped']}")
-
-        status = WorkflowStatus.SUCCESS if results['failed'] == 0 else WorkflowStatus.PARTIAL
-
-        return WorkflowResult(
-            status=status,
-            message=f"Updated {results['updated']}/{len(ado_id_map)} test cases",
-            data=results
+        # Create project config
+        new_config = discovery.create_project_config(
+            discovery=discovered,
+            project_id=project_id,
+            ado_org=ado_org,
+            ado_project=ado_project,
+            area_path=area_path,
+            assigned_to=kwargs.get('assigned_to', os.getenv('ASSIGNED_TO', '')),
+            qa_prep_pattern=kwargs.get('qa_prep_pattern'),  # None for no QA Prep
         )
 
-    def _parse_csv_for_ado_ids(self, csv_file: str) -> Dict[str, str]:
-        """Parse CSV to extract test_case_id -> ADO work_item_id mapping."""
-        import csv
-        import re
+        # Save to file
+        config_path = new_config.save()
+        print(f"Configuration saved to: {config_path}")
 
-        ado_id_map = {}
+        # Register with project manager
+        manager = get_project_manager()
+        manager.register_project(new_config)
 
-        with open(csv_file, 'r', newline='', encoding='utf-8-sig') as f:
-            reader = csv.reader(f)
-            header = [h.strip() for h in next(reader)]
+        return WorkflowResult(
+            status=WorkflowStatus.SUCCESS,
+            message=f"Project '{project_id}' initialized successfully",
+            data={
+                'project_id': project_id,
+                'config_path': config_path,
+                'application_name': app_name
+            }
+        )
 
-            for row in reader:
-                row_dict = dict(zip(header, row))
 
-                work_item_id = row_dict.get('ID', '').strip().strip('"')
-                work_item_type = row_dict.get('Work Item Type', '').strip().strip('"')
-                title = row_dict.get('Title', '').strip().strip('"')
+# =============================================================================
+# WORKFLOW 4: Discover Project from Stories
+# =============================================================================
 
-                if work_item_id and work_item_type == 'Test Case' and title:
-                    match = re.match(r'(\d+-(AC1|\d{3})):', title)
-                    if match:
-                        ado_id_map[match.group(1)] = work_item_id
+class DiscoverWorkflow(IWorkflow):
+    """
+    Discover application characteristics from existing ADO stories.
+    Uses story content to infer application configuration.
+    """
 
-        return ado_id_map
+    @property
+    def name(self) -> str:
+        return "discover"
 
-    def _parse_objectives_file(self, objectives_file: str) -> Dict[str, str]:
-        """Parse objectives file to extract test_case_id -> objective HTML mapping."""
-        import re
+    @property
+    def description(self) -> str:
+        return "Discover project configuration from ADO stories"
 
-        objectives_map = {}
+    def validate_inputs(self, **kwargs) -> Optional[str]:
+        story_ids = kwargs.get('story_ids')
+        if not story_ids:
+            return "At least one story_id is required"
+        return None
 
-        with open(objectives_file, 'r', encoding='utf-8') as f:
-            content = f.read()
+    def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
+        from infrastructure.ado import ADOStoryRepository
+        from projects.project_config import ADOProjectConfig
 
-        blocks = content.strip().split('\n\n')
+        story_ids = kwargs['story_ids']
+        project_name = kwargs.get('project_name', 'discovered-project')
+        ado_org = kwargs.get('ado_org') or config.ado.organization
+        ado_project = kwargs.get('ado_project') or config.ado.project
 
-        for block in blocks:
-            lines = block.strip().split('\n')
-            if len(lines) >= 2:
-                match = re.match(r'(\d+-(AC1|\d{3})):', lines[0])
-                if match:
-                    tc_id = match.group(1)
-                    objective_html = lines[1].strip()
-                    # Clean duplicate "Verify that"
-                    objective_html = re.sub(
-                        r'(<b>Objective:</b>\s+Verify that\s+)Verify that\s+',
-                        r'\1',
-                        objective_html,
-                        flags=re.IGNORECASE
-                    )
-                    objectives_map[tc_id] = objective_html
+        print(f"\n{'='*60}")
+        print(f"WORKFLOW: Discover Project from Stories")
+        print(f"Stories: {story_ids}")
+        print(f"Target Project Name: {project_name}")
+        print(f"{'='*60}\n")
 
-        return objectives_map
-
-    def _update_summary(self, client, work_item_id: str, objective_html: str) -> bool:
-        """Update test case Summary field in ADO."""
+        # Fetch stories
+        print("[1/3] Fetching stories from ADO...")
         try:
-            result = client.update_work_item_field(
-                int(work_item_id),
-                'System.Description',
-                objective_html,
-                operation='replace'
+            # Create temporary ADO config for fetching
+            temp_ado_config = ADOProjectConfig(
+                organization=ado_org,
+                project=ado_project,
+                area_path=config.ado.area_path,
+                pat=os.getenv('ADO_PAT')
             )
-            return result is not None
-        except Exception:
-            return False
+            story_repo = ADOStoryRepository(temp_ado_config)
+
+            stories = []
+            for story_id in story_ids:
+                try:
+                    story = story_repo.get_story(int(story_id))
+                    if story:
+                        # Convert to dict format expected by discovery
+                        story_data = {
+                            'title': story.title,
+                            'description': story.description,
+                            'acceptance_criteria': story.acceptance_criteria
+                        }
+                        stories.append(story_data)
+                        print(f"  Fetched: {story_id} - {story.title[:50]}...")
+                except Exception as e:
+                    print(f"  Failed to fetch {story_id}: {e}")
+        except Exception as e:
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                message=f"Failed to connect to ADO: {e}"
+            )
+
+        if not stories:
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                message="No stories could be fetched"
+            )
+
+        # Discover application
+        print("\n[2/3] Analyzing stories...")
+        discovery = ApplicationDiscovery()
+        discovered = discovery.discover_from_stories(stories)
+
+        print(f"  Application Type: {discovered.app_type}")
+        print(f"  UI Surfaces: {', '.join(discovered.main_ui_surfaces[:5])}...")
+        print(f"  Platforms: {', '.join(discovered.supported_platforms)}")
+        print(f"  Confidence: {discovered.confidence_score:.0%}")
+
+        # Create and save config
+        print("\n[3/3] Creating project configuration...")
+        new_config = discovery.create_project_config(
+            discovery=discovered,
+            project_id=project_name,
+            ado_org=ado_org,
+            ado_project=ado_project,
+            area_path=config.ado.area_path,
+        )
+
+        config_path = new_config.save()
+        print(f"  Saved to: {config_path}")
+
+        # Register
+        manager = get_project_manager()
+        manager.register_project(new_config)
+
+        return WorkflowResult(
+            status=WorkflowStatus.SUCCESS,
+            message=f"Discovered and created project '{project_name}'",
+            data={
+                'project_id': project_name,
+                'config_path': config_path,
+                'discovered': {
+                    'app_type': discovered.app_type,
+                    'ui_surfaces': discovered.main_ui_surfaces,
+                    'platforms': discovered.supported_platforms,
+                    'confidence': discovered.confidence_score
+                }
+            }
+        )
+
+
+# =============================================================================
+# WORKFLOW 5: List Projects
+# =============================================================================
+
+class ListProjectsWorkflow(IWorkflow):
+    """List all available project configurations."""
+
+    @property
+    def name(self) -> str:
+        return "list-projects"
+
+    @property
+    def description(self) -> str:
+        return "List all available project configurations"
+
+    def validate_inputs(self, **kwargs) -> Optional[str]:
+        return None
+
+    def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
+        manager = get_project_manager()
+        manager.load_from_directory()
+
+        projects = manager.list_projects()
+
+        print(f"\n{'='*60}")
+        print("Available Projects")
+        print(f"{'='*60}\n")
+
+        for project_id in projects:
+            proj_config = manager.get_project(project_id)
+            active = " (active)" if project_id == config.project_id else ""
+            print(f"  {project_id}{active}")
+            print(f"    Application: {proj_config.application.name}")
+            print(f"    ADO: {proj_config.ado.organization}/{proj_config.ado.project}")
+            print()
+
+        return WorkflowResult(
+            status=WorkflowStatus.SUCCESS,
+            message=f"Found {len(projects)} projects",
+            data={'projects': projects}
+        )
 
 
 # =============================================================================
@@ -742,10 +860,11 @@ class UpdateObjectivesWorkflow(IWorkflow):
 # =============================================================================
 
 class WorkflowEngine:
-    """Orchestrates workflow execution."""
+    """Orchestrates workflow execution with project configuration."""
 
     def __init__(self):
         self._workflows: Dict[str, IWorkflow] = {}
+        self._project_manager = get_project_manager()
         self._register_workflows()
 
     def _register_workflows(self):
@@ -753,7 +872,9 @@ class WorkflowEngine:
         workflows = [
             GenerateWorkflow(),
             UploadWorkflow(),
-            UpdateObjectivesWorkflow()
+            InitProjectWorkflow(),
+            DiscoverWorkflow(),
+            ListProjectsWorkflow(),
         ]
         for workflow in workflows:
             self._workflows[workflow.name] = workflow
@@ -766,8 +887,8 @@ class WorkflowEngine:
         """List all available workflow names."""
         return list(self._workflows.keys())
 
-    def execute(self, workflow_name: str, **kwargs) -> WorkflowResult:
-        """Execute a workflow by name."""
+    def execute(self, workflow_name: str, project_id: str = None, **kwargs) -> WorkflowResult:
+        """Execute a workflow by name with project configuration."""
         workflow = self.get_workflow(workflow_name)
 
         if not workflow:
@@ -775,6 +896,21 @@ class WorkflowEngine:
                 status=WorkflowStatus.FAILED,
                 message=f"Unknown workflow: {workflow_name}. Available: {self.list_workflows()}"
             )
+
+        # Load project configs
+        self._project_manager.load_from_directory()
+
+        # Get project configuration
+        if project_id:
+            config = self._project_manager.get_project(project_id)
+            if not config:
+                return WorkflowResult(
+                    status=WorkflowStatus.FAILED,
+                    message=f"Project not found: {project_id}. Run 'list-projects' to see available projects."
+                )
+            self._project_manager.set_active_project(project_id)
+        else:
+            config = self._project_manager.get_or_create_default()
 
         # Validate inputs
         error = workflow.validate_inputs(**kwargs)
@@ -784,8 +920,8 @@ class WorkflowEngine:
                 message=f"Validation error: {error}"
             )
 
-        # Execute
-        return workflow.execute(**kwargs)
+        # Execute with config
+        return workflow.execute(config, **kwargs)
 
 
 # =============================================================================
@@ -794,46 +930,74 @@ class WorkflowEngine:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Test Case Workflows - Generate, Upload, Update",
+        description="Generic Test Case Workflows - Multi-Project Support",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Workflows:
-  generate           Generate test cases (rule-based + optional LLM correction)
-  upload             Generate + Upload to ADO test suite
-  update-objectives  Update objectives for existing test cases from CSV
+  generate        Generate test cases for a story
+  upload          Generate + Upload to ADO test suite
+  init-project    Initialize a new project configuration
+  discover        Discover project config from ADO stories
+  list-projects   List all available project configurations
 
 Examples:
-  python3 workflows.py generate --story-id 272889
-  python3 workflows.py generate --story-id 272889 --skip-correction
+  # Using default project (env-quickdraw)
+  python3 workflows_generic.py generate --story-id 272889
 
-  python3 workflows.py upload --story-id 272889
-  python3 workflows.py upload --story-id 272889 --dry-run
+  # Using specific project
+  python3 workflows_generic.py generate --story-id 12345 --project mediapedia-us
 
-  python3 workflows.py update-objectives --csv output/272889_tests.csv --objectives output/272889_objectives.txt
-  python3 workflows.py update-objectives --csv output/272889_tests.csv --objectives output/272889_objectives.txt --dry-run
+  # Initialize new project
+  python3 workflows_generic.py init-project --name "MediaPedia" --org myorg --ado-project MediaPedia
+
+  # Discover from stories
+  python3 workflows_generic.py discover --story-ids 12345 12346 --project-name my-app
+
+  # List projects
+  python3 workflows_generic.py list-projects
         """
     )
+
+    # Global arguments
+    parser.add_argument('--project', '-p', dest='project_id', help='Project configuration to use')
 
     subparsers = parser.add_subparsers(dest='workflow', help='Workflow to execute')
 
     # Generate workflow
     gen_parser = subparsers.add_parser('generate', help='Generate test cases')
     gen_parser.add_argument('--story-id', type=int, required=True, help='ADO Story ID')
-    gen_parser.add_argument('--output-dir', default='output', help='Output directory')
+    gen_parser.add_argument('--output-dir', default=None, help='Output directory')
     gen_parser.add_argument('--skip-correction', action='store_true', help='Skip LLM correction')
 
     # Upload workflow
     upload_parser = subparsers.add_parser('upload', help='Generate + Upload to ADO')
     upload_parser.add_argument('--story-id', type=int, required=True, help='ADO Story ID')
-    upload_parser.add_argument('--output-dir', default='output', help='Output directory')
+    upload_parser.add_argument('--output-dir', default=None, help='Output directory')
     upload_parser.add_argument('--skip-correction', action='store_true', help='Skip LLM correction')
     upload_parser.add_argument('--dry-run', action='store_true', help='Preview without uploading')
+    upload_parser.add_argument('--auto-create-suite', action='store_true', default=True,
+                               help='Auto-create test suite if not found')
+    upload_parser.add_argument('--no-auto-create-suite', action='store_false', dest='auto_create_suite',
+                               help='Fail if test suite not found')
 
-    # Update objectives workflow
-    update_parser = subparsers.add_parser('update-objectives', help='Update objectives from CSV')
-    update_parser.add_argument('--csv', dest='csv_file', required=True, help='CSV file with ADO IDs')
-    update_parser.add_argument('--objectives', dest='objectives_file', required=True, help='Objectives TXT file')
-    update_parser.add_argument('--dry-run', action='store_true', help='Preview without updating')
+    # Init project workflow
+    init_parser = subparsers.add_parser('init-project', help='Initialize new project')
+    init_parser.add_argument('--name', dest='app_name', required=True, help='Application name')
+    init_parser.add_argument('--id', dest='project_id', help='Project ID (defaults to app name)')
+    init_parser.add_argument('--org', dest='ado_org', help='ADO organization')
+    init_parser.add_argument('--ado-project', help='ADO project name')
+    init_parser.add_argument('--area-path', help='ADO area path')
+    init_parser.add_argument('--interactive', '-i', action='store_true', help='Interactive mode')
+
+    # Discover workflow
+    discover_parser = subparsers.add_parser('discover', help='Discover from stories')
+    discover_parser.add_argument('--story-ids', nargs='+', required=True, help='Story IDs to analyze')
+    discover_parser.add_argument('--project-name', required=True, help='Name for discovered project')
+    discover_parser.add_argument('--org', dest='ado_org', help='ADO organization')
+    discover_parser.add_argument('--ado-project', help='ADO project name')
+
+    # List projects workflow
+    subparsers.add_parser('list-projects', help='List all projects')
 
     args = parser.parse_args()
 
@@ -844,10 +1008,11 @@ Examples:
     # Convert args to kwargs
     kwargs = vars(args).copy()
     workflow_name = kwargs.pop('workflow')
+    project_id = kwargs.pop('project_id', None)
 
     # Execute workflow
     engine = WorkflowEngine()
-    result = engine.execute(workflow_name, **kwargs)
+    result = engine.execute(workflow_name, project_id=project_id, **kwargs)
 
     # Exit code
     if result.status == WorkflowStatus.FAILED:

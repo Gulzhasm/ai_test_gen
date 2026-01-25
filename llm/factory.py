@@ -6,6 +6,7 @@ import os
 from typing import Optional, Union
 from .ollama import OllamaProvider
 from .openai_provider import OpenAIProvider
+from .anthropic_provider import AnthropicProvider
 
 
 def create_llm_provider(
@@ -15,16 +16,16 @@ def create_llm_provider(
     timeout: int = 30,
     max_retries: int = 2,
     api_key: Optional[str] = None
-) -> Optional[Union[OllamaProvider, OpenAIProvider]]:
+) -> Optional[Union[OllamaProvider, OpenAIProvider, AnthropicProvider]]:
     """Create LLM provider based on configuration.
 
     Args:
-        provider_type: Type of provider ('ollama' or 'openai')
+        provider_type: Type of provider ('ollama', 'openai', or 'anthropic')
         endpoint: API endpoint (used for Ollama)
         model: Model name (defaults based on provider)
         timeout: Request timeout in seconds
         max_retries: Maximum retries on failure
-        api_key: API key (used for OpenAI, defaults to env var)
+        api_key: API key (used for OpenAI/Anthropic, defaults to env var)
 
     Returns:
         LLM provider instance or None if unsupported type
@@ -45,7 +46,14 @@ def create_llm_provider(
             timeout=timeout,
             max_retries=max_retries
         )
+    elif provider == "anthropic" or provider == "claude":
+        return AnthropicProvider(
+            api_key=api_key or os.getenv("ANTHROPIC_API_KEY"),
+            model=model or "claude-3-5-sonnet",
+            timeout=timeout,
+            max_retries=max_retries
+        )
     else:
         print(f"Unsupported LLM provider type: {provider_type}")
-        print("Supported providers: 'ollama', 'openai'")
+        print("Supported providers: 'ollama', 'openai', 'anthropic'")
         return None

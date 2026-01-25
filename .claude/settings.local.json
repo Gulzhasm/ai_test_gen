@@ -12,7 +12,16 @@
       "Bash(fi)",
       "Bash(chmod:*)",
       "Bash(grep:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(git checkout:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(git add:*)",
+      "Bash(git rm:*)",
+      "Bash(/Library/Frameworks/Python.framework/Versions/3.10/bin/python3:*)",
+      "Bash(source:*)",
+      "Bash(python:*)",
+      "Bash(xargs rm -rf)"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true
 }
