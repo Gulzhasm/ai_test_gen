@@ -36,47 +36,167 @@ class HtmlParser:
 
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        # Convert lists to bullet points
+        # Convert lists to bullet points with proper markers
         for ul in soup.find_all(['ul', 'ol']):
-            for li in ul.find_all('li', recursive=False):
+            for idx, li in enumerate(ul.find_all('li', recursive=False), start=1):
                 text = li.get_text().strip()
                 if not text.startswith('•') and not text.startswith('-'):
-                    li.insert(0, '• ')
+                    # Use • for unordered, numbers for ordered
+                    if ul.name == 'ol':
+                        li.insert(0, f'{idx}. ')
+                    else:
+                        li.insert(0, '• ')
 
+        # Get text with newlines
         text = soup.get_text(separator='\n')
 
-        # Clean up whitespace while preserving structure
-        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        # Clean up: merge lines that are clearly continuations
+        lines = []
+        for line in text.split('\n'):
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            # Check if this line should be merged with previous
+            # (starts lowercase, is a short fragment following content)
+            if (lines and
+                stripped and
+                stripped[0].islower() and
+                len(stripped) < 50 and
+                not stripped.startswith(('•', '-', '*'))):
+                # Merge with previous line
+                lines[-1] = lines[-1] + ' ' + stripped
+            else:
+                lines.append(stripped)
+
         return '\n'.join(lines)
 
     @staticmethod
     def parse_acceptance_criteria(ac_text: str) -> List[str]:
-        """Parse acceptance criteria text into list of bullets.
+        """Parse acceptance criteria text into list of meaningful AC bullets.
+
+        Recognizes bullet patterns and groups continuation lines appropriately.
 
         Args:
             ac_text: Raw acceptance criteria text
 
         Returns:
-            List of AC bullet strings
+            List of complete AC bullet strings
         """
         if not ac_text:
             return []
 
         bullets = []
         lines = ac_text.strip().split('\n')
+        current_ac = []
+
+        def is_bullet_start(line: str) -> bool:
+            """Check if line starts a new AC bullet."""
+            stripped = line.strip()
+            return (
+                stripped.startswith('•') or
+                stripped.startswith('- ') or
+                re.match(r'^\d+\.\s', stripped) or
+                re.match(r'^AC\s*\d+[:\.]', stripped, re.IGNORECASE) or
+                re.match(r'^\[\s*\]', stripped) or  # Checkbox style
+                re.match(r'^\*\s', stripped)  # Asterisk bullet
+            )
+
+        def clean_bullet_prefix(line: str) -> str:
+            """Remove bullet prefix from line."""
+            line = line.strip()
+            if line.startswith('•'):
+                return line[1:].strip()
+            if line.startswith('- '):
+                return line[2:].strip()
+            if line.startswith('* '):
+                return line[2:].strip()
+            if re.match(r'^\d+\.\s*', line):
+                return re.sub(r'^\d+\.\s*', '', line)
+            if re.match(r'^AC\s*\d+[:\.\s]+', line, re.IGNORECASE):
+                return re.sub(r'^AC\s*\d+[:\.\s]+', '', line, flags=re.IGNORECASE)
+            if re.match(r'^\[\s*\]\s*', line):
+                return re.sub(r'^\[\s*\]\s*', '', line)
+            return line
+
+        def is_fragment(line: str) -> bool:
+            """Check if line is a meaningless fragment (single word, punctuation only)."""
+            stripped = line.strip().rstrip('.,;:!?')  # Remove trailing punctuation for check
+
+            # Empty after stripping
+            if not stripped:
+                return True
+
+            # Just punctuation
+            if re.match(r'^[.,;:!?\-]+$', line.strip()):
+                return True
+
+            # Single word of 12 chars or less (common fragments)
+            if len(stripped) <= 12 and ' ' not in stripped:
+                # Common article/conjunction words are fragments
+                if stripped.lower() in ['given', 'when', 'then', 'and', 'or', 'the', 'a', 'an',
+                                         'is', 'are', 'was', 'were', 'be', 'been', 'being',
+                                         'have', 'has', 'had', 'do', 'does', 'did', 'will',
+                                         'would', 'could', 'should', 'may', 'might', 'must',
+                                         'shall', 'can', 'need', 'to', 'of', 'in', 'for',
+                                         'on', 'with', 'at', 'by', 'from', 'as', 'into',
+                                         'through', 'during', 'before', 'after', 'above',
+                                         'below', 'between', 'under', 'again', 'further',
+                                         'once', 'here', 'there', 'all', 'each', 'few',
+                                         'more', 'most', 'other', 'some', 'such', 'no',
+                                         'not', 'only', 'own', 'same', 'so', 'than', 'too',
+                                         'very', 'just', 'also', 'now', 'logic', 'menu',
+                                         'edit', 'view', 'file', 'help', 'tools', 'window']:
+                    return True
+                # Single capitalized word without context is likely a fragment
+                if re.match(r'^[A-Z][a-z]*\.?$', line.strip()):
+                    return True
+
+            return False
 
         for line in lines:
-            line = line.strip()
-            # Remove bullet markers
-            if line.startswith('•'):
-                line = line[1:].strip()
-            elif line.startswith('-'):
-                line = line[1:].strip()
-            elif re.match(r'^\d+\.', line):
-                line = re.sub(r'^\d+\.\s*', '', line)
+            stripped = line.strip()
+            if not stripped:
+                continue
 
-            if line:
-                bullets.append(line)
+            # Skip obvious fragments when not building an AC
+            if is_fragment(stripped) and not current_ac:
+                continue
+
+            if is_bullet_start(line):
+                # Save previous AC if meaningful
+                if current_ac:
+                    combined = ' '.join(current_ac)
+                    if len(combined) >= 10:  # Minimal length check
+                        bullets.append(combined)
+                    current_ac = []
+
+                # Start new AC
+                clean_line = clean_bullet_prefix(line)
+                if clean_line and not is_fragment(clean_line):
+                    current_ac.append(clean_line)
+
+            elif current_ac:
+                # Continuation of current AC
+                clean_line = stripped
+                # Clean any sub-bullet markers
+                if clean_line.startswith('-') and len(clean_line) > 1:
+                    clean_line = clean_line[1:].strip()
+
+                if clean_line and not is_fragment(clean_line):
+                    current_ac.append(clean_line)
+
+            else:
+                # No current AC and not a bullet - could be first line without bullet
+                # Treat as new AC if it's meaningful content
+                if len(stripped) > 15 and not is_fragment(stripped):
+                    current_ac.append(stripped)
+
+        # Don't forget the last AC
+        if current_ac:
+            combined = ' '.join(current_ac)
+            if len(combined) >= 10:
+                bullets.append(combined)
 
         return bullets
 

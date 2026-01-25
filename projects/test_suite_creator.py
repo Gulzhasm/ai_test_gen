@@ -451,16 +451,21 @@ Only return valid JSON."""
         return entry_points
 
     def _extract_platforms(self, text: str) -> List[str]:
-        """Extract platforms from text."""
+        """Extract platforms from text.
+
+        Returns all supported platforms when none are explicitly mentioned,
+        ensuring comprehensive test coverage across all configured platforms.
+        """
         platforms = []
 
         for platform in self.config.application.supported_platforms:
             if platform.lower() in text:
                 platforms.append(platform)
 
-        # Default to first supported platform if none found
+        # Default to ALL supported platforms if none explicitly mentioned
+        # This ensures comprehensive test coverage (accessibility, tablet, etc.)
         if not platforms and self.config.application.supported_platforms:
-            platforms = self.config.application.supported_platforms[:1]
+            platforms = list(self.config.application.supported_platforms)
 
         return platforms
 

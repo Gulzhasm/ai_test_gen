@@ -19,39 +19,59 @@ from core.interfaces.llm_provider import ILLMProvider
 class LLMTestCorrector(ITestCorrector):
     """Uses LLM to correct and enhance test case quality."""
 
-    CORRECTION_SYSTEM_PROMPT = """You are a test case quality expert. Your job is to improve test case quality by:
+    CORRECTION_SYSTEM_PROMPT = """You are a senior QA engineer writing test cases for professional testers. Write like a human expert would - clear, practical, and specific.
 
-1. Replacing generic actions like "Perform the action described" with specific, actionable instructions
-2. Replacing generic expected results like "works as expected" with observable, verifiable outcomes
-3. Ensuring test steps are clear, specific, and follow QA best practices
+Your role:
+- Transform vague test steps into clear, actionable instructions a junior tester could follow
+- Replace robotic language with natural, professional QA terminology
+- Ensure every expected result describes what the tester will actually observe
 
-RULES:
-- Keep the same test structure (number of steps)
-- Keep prerequisite, launch, and close steps unchanged
-- Only modify steps that need improvement
-- Make actions specific with UI elements (button, field, menu, panel, dialog)
-- Make expected results observable (is displayed, appears, opens, shows, is visible)
-- Do NOT add generic phrases like "works correctly" or "as expected"
-- Be deterministic - same input should produce same output
+Writing style:
+- Be concise but complete - every word should serve a purpose
+- Use active voice: "Click the Save button" not "The Save button should be clicked"
+- Describe observable outcomes: "Dialog closes and changes appear in the list" not "works correctly"
+- Reference specific UI elements: menus, buttons, panels, dialogs, fields by name
 
-OUTPUT FORMAT: Return ONLY valid JSON with the corrected test case."""
+What to avoid:
+- Generic phrases: "works as expected", "is successful", "functions correctly"
+- Passive voice: "should be", "can be", "is able to"
+- Vague actions: "perform the action", "do the operation"
 
-    STEP_ENHANCEMENT_PROMPT = """Enhance this test step to be more specific and observable.
+OUTPUT: Return ONLY valid JSON matching the input structure."""
 
-Feature: {feature_name}
-Context: {context}
+    STEP_ENHANCEMENT_PROMPT = """Rewrite this test step as a senior QA engineer would write it.
 
-Original Step:
+Feature being tested: {feature_name}
+Testing context: {context}
+
+Current step (needs improvement):
 - Action: {action}
 - Expected: {expected}
 
-Requirements:
-1. Action must be specific with UI element names (button, field, menu, panel)
-2. Expected result must be observable (is displayed, appears, opens, shows)
-3. Do NOT use generic phrases like "works as expected"
-4. Keep the same intent as the original
+Write a better version that:
+1. Uses specific UI element names (Edit Menu, Properties Panel, Canvas, etc.)
+2. Describes the exact user action ("Select Rotate from the Edit Menu")
+3. States what the tester will observe ("Object rotates 90° clockwise, rotation handles appear")
 
-Return ONLY valid JSON: {{"action": "...", "expected": "..."}}"""
+Return JSON only: {{"action": "improved action text", "expected": "improved expected result"}}"""
+
+    TITLE_GENERATION_PROMPT = """Generate a clear, balanced test case title.
+
+Feature: {feature_name}
+Acceptance Criteria: {ac_text}
+Test focus: {test_focus}
+
+Title requirements:
+- 3-6 words describing the specific test scenario
+- Action-oriented (what is being verified)
+- Specific to this AC, not generic
+- Examples of good titles:
+  - "Rotate rotates selected objects 90°"
+  - "Mirror flips object horizontally"
+  - "Commands disabled without selection"
+  - "Touch gestures apply transformation"
+
+Return ONLY the title text, no quotes or explanation."""
 
     def __init__(
         self,
@@ -188,6 +208,64 @@ Return ONLY valid JSON: {{"action": "...", "expected": "..."}}"""
             print(f"Step enhancement failed: {e}")
 
         return {"action": action, "expected": expected}
+
+    def generate_title(
+        self,
+        feature_name: str,
+        ac_text: str,
+        test_focus: str = "functionality"
+    ) -> Optional[str]:
+        """Generate a humanistic, balanced title for a test case using LLM.
+
+        Args:
+            feature_name: Name of the feature being tested
+            ac_text: Acceptance criteria text
+            test_focus: What aspect is being tested (availability, behavior, etc.)
+
+        Returns:
+            Generated title or None if generation fails
+        """
+        # Check cache
+        cache_key = self._get_title_cache_key(feature_name, ac_text, test_focus)
+        if self.cache:
+            cached = self.cache.get(cache_key)
+            if cached:
+                return cached
+
+        prompt = self.TITLE_GENERATION_PROMPT.format(
+            feature_name=feature_name,
+            ac_text=ac_text[:200],  # Truncate long AC text
+            test_focus=test_focus
+        )
+
+        try:
+            response = self.llm.generate(
+                prompt=prompt,
+                temperature=0.3,
+                max_tokens=50
+            )
+
+            if response and response.content:
+                title = response.content.strip().strip('"\'')
+                # Ensure reasonable length
+                if len(title) > 60:
+                    title = title[:57] + "..."
+
+                # Cache result
+                if self.cache:
+                    self.cache.set(cache_key, title)
+
+                return title
+
+        except Exception as e:
+            print(f"Title generation failed: {e}")
+
+        return None
+
+    def _get_title_cache_key(self, feature: str, ac: str, focus: str) -> str:
+        """Generate cache key for title generation."""
+        content = f"{feature}|{ac[:100]}|{focus}"
+        return f"title_gen_{hashlib.sha256(content.encode()).hexdigest()[:16]}"
 
     def _build_correction_prompt(
         self,

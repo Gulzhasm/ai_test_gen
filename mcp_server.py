@@ -436,31 +436,77 @@ async def get_story_details(story_id: str, project_id: str = "env-quickdraw") ->
 # =============================================================================
 
 def run_cli():
-    """Run in CLI mode (when arguments provided)."""
-    if len(sys.argv) > 1:
+    """Run in CLI mode (when arguments provided).
+
+    Supports both styles:
+        python3 mcp_server.py <story_id> [project_id]
+        python3 mcp_server.py generate --story-id <id> --project <project>
+    """
+    import argparse
+
+    # Check for command-style invocation
+    if len(sys.argv) > 1 and sys.argv[1] in ('generate', 'upload', 'check', 'list'):
+        command = sys.argv[1]
+        parser = argparse.ArgumentParser(description='Test Generation MCP Server - CLI Mode')
+        parser.add_argument('command', help='Command to run')
+        parser.add_argument('--story-id', '--story', dest='story_id', help='ADO Story ID')
+        parser.add_argument('--project', default='env-quickdraw', help='Project config ID')
+        parser.add_argument('--dry-run', action='store_true', help='Preview without uploading')
+
+        args = parser.parse_args()
+
+        if command == 'list':
+            projects = list_available_projects()
+            print(f"\nAvailable projects:")
+            for p in projects:
+                print(f"  - {p}")
+            return True
+
+        if not args.story_id:
+            print("Error: --story-id is required for generate/upload/check commands")
+            return False
+
+        story_id = args.story_id
+        project = args.project
+
+    elif len(sys.argv) > 1:
+        # Positional style: mcp_server.py <story_id> [project_id]
         story_id = sys.argv[1]
         project = sys.argv[2] if len(sys.argv) > 2 else "env-quickdraw"
+        command = 'generate'
+    else:
+        return False
 
-        print(f"\n{'='*60}")
-        print(f"MCP Test Generator - CLI Mode")
-        print(f"Story ID: {story_id}")
-        print(f"Project: {project}")
-        print(f"{'='*60}\n")
+    print(f"\n{'='*60}")
+    print(f"MCP Test Generator - CLI Mode")
+    print(f"Command: {command}")
+    print(f"Story ID: {story_id}")
+    print(f"Project: {project}")
+    print(f"{'='*60}\n")
 
+    if command == 'generate':
         result = asyncio.run(generate_tests_for_story(story_id, project))
+    elif command == 'upload':
+        dry_run = '--dry-run' in sys.argv
+        result = asyncio.run(upload_tests_for_story(story_id, project, dry_run=dry_run))
+    elif command == 'check':
+        result = asyncio.run(get_story_details(story_id, project))
+    else:
+        print(f"Unknown command: {command}")
+        return False
 
-        if result.get("success"):
-            print(f"\nGENERATION COMPLETE")
-            print(f"{'='*60}")
-            print(f"  Test cases: {result['test_count']}")
+    if result.get("success"):
+        print(f"\nOPERATION COMPLETE")
+        print(f"{'='*60}")
+        print(f"  Test cases: {result.get('test_count', 'N/A')}")
+        if 'output_files' in result:
             print(f"  Output files:")
             for key, path in result.get('output_files', {}).items():
                 print(f"    {key}: {path}")
-            print(f"{'='*60}\n")
+        print(f"{'='*60}\n")
 
-        print(json.dumps(result, indent=2))
-        return True
-    return False
+    print(json.dumps(result, indent=2))
+    return True
 
 
 # =============================================================================

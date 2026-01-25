@@ -343,19 +343,64 @@ class GenericTestGenerator:
         entry_points = qa_details.get('entry_points', [])
         entry_point = self.app.determine_entry_point(feature_name, entry_points)
 
-        title = f"{test_id}: {feature_name} / {entry_point} / Feature availability"
+        # Generate humanistic title based on feature
+        scenario = self._generate_ac1_title(feature_name, entry_point, ac_bullet)
+        title = f"{test_id}: {feature_name} / {entry_point} / {scenario}"
 
         steps = self._get_standard_setup_steps()
         steps.extend([
-            {"action": f"Navigate to {entry_point}.", "expected": ""},
-            {"action": f"Verify the {feature_name} option is visible and accessible.",
-             "expected": f"{feature_name} option is present and accessible."},
+            {"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens displaying available commands."},
+            {"action": f"Locate the {feature_name} commands in the menu.",
+             "expected": f"{feature_name} commands are visible and enabled."},
         ])
         steps.append(self._get_close_step())
 
-        objective = f"Verify that <b>{feature_name}</b> is available and accessible from <b>{entry_point}</b>"
+        objective = f"Verify that <b>{feature_name}</b> commands are accessible from <b>{entry_point}</b>"
 
         return {'id': test_id, 'title': title, 'steps': steps, 'objective': objective}
+
+    def _generate_ac1_title(self, feature_name: str, entry_point: str, ac_bullet: str) -> str:
+        """Generate a humanistic title for AC1 availability test.
+
+        Uses LLM if available, otherwise falls back to intelligent rule-based generation.
+        """
+        # Try LLM-based title generation if corrector is available
+        if self._test_corrector:
+            try:
+                llm_title = self._test_corrector.generate_title(
+                    feature_name=feature_name,
+                    ac_text=ac_bullet,
+                    test_focus="menu availability and access"
+                )
+                if llm_title:
+                    return llm_title
+            except Exception:
+                pass  # Fall back to rule-based
+
+        # Intelligent rule-based title generation
+        feature_lower = feature_name.lower()
+
+        # Extract key action words from feature name
+        if 'rotate' in feature_lower and 'mirror' in feature_lower:
+            return "Rotate and Mirror commands in menu"
+        elif 'rotate' in feature_lower:
+            return "Rotate command menu access"
+        elif 'mirror' in feature_lower:
+            return "Mirror command menu access"
+        elif 'transform' in feature_lower:
+            return "Transformation tools menu access"
+        elif 'dimension' in feature_lower:
+            return "Dimension tools menu access"
+        elif 'import' in feature_lower or 'export' in feature_lower:
+            return "File import/export menu access"
+        elif 'property' in feature_lower or 'properties' in feature_lower:
+            return "Properties panel access"
+
+        # Generic but still better than "Feature availability"
+        short_name = feature_name.split('(')[0].strip()  # Remove parenthetical
+        if len(short_name) > 30:
+            short_name = short_name[:27] + "..."
+        return f"{short_name} menu access"
 
     def _generate_undo_redo_test(
         self,
@@ -593,6 +638,28 @@ class GenericTestGenerator:
             objective = f"Verify that <b>{feature_name}</b> controls meet <b>WCAG 2.1 AA</b> standards on <b>Windows</b>"
             accessibility_tests.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
 
+        # macOS accessibility test
+        if 'macOS' in platforms or 'Mac' in platforms:
+            test_id = f"{story_id}-{self.test_id_counter:03d}"
+            self.test_id_counter += self.rules.test_id_increment
+
+            title = f"{test_id}: {feature_name} / Accessibility / VoiceOver navigation (macOS)"
+
+            steps = [
+                self._get_prereq_step(),
+                {"action": "Pre-req: VoiceOver is enabled (Cmd+F5)", "expected": ""},
+                self._get_launch_step(),
+                {"action": f"Navigate to {entry_point} using keyboard (Tab/Arrow keys).", "expected": ""},
+                {"action": f"Verify the {feature_name} controls are announced with meaningful labels.",
+                 "expected": f"VoiceOver announces {feature_name} controls with meaningful labels and roles."},
+                {"action": "Verify keyboard focus indicators are visible.",
+                 "expected": "Focus indicators are clearly visible on all interactive elements."},
+            ]
+            steps.append(self._get_close_step())
+
+            objective = f"Verify that <b>{feature_name}</b> controls are accessible via <b>VoiceOver</b> on <b>macOS</b>"
+            accessibility_tests.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
+
         # iPad/iOS accessibility test
         if 'iPad' in platforms or 'iPhone' in platforms:
             test_id = f"{story_id}-{self.test_id_counter:03d}"
@@ -724,28 +791,28 @@ class GenericTestGenerator:
         if 'no_selection' in qa_details.get('negative_scenarios', []):
             edge_cases.append({
                 'type': 'no_selection',
-                'title': f'{feature_name} behavior when no object is selected',
+                'title': 'No selection behavior (disabled state)',
                 'entry_point': entry_point
             })
 
         if 'invalid_type' in qa_details.get('negative_scenarios', []):
             edge_cases.append({
                 'type': 'invalid_type',
-                'title': f'{feature_name} behavior with incompatible object type',
+                'title': 'Incompatible object type handling',
                 'entry_point': entry_point
             })
 
         if 'duplicate_prevention' in qa_details.get('edge_cases', []):
             edge_cases.append({
                 'type': 'duplicate_prevention',
-                'title': f'Reapplying {feature_name} does not create duplicates',
+                'title': 'Duplicate application prevention',
                 'entry_point': entry_point
             })
 
         if 'empty_state' in qa_details.get('edge_cases', []):
             edge_cases.append({
                 'type': 'empty_state',
-                'title': f'{feature_name} behavior with empty state',
+                'title': 'Empty state handling',
                 'entry_point': entry_point
             })
 
@@ -769,22 +836,109 @@ class GenericTestGenerator:
         return title
 
     def _extract_scenario_from_ac(self, ac_bullet: str, feature_name: str) -> str:
-        """Extract a clean scenario description from AC text."""
-        text = ac_bullet.strip()
-        prefixes = ['the user can', 'user can', 'users can', 'the system shall',
-                    'shall be able to', 'able to']
+        """Extract a clean, balanced scenario description from AC text.
 
+        Creates action-oriented titles that follow the pattern:
+        "Verify [action] [target/result]"
+        """
+        text = ac_bullet.strip()
         text_lower = text.lower()
+
+        # Remove common prefixes
+        prefixes = ['the user can', 'user can', 'users can', 'the system shall',
+                    'shall be able to', 'able to', 'should be able to', 'must be able to',
+                    'the application', 'application shall', 'the feature']
         for prefix in prefixes:
             if text_lower.startswith(prefix):
                 text = text[len(prefix):].strip()
+                text_lower = text.lower()
                 break
+
+        # Extract key action and create balanced title - order matters (more specific first)
+        action_patterns = [
+            # Specific patterns first
+            ('horizontally flip', 'Horizontal flip (mirror) transformation'),
+            ('vertically flip', 'Vertical flip (mirror) transformation'),
+            ('horizontal', 'Horizontal mirror transformation'),
+            ('vertical', 'Vertical mirror transformation'),
+            ('mirror.*horizontal', 'Horizontal mirror transformation'),
+            ('mirror.*vertical', 'Vertical mirror transformation'),
+            ('rotate.*object', 'Rotate selected objects'),
+            ('multi.*select', 'Multi-selection transformation'),
+            ('undo.*redo', 'Undo and redo support'),
+            ('undo', 'Undo action support'),
+            ('redo', 'Redo action support'),
+            ('enabled.*when.*select', 'Commands enabled on selection'),
+            ('enabled', 'Command enabled state'),
+            ('disabled', 'Command disabled state'),
+            ('properties panel.*available', 'Properties Panel commands'),
+            ('properties panel.*synchron', 'Menu and Properties Panel sync'),
+            ('properties panel', 'Properties Panel availability'),
+            ('synchron', 'Menu and Properties Panel sync'),
+            ('preserve.*position', 'Position preservation on transform'),
+            ('preserve', 'Property preservation on transform'),
+            ('update.*canvas', 'Immediate canvas update'),
+            ('canvas.*immediate', 'Immediate canvas update'),
+            ('canvas', 'Canvas update behavior'),
+            ('color.*border.*stroke', 'Visual property preservation'),
+            ('not.*modify.*color', 'Visual property preservation'),
+            ('color', 'Color preservation on transform'),
+            ('border', 'Border preservation on transform'),
+            ('available.*tools', 'Tools menu commands available'),
+            ('available.*menu', 'Menu commands available'),
+            ('available', 'Command availability'),
+            ('transform.*together', 'Group transformation behavior'),
+            ('transform', 'Transformation behavior'),
+            ('rotate', 'Rotate transformation'),
+            ('mirror', 'Mirror transformation'),
+            ('flip', 'Flip transformation'),
+            ('select', 'Selection behavior'),
+        ]
+
+        # Try to match action patterns (uses regex)
+        import re
+        for pattern, title in action_patterns:
+            if re.search(pattern, text_lower):
+                return title
+
+        # If no pattern matched, create a summarized title
+        # Extract the main verb and object
+        import re
+
+        # Look for verb phrases
+        verb_match = re.search(
+            r'\b(rotate|mirror|flip|transform|update|preserve|synchronize|enable|disable|select|display|show|hide|apply)\w*\b',
+            text_lower
+        )
+
+        if verb_match:
+            verb = verb_match.group(1).capitalize()
+            # Find object after verb
+            after_verb = text_lower[verb_match.end():].strip()
+            words = after_verb.split()[:3]  # Take up to 3 words after verb
+            if words:
+                obj = ' '.join(words).rstrip('.,;:')
+                title = f"{verb} {obj}"
+                if len(title) > 50:
+                    title = title[:47] + "..."
+                return title
+            return f"{verb} behavior"
+
+        # Fallback: Clean and truncate
+        # Remove leading articles and conjunctions
+        text = re.sub(r'^(the|a|an|and|or|but|if|when|then)\s+', '', text, flags=re.IGNORECASE)
 
         if text:
             text = text[0].upper() + text[1:]
 
-        if len(text) > 60:
-            text = text[:57] + "..."
+        # Create a balanced truncation
+        if len(text) > 50:
+            # Try to break at a word boundary
+            truncated = text[:47]
+            last_space = truncated.rfind(' ')
+            if last_space > 30:
+                truncated = truncated[:last_space]
+            text = truncated + "..."
 
         return text if text else f"{feature_name} functionality"
 
