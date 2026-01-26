@@ -6,7 +6,7 @@ Refactored to use SummaryPlan pattern with evidence-based guardrails.
 """
 import re
 from typing import Dict, List, Tuple, Optional, Set
-from models import SummaryPlan, UserStory, TestCase
+from core.domain.models import SummaryPlan, UserStory, TestCase, TestStep
 
 
 class QASummaryGenerator:
@@ -80,7 +80,7 @@ class QASummaryGenerator:
         for tc in test_cases:
             steps = []
             for i, step in enumerate(tc.get('steps', []), 1):
-                from models import TestStep
+                # TestStep imported at top of file
                 steps.append(TestStep(
                     index=i,
                     action=step.get('action', ''),

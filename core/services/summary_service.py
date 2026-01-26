@@ -4,9 +4,9 @@ Generates QA Planning Summary with evidence gates and optional LLM rewriting.
 """
 import re
 from typing import List, Optional, Dict
-from models import UserStory, TestCase, SummaryPlan, EvidenceModel, LintResult
-from linting import SummaryLinter
-from llm.base import LLMProvider
+from core.domain.models import UserStory, TestCase, SummaryPlan, EvidenceModel, LintResult
+from core.services.linting import SummaryLinter
+from core.services.llm.base import LLMProvider
 
 
 class SummaryService:

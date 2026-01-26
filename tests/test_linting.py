@@ -1,42 +1,43 @@
 """Tests for linting system."""
 import pytest
-from models import EvidenceModel, Objective, TestCase, TestStep
-from linting import SummaryLinter, ObjectiveLinter
+from core.domain.models import EvidenceModel, Objective, TestCase, TestStep
+from core.services.linting import SummaryLinter, ObjectiveLinter
 
 
 def test_summary_linter_structure():
     """Test summary linter checks required structure."""
+    # Evidence must include UI surfaces mentioned in the summary
     evidence = EvidenceModel(
-        description_text="Test description",
-        ac_text="Test AC",
-        test_titles=[]
+        description_text="The Mirror Tool enables flip operations through the Tools Menu on the canvas",
+        ac_text="Tool flips objects horizontally and vertically with visual feedback",
+        test_titles=["Test: Mirror Tool / Tools Menu / Flip Operations"]
     )
-    
+
     linter = SummaryLinter(evidence)
-    
-    # Valid summary
+
+    # Valid summary - UI surfaces match evidence
     valid_summary = """This work item introduces the Mirror Tool, enabling flip operations through the Tools Menu.
 
 Testing will focus on verifying:
-• Horizontal flip capability
-• Vertical flip capability
-• Immediate visual feedback
-• Object proportions preservation
-• Selection scope limitation
-• Undo/Redo support
+• Horizontal flip capability for selected objects
+• Vertical flip capability for selected objects
+• Visual feedback during flip operations
+• Object proportions preservation after flip
+• Selection scope limitation to single objects
+• Undo/Redo support for flip actions
 
-Functional dependencies include menu navigation, canvas rendering, and object selection, all of which must operate correctly to ensure proper feature behavior.
+Functional dependencies include menu navigation and object selection, all of which must operate correctly to ensure proper feature behavior.
 
 Accessibility testing will validate compliance with Section 508 / WCAG 2.1 AA standards, including keyboard operability, visible focus indicators, and readable labels and control roles to ensure the feature is usable with assistive technologies.
 
 Tests will be executed on Windows 11 and tablet devices (iOS iPad and Android Tablet) to validate consistent behavior across mouse-based and touch-based interaction models."""
-    
+
     result = linter.lint(valid_summary)
-    assert result.ok is True
-    
+    assert result.ok is True, f"Expected ok=True but got errors: {result.errors}"
+
     # Invalid summary (missing section)
     invalid_summary = "This is an incomplete summary."
-    
+
     result = linter.lint(invalid_summary)
     assert result.ok is False
     assert len(result.errors) > 0
@@ -156,9 +157,9 @@ def test_objective_linter_scope_drift():
         ac_text="Tool can flip horizontally",
         test_titles=["Test: Mirror Tool / Tools Menu / Horizontal Flip"]
     )
-    
+
     linter = ObjectiveLinter(evidence)
-    
+
     steps = [TestStep(index=1, action="Test", expected="")]
     tc = TestCase(
         test_id="12345-005",
@@ -166,17 +167,18 @@ def test_objective_linter_scope_drift():
         steps=steps,
         area="Tools Menu"
     )
-    
-    # Objective adds scope not in title (vertical flip)
+
+    # Objective adds scope not in title - use exact key terms the linter checks:
+    # 'canvas', 'vertical', 'rotation', 'undo', 'redo', 'selection', etc.
     obj = Objective(
         test_id="12345-005",
         title=tc.title,
-        objective_text="Verify that the tool flips objects horizontally and vertically with real-time feedback on the canvas."
+        objective_text="Verify that the tool flips objects with feedback on the canvas and supports undo operations."
     )
-    
+
     result = linter.lint_objective(obj, tc)
-    # Should have warnings about added scope
-    assert len(result.warnings) > 0 or result.ok is False
+    # Should have warnings about 'canvas' and 'undo' not being in the title
+    assert len(result.warnings) > 0, f"Expected warnings about scope drift but got none. Result: {result}"
 
 
 def test_objective_linter_all():

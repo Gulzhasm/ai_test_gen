@@ -4,7 +4,7 @@ Validates QA Planning Summary against evidence sources.
 """
 import re
 from typing import List
-from models import EvidenceModel, LintResult
+from core.domain.models import EvidenceModel, LintResult
 
 
 class SummaryLinter:

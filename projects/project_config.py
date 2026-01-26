@@ -61,7 +61,7 @@ class ApplicationConfig:
 
     # Platform support
     supported_platforms: List[str] = field(default_factory=lambda: [
-        'Windows 11', 'macOS', 'iPad', 'Android Tablet'
+        'Windows 11', 'iPad', 'Android Tablet'
     ])
 
     # Object interaction keywords (determines if object setup is needed)
@@ -162,6 +162,33 @@ class ApplicationConfig:
 
 
 @dataclass
+class IntegrationConfig:
+    """
+    Integration platform configuration.
+
+    Supports multiple platforms: Azure DevOps, Jira, TestRail, etc.
+    This allows the framework to be extended to different test management systems.
+    """
+    platform: str = "ado"  # ado, jira, testrail
+
+    # Base URL template - use placeholders for org/project
+    # ADO: "https://dev.azure.com/{organization}/{project}"
+    # Jira: "https://{organization}.atlassian.net"
+    # TestRail: "https://{organization}.testrail.io"
+    base_url_template: str = "https://dev.azure.com/{organization}/{project}"
+
+    # API version (platform-specific)
+    api_version: str = "7.1"
+
+    def get_base_url(self, organization: str, project: str = "") -> str:
+        """Build the base URL from template and parameters."""
+        return self.base_url_template.format(
+            organization=organization,
+            project=project
+        )
+
+
+@dataclass
 class ADOProjectConfig:
     """Azure DevOps project configuration."""
     organization: str  # e.g., "cdpinc", "contoso"
@@ -179,9 +206,14 @@ class ADOProjectConfig:
     # QA Prep task naming pattern (None means no QA Prep exists)
     qa_prep_pattern: Optional[str] = "Story {story_id}: QA Prep"
 
+    # Integration platform config (for URL customization)
+    integration: Optional[IntegrationConfig] = None
+
     @property
     def base_url(self) -> str:
         """Get the base URL for ADO API calls."""
+        if self.integration:
+            return self.integration.get_base_url(self.organization, self.project)
         return f"https://dev.azure.com/{self.organization}/{self.project}"
 
     def get_test_suite_prefix(self, story_id: str) -> str:
@@ -288,8 +320,23 @@ class ProjectConfig:
             main_ui_surfaces=app_data.get('ui_surfaces', []),
             entry_point_mappings=app_data.get('entry_point_mappings', {}),
             supported_platforms=app_data.get('platforms', ['Windows 11', 'macOS']),
-            object_interaction_keywords=app_data.get('object_keywords', [])
+            object_interaction_keywords=app_data.get('object_keywords', []),
+            # Feature constraints - critical for accurate test generation
+            unavailable_features=app_data.get('unavailable_features', []),
+            feature_aliases=app_data.get('feature_aliases', {}),
+            feature_notes=app_data.get('feature_notes', {}),
         )
+
+        # Extract integration config (for URL customization and future Jira/TestRail support)
+        integration_data = data.get('integration', {})
+        integration = None
+        if integration_data:
+            integration = IntegrationConfig(
+                platform=integration_data.get('platform', 'ado'),
+                base_url_template=integration_data.get('base_url_template',
+                    'https://dev.azure.com/{organization}/{project}'),
+                api_version=integration_data.get('api_version', '7.1')
+            )
 
         # Extract ADO config
         ado_data = data.get('ado', {})
@@ -301,7 +348,8 @@ class ProjectConfig:
             assigned_to=ado_data.get('assigned_to', os.getenv('ASSIGNED_TO', '')),
             default_state=ado_data.get('default_state', 'Design'),
             test_suite_pattern=ado_data.get('test_suite_pattern', '{story_id} : {story_name}'),
-            qa_prep_pattern=ado_data.get('qa_prep_pattern', 'Story {story_id}: QA Prep')
+            qa_prep_pattern=ado_data.get('qa_prep_pattern', 'Story {story_id}: QA Prep'),
+            integration=integration
         )
 
         # Extract rules config
@@ -367,6 +415,15 @@ class ProjectConfig:
             'llm_model': self.llm_model,
             'objective_patterns': self.objective_key_term_patterns,
         }
+
+        # Add integration config if present
+        if self.ado.integration:
+            data['integration'] = {
+                'platform': self.ado.integration.platform,
+                'base_url_template': self.ado.integration.base_url_template,
+                'api_version': self.ado.integration.api_version,
+            }
+
         return yaml.dump(data, default_flow_style=False, sort_keys=False)
 
     def save(self, path: str = None) -> str:

@@ -252,7 +252,14 @@ class ADOStoryRepository(IStoryRepository):
             return None
 
     def get_qa_prep(self, story_id: int) -> Optional[str]:
-        """Retrieve QA Prep content for a story."""
+        """
+        Retrieve QA Prep content for a story.
+
+        QA Prep should be a child task under the story. This method:
+        1. Gets child work items linked to the story
+        2. Finds the QA Prep task among them
+        3. Returns the QA Planning Summary from the Description field
+        """
         qa_prep_pattern = self._config.qa_prep_pattern
         if not qa_prep_pattern:
             return None
@@ -260,12 +267,51 @@ class ADOStoryRepository(IStoryRepository):
         qa_prep_title = qa_prep_pattern.format(story_id=story_id)
 
         try:
-            # Search for QA Prep subtask
+            # First, try to get QA Prep as a child task linked to the story
+            # Get story with relations
+            story_data = self._client.get(
+                f"_apis/wit/workitems/{story_id}",
+                params={"$expand": "relations"}
+            )
+
+            relations = story_data.get('relations', [])
+
+            # Look for child links (System.LinkTypes.Hierarchy-Forward)
+            child_ids = []
+            for relation in relations:
+                rel_type = relation.get('rel', '')
+                # Child links are "System.LinkTypes.Hierarchy-Forward" or contains "Child"
+                if 'Hierarchy-Forward' in rel_type or 'Child' in rel_type:
+                    url = relation.get('url', '')
+                    # Extract work item ID from URL
+                    if '/workItems/' in url:
+                        child_id = url.split('/workItems/')[-1]
+                        try:
+                            child_ids.append(int(child_id))
+                        except ValueError:
+                            pass
+
+            # Check each child for QA Prep
+            for child_id in child_ids:
+                try:
+                    child_data = self._client.get(f"_apis/wit/workitems/{child_id}")
+                    child_fields = child_data.get('fields', {})
+                    child_title = child_fields.get('System.Title', '')
+
+                    # Check if this is the QA Prep task
+                    if 'QA Prep' in child_title or child_title == qa_prep_title:
+                        description = child_fields.get('System.Description', '')
+                        if description:
+                            return self._parser.normalize_to_text(description)
+                except Exception:
+                    continue
+
+            # Fallback: Search by title pattern if no child QA Prep found
             query = (
                 f"Select [System.Id], [System.Title] "
                 f"From WorkItems "
-                f"Where [System.Title] = '{qa_prep_title}' "
-                f"And [System.WorkItemType] = 'Sub-task'"
+                f"Where [System.Title] Contains 'QA Prep' "
+                f"And [System.Title] Contains '{story_id}'"
             )
 
             result = self._client.execute_wiql(query)

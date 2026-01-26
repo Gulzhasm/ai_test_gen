@@ -1,6 +1,6 @@
 """Tests for LLM providers."""
 import pytest
-from llm import OllamaProvider, create_llm_provider
+from core.services.llm import OllamaProvider, create_llm_provider
 
 
 def test_ollama_provider_initialization():

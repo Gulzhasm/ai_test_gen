@@ -3,9 +3,9 @@ Objective Service
 Generates objectives with evidence gates and optional LLM rewriting.
 """
 from typing import List, Optional
-from models import TestCase, Objective, EvidenceModel, LintResult
-from linting import ObjectiveLinter
-from llm.base import LLMProvider
+from core.domain.models import TestCase, Objective, EvidenceModel, LintResult
+from core.services.linting import ObjectiveLinter
+from core.services.llm.base import LLMProvider
 
 
 class ObjectiveService:

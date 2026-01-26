@@ -50,3 +50,7 @@ final_*.txt
 # Claude settings (local)
 .claude/
 venv310/
+
+# Screenshots
+Screenshot*.png
+*.screenshot.png

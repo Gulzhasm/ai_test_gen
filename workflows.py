@@ -10,18 +10,20 @@ Enhanced workflow engine supporting:
 
 Usage:
     # Using default project (env-quickdraw)
-    python3 workflows_generic.py generate --story-id 272889
+    python3 workflows.py generate --story-id 272973
 
     # Using specific project
-    python3 workflows_generic.py generate --story-id 12345 --project mediapedia-us
+    python3 workflows.py generate --story-id 12345 --project mediapedia-us
 
     # Initialize new project
-    python3 workflows_generic.py init-project --name "My App" --org "myorg" --project "MyProject"
+    python3 workflows.py init-project --name "My App" --org "myorg" --project "MyProject"
 
     # Discover project from stories
-    python3 workflows_generic.py discover --story-id 12345 --project-name "mediapedia-us"
+    python3 workflows.py discover --story-id 12345 --project-name "mediapedia-us"
 """
 import argparse
+import glob
+import json
 import sys
 import os
 from abc import ABC, abstractmethod
@@ -226,12 +228,12 @@ class GenerateWorkflow(IWorkflow):
             return test_cases
 
         try:
-            from correct_with_llm import LLMCorrector
+            from core.services.llm.corrector import LLMCorrector
             print("  Applying LLM corrections (this may take 30-60 seconds)...")
             corrector = LLMCorrector(
                 api_key=api_key,
                 model=config.llm_model,
-                app_config=config.application
+                project_config=config  # Pass full project config for dynamic prompts
             )
             corrected = corrector.correct_test_cases(
                 test_cases=test_cases,
@@ -258,6 +260,7 @@ class GenerateWorkflow(IWorkflow):
         """Save generated outputs to files."""
         import json
         from infrastructure.export import CSVGenerator, ObjectiveGenerator
+        from infrastructure.export.csv_generator import CSVConfig
 
         os.makedirs(output_dir, exist_ok=True)
 
@@ -268,9 +271,14 @@ class GenerateWorkflow(IWorkflow):
 
         output_files = {}
 
-        # CSV
+        # CSV - pass config with area_path and assigned_to
+        csv_config = CSVConfig(
+            area_path=config.ado.area_path,
+            assigned_to=config.ado.assigned_to,
+            default_state=config.ado.default_state
+        )
         csv_path = os.path.join(output_dir, f"{story_id}_{safe_title}_{suffix}_TESTS.csv")
-        CSVGenerator().generate_csv(test_cases=test_cases, output_file=csv_path)
+        CSVGenerator(config=csv_config).generate_csv(test_cases=test_cases, output_file=csv_path)
         output_files['csv'] = csv_path
         print(f"  CSV: {csv_path}")
 
@@ -856,6 +864,154 @@ class ListProjectsWorkflow(IWorkflow):
 
 
 # =============================================================================
+# WORKFLOW 6: Upload Existing Test Cases
+# =============================================================================
+
+class UploadExistingWorkflow(IWorkflow):
+    """
+    Upload existing test cases from files to ADO.
+    Skips generation and uses previously generated test cases.
+    """
+
+    @property
+    def name(self) -> str:
+        return "upload-existing"
+
+    @property
+    def description(self) -> str:
+        return "Upload existing test cases to ADO (skip generation)"
+
+    def validate_inputs(self, **kwargs) -> Optional[str]:
+        story_id = kwargs.get('story_id')
+        if not story_id:
+            return "story_id is required"
+        if not isinstance(story_id, int) or story_id <= 0:
+            return "story_id must be a positive integer"
+        return None
+
+    def _find_existing_files(self, story_id: int, output_dir: str) -> Dict[str, str]:
+        """Find existing test case files for a story."""
+        found_files = {}
+
+        if not os.path.exists(output_dir):
+            return found_files
+
+        patterns = {
+            'json': f"{output_dir}/{story_id}_*DEBUG.json",
+            'csv': f"{output_dir}/{story_id}_*TESTS.csv",
+            'objectives': f"{output_dir}/{story_id}_*OBJECTIVES.txt"
+        }
+
+        for file_type, pattern in patterns.items():
+            matches = glob.glob(pattern)
+            if matches:
+                found_files[file_type] = max(matches, key=os.path.getmtime)
+
+        return found_files
+
+    def _load_test_cases(self, json_file: str) -> Optional[List[Dict]]:
+        """Load test cases from JSON file."""
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data.get('test_cases', [])
+        except Exception as e:
+            print(f"  Failed to load test cases: {e}")
+            return None
+
+    def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
+        story_id = kwargs['story_id']
+        output_dir = kwargs.get('output_dir') or config.output_dir or 'output'
+
+        print(f"\n{'='*60}")
+        print(f"WORKFLOW: Upload Existing Test Cases")
+        print(f"Project: {config.project_id} ({config.application.name})")
+        print(f"Story ID: {story_id}")
+        print(f"{'='*60}\n")
+
+        # Step 1: Find existing files
+        print("[1/3] Looking for existing test files...")
+        existing_files = self._find_existing_files(story_id, output_dir)
+
+        if not existing_files.get('json'):
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                message=f"No existing test files found for story {story_id} in {output_dir}"
+            )
+
+        print(f"  Found: {existing_files['json']}")
+
+        # Step 2: Load test cases
+        print("\n[2/3] Loading test cases...")
+        test_cases = self._load_test_cases(existing_files['json'])
+
+        if not test_cases:
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                message="Failed to load test cases from file"
+            )
+
+        print(f"  Loaded {len(test_cases)} test cases")
+
+        # Step 3: Upload to ADO using UploadWorkflow's upload logic
+        print(f"\n[3/3] Uploading to ADO...")
+
+        # Ensure PAT is set
+        if not config.ado.pat:
+            config.ado.pat = os.getenv('ADO_PAT')
+
+        from infrastructure.ado import ADOHttpClient, ADOTestSuiteRepository, ADOStoryRepository
+
+        try:
+            ado_client = ADOHttpClient(
+                organization=config.ado.organization,
+                project=config.ado.project,
+                pat=config.ado.pat
+            )
+            suite_repo = ADOTestSuiteRepository(config.ado)
+        except Exception as e:
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                message=f"Failed to initialize ADO client: {e}"
+            )
+
+        # Find test suite
+        suite_info = suite_repo.find_suite_by_story_id(story_id)
+        if not suite_info:
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                message=f"No test suite found for story {story_id}. Create one first or use 'upload' workflow."
+            )
+
+        print(f"  Found suite: {suite_info['name']}")
+
+        # Upload using UploadWorkflow's method
+        upload_workflow = UploadWorkflow()
+        upload_results = upload_workflow._upload_test_cases(
+            config, ado_client, suite_info, test_cases
+        )
+
+        print(f"\n{'='*60}")
+        print("UPLOAD COMPLETE")
+        print(f"{'='*60}")
+        print(f"  Created: {len(upload_results['created'])}")
+        print(f"  Failed: {len(upload_results['failed'])}")
+
+        status = WorkflowStatus.SUCCESS if not upload_results['failed'] else WorkflowStatus.PARTIAL
+
+        return WorkflowResult(
+            status=status,
+            message=f"Uploaded {len(upload_results['created'])}/{len(test_cases)} test cases",
+            data={
+                'created': upload_results['created'],
+                'failed': upload_results['failed'],
+                'suite_info': suite_info,
+                'source_file': existing_files['json']
+            }
+        )
+
+
+# =============================================================================
 # WORKFLOW ENGINE
 # =============================================================================
 
@@ -872,6 +1028,7 @@ class WorkflowEngine:
         workflows = [
             GenerateWorkflow(),
             UploadWorkflow(),
+            UploadExistingWorkflow(),
             InitProjectWorkflow(),
             DiscoverWorkflow(),
             ListProjectsWorkflow(),
@@ -934,27 +1091,34 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Workflows:
-  generate        Generate test cases for a story
-  upload          Generate + Upload to ADO test suite
-  init-project    Initialize a new project configuration
-  discover        Discover project config from ADO stories
-  list-projects   List all available project configurations
+  generate         Generate test cases for a story
+  upload           Generate + Upload to ADO test suite
+  upload-existing  Upload existing test cases to ADO (skip generation)
+  init-project     Initialize a new project configuration
+  discover         Discover project config from ADO stories
+  list-projects    List all available project configurations
 
 Examples:
   # Using default project (env-quickdraw)
-  python3 workflows_generic.py generate --story-id 272889
+  python3 workflows.py generate --story-id 272889
 
   # Using specific project
-  python3 workflows_generic.py generate --story-id 12345 --project mediapedia-us
+  python3 workflows.py generate --story-id 12345 --project mediapedia-us
+
+  # Upload existing tests (skip generation)
+  python3 workflows.py upload-existing --story-id 273566
+
+  # Generate and upload
+  python3 workflows.py upload --story-id 273566
 
   # Initialize new project
-  python3 workflows_generic.py init-project --name "MediaPedia" --org myorg --ado-project MediaPedia
+  python3 workflows.py init-project --name "MediaPedia" --org myorg --ado-project MediaPedia
 
   # Discover from stories
-  python3 workflows_generic.py discover --story-ids 12345 12346 --project-name my-app
+  python3 workflows.py discover --story-ids 12345 12346 --project-name my-app
 
   # List projects
-  python3 workflows_generic.py list-projects
+  python3 workflows.py list-projects
         """
     )
 
@@ -995,6 +1159,11 @@ Examples:
     discover_parser.add_argument('--project-name', required=True, help='Name for discovered project')
     discover_parser.add_argument('--org', dest='ado_org', help='ADO organization')
     discover_parser.add_argument('--ado-project', help='ADO project name')
+
+    # Upload existing workflow
+    upload_existing_parser = subparsers.add_parser('upload-existing', help='Upload existing test cases to ADO')
+    upload_existing_parser.add_argument('--story-id', type=int, required=True, help='ADO Story ID')
+    upload_existing_parser.add_argument('--output-dir', default=None, help='Output directory to search for files')
 
     # List projects workflow
     subparsers.add_parser('list-projects', help='List all projects')

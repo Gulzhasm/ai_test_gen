@@ -1,0 +1,146 @@
+# Example Mobile Application Configuration
+# This demonstrates how to configure the framework for a mobile application
+# Copy and modify this file for your own mobile app (iOS/Android)
+
+project_id: example-mobile-app
+
+application:
+  name: Example Mobile App
+  description: A sample iOS/Android mobile banking application
+  type: mobile  # Options: desktop, web, mobile, hybrid
+
+  # Step templates - customize for mobile context
+  prereq_template: "Pre-req: {app_name} is installed on the device"
+  launch_step: "Open {app_name} from the home screen."
+  launch_expected: "App launches and displays the login screen or dashboard."
+  close_step: "Close {app_name} by swiping up from the home bar"
+
+  # Main UI surfaces in your mobile application
+  ui_surfaces:
+    - Bottom Navigation Bar
+    - Top App Bar
+    - Side Drawer Menu
+    - Dashboard
+    - Transaction List
+    - Account Details
+    - Settings Screen
+    - Modal Bottom Sheet
+    - Alert Dialog
+    - Push Notification
+    - Biometric Prompt
+
+  # Feature entry points - map keywords to UI locations
+  entry_point_mappings:
+    transfer: Bottom Navigation Bar
+    pay: Bottom Navigation Bar
+    account: Bottom Navigation Bar
+    settings: Side Drawer Menu
+    profile: Top App Bar
+    notifications: Top App Bar
+    help: Side Drawer Menu
+    logout: Side Drawer Menu
+    transactions: Dashboard
+    balance: Dashboard
+
+  # Supported platforms for mobile
+  platforms:
+    - iOS 16+
+    - iOS 17+
+    - Android 12+
+    - Android 13+
+    - Android 14+
+
+  # Keywords indicating touch interaction
+  object_keywords:
+    - tap
+    - swipe
+    - scroll
+    - long press
+    - pinch
+    - drag
+    - pull to refresh
+    - shake
+    - rotate
+
+  # Features NOT available in your mobile app
+  unavailable_features:
+    - multi-window mode
+    - landscape orientation
+    - external keyboard support
+    - mouse pointer support
+    - file download over 50MB
+    - background audio
+
+  # Feature aliases
+  feature_aliases:
+    face id: biometric authentication
+    touch id: biometric authentication
+    fingerprint: biometric authentication
+
+  # Feature notes/warnings
+  feature_notes:
+    biometric: "Requires device with Face ID/Touch ID or fingerprint sensor"
+    push_notifications: "User must grant notification permission"
+    camera: "Camera permission required for check deposit"
+    location: "Location permission required for ATM finder"
+
+ado:
+  organization: your-org
+  project: MobileProject
+  area_path: "MobileProject\\MobileTeam"
+  assigned_to: mobile.qa@yourcompany.com
+  default_state: Design
+  test_suite_pattern: "{story_id} : {story_name}"
+  qa_prep_pattern: "Story {story_id}: QA Prep"
+
+rules:
+  forbidden_words:
+    - "or / OR"
+    - "if available"
+    - "if supported"
+    - "click"  # Use 'tap' for mobile
+    - "hover"  # Not applicable to mobile
+
+  forbidden_area_terms:
+    - Functionality
+    - Behavior
+    - Validation
+    - General
+    - System
+
+  allowed_areas:
+    - Bottom Navigation Bar
+    - Top App Bar
+    - Side Drawer Menu
+    - Dashboard
+    - Transaction List
+    - Account Details
+    - Settings Screen
+    - Modal Bottom Sheet
+    - Alert Dialog
+    - Push Notification
+    - Biometric Prompt
+    - Gesture Recognition
+    - Offline Mode
+
+  first_test_id: AC1
+  test_id_increment: 5
+
+output_dir: output
+llm_enabled: true
+llm_provider: openai
+llm_model: gpt-4o-mini
+
+# Patterns for bolding key terms in objectives
+objective_patterns:
+  - '\b(?:Bottom Navigation|Top App|Side Drawer) (?:Bar|Menu)?\b'
+  - '\bModal Bottom Sheet\b'
+  - '\bAlert Dialog\b'
+  - '\bPush Notification\b'
+  - '\bBiometric (?:Prompt|Authentication)\b'
+  - '\b(?:Face ID|Touch ID|Fingerprint)\b'
+  - '\b(?:Tap|Swipe|Scroll|Long Press|Pinch|Drag)\b'
+  - '\b(?:iOS|Android)\s+\d+\+?\b'
+  - '\b(?:VoiceOver|TalkBack)\b'
+  - '\bAccessibility (?:Scanner|Insights)\b'
+  - '\b(?:enabled|disabled|visible|hidden|loading)\b'

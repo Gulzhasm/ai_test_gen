@@ -7,7 +7,7 @@ by evidence from AC or QA Prep.
 """
 from typing import List, Dict, Tuple, Set
 from core.domain.grounded_spec import GroundedSpec
-import config
+from core.config import environment as config
 
 
 class GroundingValidator:

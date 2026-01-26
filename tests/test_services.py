@@ -1,6 +1,6 @@
 """Tests for services."""
 import pytest
-from models import UserStory, TestCase, TestStep, EvidenceModel
+from core.domain.models import UserStory, TestCase, TestStep, EvidenceModel
 from services import SummaryService, ObjectiveService
 
 

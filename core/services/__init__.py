@@ -5,6 +5,8 @@ from .ac_parser import ACParser, ACSemantics, ComprehensiveStepBuilder
 from .test_rules import TestRules, StepTemplate
 from .test_validator import TestCaseValidator, ValidationResult, ValidationSeverity
 from .test_generator import GenericTestGenerator
+from .objective_service import ObjectiveService
+from .summary_service import SummaryService
 from .metrics import (
     CostCalculator,
     ModelPricing,
@@ -36,6 +38,22 @@ from .quality import (
     SemanticStepBuilder,
     get_semantic_step_builder,
 )
+from .linting import (
+    SummaryLinter,
+    ObjectiveLinter,
+)
+from .llm import (
+    LLMProvider,
+    OllamaProvider,
+    OpenAIProvider,
+    AnthropicProvider,
+    CachedLLMProvider,
+    wrap_with_cache,
+    create_llm_provider,
+    LLMCorrector,
+    PromptBuilder,
+    build_prompts_for_project,
+)
 
 __all__ = [
     'ACParser',
@@ -47,6 +65,8 @@ __all__ = [
     'ValidationResult',
     'ValidationSeverity',
     'GenericTestGenerator',
+    'ObjectiveService',
+    'SummaryService',
     # Metrics
     'CostCalculator',
     'ModelPricing',
@@ -74,4 +94,18 @@ __all__ = [
     'BatchTestCorrector',
     'SemanticStepBuilder',
     'get_semantic_step_builder',
+    # Linting
+    'SummaryLinter',
+    'ObjectiveLinter',
+    # LLM
+    'LLMProvider',
+    'OllamaProvider',
+    'OpenAIProvider',
+    'AnthropicProvider',
+    'CachedLLMProvider',
+    'wrap_with_cache',
+    'create_llm_provider',
+    'LLMCorrector',
+    'PromptBuilder',
+    'build_prompts_for_project',
 ]

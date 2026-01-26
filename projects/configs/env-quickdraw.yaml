@@ -75,6 +75,33 @@ application:
     - scale
     - reposition
 
+  # CRITICAL: Features NOT available in ENV QuickDraw
+  # These will be used to filter out impossible test scenarios
+  unavailable_features:
+    - multi-object selection
+    - multi-select
+    - select multiple
+    - batch processing
+    - batch operations
+    - cloud sync
+    - real-time collaboration
+    - version history
+    - multiple objects selected
+
+  # Feature notes/warnings
+  feature_notes:
+    rotate: "Rotation uses system default logic (typically 90-degree increments)"
+    mirror: "Mirror operations preserve relative positions"
+    transform: "Commands are only enabled when at least one object is selected"
+
+# Integration platform configuration
+# Supports: ado (Azure DevOps), jira, testrail
+# This allows customization of the base URL for different environments
+integration:
+  platform: ado
+  base_url_template: "https://dev.azure.com/{organization}/{project}"
+  api_version: "7.1"
+
 ado:
   organization: cdpinc
   project: Env

@@ -1,6 +1,6 @@
 """Tests for domain models."""
 import pytest
-from models import (
+from core.domain.models import (
     UserStory, TestCase, TestStep, Objective,
     SummaryPlan, EvidenceModel, LintResult
 )

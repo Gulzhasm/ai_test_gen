@@ -13,6 +13,22 @@ try:
 except ImportError:
     pass
 
+# Re-export environment config for backward compatibility
+from .environment import (
+    EnvironmentConfig,
+    ADO_PAT,
+    LLM_ENABLED,
+    LLM_PROVIDER,
+    LLM_MODEL,
+    LLM_ENDPOINT,
+    LLM_TIMEOUT,
+    LLM_MAX_RETRIES,
+    LLM_TEMPERATURE,
+    OPENAI_API_KEY,
+    DEFAULT_PROJECT,
+    OUTPUT_DIR
+)
+
 
 @dataclass
 class ADOConfig:

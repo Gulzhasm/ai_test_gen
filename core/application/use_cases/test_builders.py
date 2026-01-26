@@ -7,7 +7,7 @@ based only on Ruleset signals, never from raw text or heuristics.
 from typing import List, Dict, Optional, Tuple
 from core.domain.ruleset import Ruleset, EvidenceBullet
 import re
-import config
+from core.config import environment as config
 
 
 class BaseBuilder:

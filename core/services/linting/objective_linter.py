@@ -3,7 +3,7 @@ Objective Linter
 Validates objectives against test case titles and evidence.
 """
 from typing import List
-from models import Objective, TestCase, EvidenceModel, LintResult
+from core.domain.models import Objective, TestCase, EvidenceModel, LintResult
 
 
 class ObjectiveLinter:
