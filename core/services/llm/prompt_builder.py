@@ -248,14 +248,23 @@ FORBIDDEN Areas (never use):
 
 {step_templates_section}
 
-## EXPECTED RESULT RULES
+## EXPECTED RESULT RULES (CRITICAL FOR QUALITY)
 Steps that MUST have EMPTY expected:
-- PRE-REQ steps
+- PRE-REQ steps (prerequisite conditions)
 - Close/Exit the application
 
-Steps that MUST have expected:
-- Verification steps ("Verify...", "Check...")
-- Action steps with observable outcome
+Steps that MUST have MEANINGFUL expected results:
+- Launch/Navigate steps (e.g., "Application opens", "Menu displays")
+- Verification steps ("Verify...", "Check...", "Confirm...")
+- Action steps that change state (e.g., "Object is created", "Selection is visible")
+- Menu/dialog actions (e.g., "Dialog appears", "Options are displayed")
+
+QUALITY RULE: At least 50% of steps should have expected results.
+If a step causes something VISIBLE to happen, it NEEDS an expected result.
+Example GOOD steps:
+  Action: "Click the Save button" → Expected: "File is saved and confirmation appears"
+  Action: "Select the ellipse" → Expected: "Ellipse is highlighted with selection handles"
+  Action: "Open the Dimensions Menu" → Expected: "Dimensions Menu opens with available commands"
 
 ## FORBIDDEN LANGUAGE (HARD FAIL)
 Remove: {', '.join(self.ctx.forbidden_words[:5])}
@@ -358,6 +367,11 @@ This is a **{self.ctx.feature_type}** feature.
 - Fix forbidden language ("or", "if available", "if supported")
 - Fix title format: "<StoryID>-<ID>: <Feature> / <Area> / <Scenario>"
 - Ensure PRE-REQ first, Close/Exit last
+- **ADD MISSING EXPECTED RESULTS** to action steps:
+  - "Create object" → "Object appears on canvas"
+  - "Select item" → "Item is highlighted/selected"
+  - "Open menu" → "Menu displays with options"
+  - "Click button" → "Action is performed and feedback shown"
 
 {context_tasks}
 
@@ -379,7 +393,7 @@ Think: "What tests would I write if I had limited time but needed thorough cover
 ## OUTPUT
 Return JSON with high-quality test cases: {{"test_cases": [...]}}
 
-Target: 12-20 well-crafted test cases:
+Target: very well-crafted test cases, test case count depending on feature complexity, typically 15-25 tests including:
 - Core functionality tests (map to AC items)
 - {len(self.ctx.platforms)} accessibility tests (one per platform)
 - Relevant edge cases and negative tests
@@ -638,8 +652,9 @@ As an expert QA engineer with 10+ years of experience, you know that:
         lines.extend([
             "- Fix forbidden language (\"or\", \"if available\", etc.)",
             "- Fix title format issues",
-            "- Add missing expected results to verification steps",
+            "- **ADD EXPECTED RESULTS** to ALL action steps that cause visible changes",
             "- Ensure PRE-REQ first, Close/Exit last (both empty expected)",
+            "- Target: At least 50% of steps should have expected results",
         ])
 
         return "\n".join(lines)

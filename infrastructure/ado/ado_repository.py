@@ -25,6 +25,10 @@ class HtmlParser:
     def normalize_to_text(html_content: str) -> str:
         """Convert HTML to plain text, preserving structure.
 
+        Generic HTML-to-text converter that works with any ADO project's
+        AC format. Handles ordered lists, unordered lists, and various
+        HTML structures.
+
         Args:
             html_content: HTML string
 
@@ -36,16 +40,29 @@ class HtmlParser:
 
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        # Convert lists to bullet points with proper markers
+        # Process lists - extract text content directly to avoid
+        # line break issues from nested HTML elements
         for ul in soup.find_all(['ul', 'ol']):
+            list_lines = []
+            is_ordered = ul.name == 'ol'
+
             for idx, li in enumerate(ul.find_all('li', recursive=False), start=1):
-                text = li.get_text().strip()
-                if not text.startswith('•') and not text.startswith('-'):
-                    # Use • for unordered, numbers for ordered
-                    if ul.name == 'ol':
-                        li.insert(0, f'{idx}. ')
+                # Get text using space separator to flatten nested elements
+                text = li.get_text(separator=' ').strip()
+                # Clean up any extra whitespace
+                text = ' '.join(text.split())
+
+                if text:
+                    # Prepend appropriate marker
+                    if is_ordered:
+                        list_lines.append(f'{idx}. {text}')
                     else:
-                        li.insert(0, '• ')
+                        list_lines.append(f'• {text}')
+
+            # Replace list element with formatted text
+            if list_lines:
+                new_text = soup.new_string('\n'.join(list_lines))
+                ul.replace_with(new_text)
 
         # Get text with newlines
         text = soup.get_text(separator='\n')
@@ -91,19 +108,30 @@ class HtmlParser:
         current_ac = []
 
         def is_bullet_start(line: str) -> bool:
-            """Check if line starts a new AC bullet."""
+            """Check if line starts a new AC bullet.
+
+            Generic bullet detection that works with various formats:
+            - Bullet markers: •, -, *
+            - Numbered: 1. 2. 3. (with or without space)
+            - AC format: AC1:, AC 2., etc.
+            - Checkbox: [ ] or [x]
+            """
             stripped = line.strip()
             return (
                 stripped.startswith('•') or
                 stripped.startswith('- ') or
-                re.match(r'^\d+\.\s', stripped) or
+                re.match(r'^\d+\.(\s|$)', stripped) or  # "1. text" or "1." alone
                 re.match(r'^AC\s*\d+[:\.]', stripped, re.IGNORECASE) or
-                re.match(r'^\[\s*\]', stripped) or  # Checkbox style
+                re.match(r'^\[\s*[xX]?\s*\]', stripped) or  # Checkbox style [ ] or [x]
                 re.match(r'^\*\s', stripped)  # Asterisk bullet
             )
 
         def clean_bullet_prefix(line: str) -> str:
-            """Remove bullet prefix from line."""
+            """Remove bullet prefix from line.
+
+            Returns empty string if the line is ONLY a bullet marker
+            (like "1." alone), so we can detect this and merge with next line.
+            """
             line = line.strip()
             if line.startswith('•'):
                 return line[1:].strip()
@@ -111,12 +139,12 @@ class HtmlParser:
                 return line[2:].strip()
             if line.startswith('* '):
                 return line[2:].strip()
-            if re.match(r'^\d+\.\s*', line):
-                return re.sub(r'^\d+\.\s*', '', line)
+            if re.match(r'^\d+\.(\s|$)', line):
+                return re.sub(r'^\d+\.\s*', '', line).strip()
             if re.match(r'^AC\s*\d+[:\.\s]+', line, re.IGNORECASE):
                 return re.sub(r'^AC\s*\d+[:\.\s]+', '', line, flags=re.IGNORECASE)
-            if re.match(r'^\[\s*\]\s*', line):
-                return re.sub(r'^\[\s*\]\s*', '', line)
+            if re.match(r'^\[\s*[xX]?\s*\]\s*', line):
+                return re.sub(r'^\[\s*[xX]?\s*\]\s*', '', line)
             return line
 
         def is_fragment(line: str) -> bool:
@@ -154,13 +182,16 @@ class HtmlParser:
 
             return False
 
+        # Track if we just saw a bullet marker with no content (e.g., "1." alone)
+        expecting_content = False
+
         for line in lines:
             stripped = line.strip()
             if not stripped:
                 continue
 
             # Skip obvious fragments when not building an AC
-            if is_fragment(stripped) and not current_ac:
+            if is_fragment(stripped) and not current_ac and not expecting_content:
                 continue
 
             if is_bullet_start(line):
@@ -175,6 +206,16 @@ class HtmlParser:
                 clean_line = clean_bullet_prefix(line)
                 if clean_line and not is_fragment(clean_line):
                     current_ac.append(clean_line)
+                    expecting_content = False
+                else:
+                    # Bullet marker alone (e.g., "1.") - content is on next line
+                    expecting_content = True
+
+            elif expecting_content:
+                # This line is the content for a standalone bullet marker
+                if stripped and not is_fragment(stripped):
+                    current_ac.append(stripped)
+                expecting_content = False
 
             elif current_ac:
                 # Continuation of current AC
@@ -329,12 +370,23 @@ class ADOStoryRepository(IStoryRepository):
             return None
 
     def _extract_ac_from_comments(self, story_id: int) -> str:
-        """Extract AC from work item comments if AC field is empty."""
+        """Extract AC from the FIRST work item comment only.
+
+        Only retrieves the first comment to get the original AC,
+        filtering out subsequent comments which are typically
+        discussion/noise from team members.
+        """
         try:
             comments = self._client.get(f"_apis/wit/workitems/{story_id}/comments")
-            for comment in comments.get('comments', []):
-                text = comment.get('text', '')
-                if 'acceptance criteria' in text.lower() or '•' in text:
+            comment_list = comments.get('comments', [])
+
+            # Only process the FIRST comment (oldest)
+            # Comments are typically ordered by date, first is the original
+            if comment_list:
+                # Get the first comment only
+                first_comment = comment_list[0]
+                text = first_comment.get('text', '')
+                if text:
                     return self._parser.normalize_to_text(text)
         except Exception:
             pass

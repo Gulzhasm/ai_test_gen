@@ -284,6 +284,21 @@ class LLMCorrector:
             system_prompt = builder.build_system_prompt()
             user_prompt = builder.build_user_prompt(tc_json)
             print(f"  Using dynamic prompts for {self._app_name}")
+
+            # DEBUG: Print prompts to output file
+            debug_prompt_path = os.path.join("output", f"{story_id}_PROMPTS_DEBUG.txt")
+            os.makedirs("output", exist_ok=True)
+            with open(debug_prompt_path, 'w', encoding='utf-8') as f:
+                f.write("=" * 80 + "\n")
+                f.write("SYSTEM PROMPT\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(system_prompt)
+                f.write("\n\n")
+                f.write("=" * 80 + "\n")
+                f.write("USER PROMPT\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(user_prompt)
+            print(f"  DEBUG: Prompts saved to {debug_prompt_path}")
         else:
             # Fallback to basic prompts if prompt builder not available
             system_prompt, user_prompt = self._build_fallback_prompts(
@@ -614,7 +629,6 @@ def generate_and_correct(
 
         # Ensure PAT is set
         if not project_config.ado.pat:
-            import os
             project_config.ado.pat = os.getenv('ADO_PAT')
 
         story_repo = ADOStoryRepository(project_config.ado)
