@@ -1012,6 +1012,502 @@ class UploadExistingWorkflow(IWorkflow):
 
 
 # =============================================================================
+# WORKFLOW 7: Update Test Cases from Reviewer Feedback
+# =============================================================================
+
+class UpdateFromFeedbackWorkflow(IWorkflow):
+    """
+    Update existing test cases in ADO based on reviewer/customer feedback.
+
+    Takes a CSV file exported from ADO and a text file with feedback,
+    then applies ONLY the specific fixes mentioned in the feedback.
+
+    Usage:
+        python3 workflows.py update-from-feedback \
+            --csv "exported_tests.csv" \
+            --feedback "review_feedback.txt"
+    """
+
+    @property
+    def name(self) -> str:
+        return "update-from-feedback"
+
+    @property
+    def description(self) -> str:
+        return "Update test cases in ADO based on reviewer feedback"
+
+    def validate_inputs(self, **kwargs) -> Optional[str]:
+        csv_file = kwargs.get('csv_file')
+        feedback_file = kwargs.get('feedback_file')
+
+        if not csv_file:
+            return "csv_file is required (--csv)"
+        if not feedback_file:
+            return "feedback_file is required (--feedback)"
+        if not os.path.exists(csv_file):
+            return f"CSV file not found: {csv_file}"
+        if not os.path.exists(feedback_file):
+            return f"Feedback file not found: {feedback_file}"
+        return None
+
+    def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
+        import csv
+        import re
+        from infrastructure.ado import ADOHttpClient
+
+        csv_file = kwargs['csv_file']
+        feedback_file = kwargs['feedback_file']
+        dry_run = kwargs.get('dry_run', False)
+        use_llm = kwargs.get('use_llm', False)
+        output_file = kwargs.get('output_file', None)
+
+        print(f"\n{'='*60}")
+        print(f"WORKFLOW: Update Test Cases from Reviewer Feedback")
+        print(f"Project: {config.project_id}")
+        print(f"CSV File: {csv_file}")
+        print(f"Feedback File: {feedback_file}")
+        print(f"Mode: {'Dry Run' if dry_run else 'Live Update'}")
+        print(f"LLM Assistance: {'Enabled' if use_llm else 'Disabled (manual parsing)'}")
+        print(f"{'='*60}\n")
+
+        # Step 1: Parse test cases from CSV
+        print("[1/4] Parsing test cases from CSV...")
+        test_cases = self._parse_csv(csv_file)
+        print(f"  Found {len(test_cases)} test cases")
+
+        # Step 2: Parse feedback
+        print("\n[2/4] Parsing reviewer feedback...")
+        feedback = self._parse_feedback(feedback_file)
+        print(f"  General feedback items: {len(feedback['general'])}")
+        print(f"  Test-specific feedback: {list(feedback['specific'].keys())}")
+
+        # Step 3: Generate fixes
+        print("\n[3/4] Generating fixes...")
+        if use_llm:
+            fixes = self._generate_fixes_with_llm(test_cases, feedback)
+        else:
+            fixes = self._generate_fixes_manual(test_cases, feedback)
+
+        tests_to_update = [tc_id for tc_id in fixes if fixes[tc_id].get('has_changes')]
+        print(f"  Tests with changes: {len(tests_to_update)}")
+
+        # Preview changes with full detail
+        self._preview_changes(test_cases, fixes, output_file)
+
+        if dry_run:
+            print("\n[DRY RUN] No changes made to ADO.")
+            return WorkflowResult(
+                status=WorkflowStatus.SUCCESS,
+                message=f"Dry run: Would update {len(tests_to_update)} test cases",
+                data={'fixes': fixes, 'dry_run': True}
+            )
+
+        # Step 4: Update ADO
+        print(f"\n[4/4] Updating ADO...")
+
+        if not config.ado.pat:
+            config.ado.pat = os.getenv('ADO_PAT')
+
+        if not config.ado.pat:
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                message="ADO_PAT environment variable not set"
+            )
+
+        client = ADOHttpClient(
+            organization=config.ado.organization,
+            project=config.ado.project,
+            pat=config.ado.pat
+        )
+
+        success, failed = self._update_ado(client, test_cases, fixes)
+
+        print(f"\n{'='*60}")
+        print("UPDATE COMPLETE")
+        print(f"{'='*60}")
+        print(f"  Success: {success}")
+        print(f"  Failed: {failed}")
+
+        status = WorkflowStatus.SUCCESS if failed == 0 else WorkflowStatus.PARTIAL
+        return WorkflowResult(
+            status=status,
+            message=f"Updated {success}/{success + failed} test cases",
+            data={'success': success, 'failed': failed, 'fixes': fixes}
+        )
+
+    def _parse_csv(self, csv_file: str) -> Dict[int, Dict]:
+        """Parse test cases from ADO-exported CSV."""
+        import csv
+
+        test_cases = {}
+        current_id = None
+
+        with open(csv_file, 'r', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get('ID') and row['ID'].strip():
+                    current_id = int(row['ID'])
+                    test_cases[current_id] = {
+                        'title': row.get('Title', ''),
+                        'state': row.get('State', 'Design'),
+                        'area_path': row.get('Area Path', ''),
+                        'assigned_to': row.get('Assigned To', ''),
+                        'steps': []
+                    }
+                if current_id and row.get('Test Step'):
+                    test_cases[current_id]['steps'].append({
+                        'step_num': int(row['Test Step']),
+                        'action': row.get('Step Action', ''),
+                        'expected': row.get('Step Expected', '')
+                    })
+        return test_cases
+
+    def _parse_feedback(self, feedback_file: str) -> Dict[str, Any]:
+        """Parse reviewer feedback from text file."""
+        import re
+
+        with open(feedback_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        feedback = {
+            'general': [],
+            'specific': {},
+            'raw': content
+        }
+
+        lines = content.split('\n')
+        current_test_id = None
+
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            # Check for test-specific section (e.g., "AC1:", "015:", "Test 278139:")
+            test_match = re.match(
+                r'^(?:Test\s*)?(?:Case\s*)?(?:#)?(\d+|AC\d+)\s*[:]\s*(.*)?',
+                stripped, re.IGNORECASE
+            )
+            if test_match:
+                current_test_id = test_match.group(1)
+                feedback['specific'][current_test_id] = []
+                remaining = test_match.group(2)
+                if remaining and remaining.strip():
+                    feedback['specific'][current_test_id].append(remaining.strip())
+                continue
+
+            # Add to appropriate section
+            if current_test_id:
+                feedback['specific'][current_test_id].append(stripped)
+            else:
+                feedback['general'].append(stripped)
+
+        return feedback
+
+    def _generate_fixes_manual(self, test_cases: Dict[int, Dict], feedback: Dict) -> Dict[int, Dict]:
+        """
+        Generate fixes by parsing feedback patterns manually.
+        Applies ONLY the specific changes mentioned in feedback.
+        """
+        import re
+
+        fixes = {}
+
+        # Map test IDs in feedback to actual ADO IDs
+        id_mapping = self._map_feedback_ids_to_ado_ids(test_cases, feedback)
+
+        for tc_id, tc_data in test_cases.items():
+            fix = {
+                'title': tc_data['title'],  # Keep original title
+                'state': 'Ready',  # Update state per feedback
+                'steps': [{'action': s['action'], 'expected': s['expected']} for s in tc_data['steps']],
+                'has_changes': False,
+                'changes_made': []
+            }
+
+            # Check if this test has specific feedback
+            feedback_id = id_mapping.get(tc_id)
+            if feedback_id and feedback_id in feedback['specific']:
+                specific_feedback = feedback['specific'][feedback_id]
+                fix = self._apply_specific_feedback(fix, specific_feedback, tc_data)
+
+            # Apply general feedback patterns
+            fix = self._apply_general_feedback(fix, feedback['general'])
+
+            # Check if state changed
+            if tc_data['state'] != fix['state']:
+                fix['has_changes'] = True
+                fix['changes_made'].append(f"State: {tc_data['state']} -> {fix['state']}")
+
+            fixes[tc_id] = fix
+
+        return fixes
+
+    def _map_feedback_ids_to_ado_ids(self, test_cases: Dict, feedback: Dict) -> Dict[int, str]:
+        """Map ADO test case IDs to feedback identifiers (AC1, 015, etc.)."""
+        import re
+
+        mapping = {}
+
+        for tc_id, tc_data in test_cases.items():
+            title = tc_data['title']
+
+            # Extract test ID from title (e.g., "272972-AC1:" or "272972-015:")
+            match = re.search(r'-(\d{3}|AC\d+)[:\s]', title)
+            if match:
+                test_num = match.group(1)
+                mapping[tc_id] = test_num
+
+        return mapping
+
+    def _apply_specific_feedback(self, fix: Dict, specific_feedback: List[str], original: Dict) -> Dict:
+        """Apply test-specific feedback."""
+        import re
+
+        feedback_text = ' '.join(specific_feedback).lower()
+
+        for line in specific_feedback:
+            line_lower = line.lower()
+
+            # Pattern: "Step X action should be expected result for step Y"
+            merge_match = re.search(
+                r'step\s*(\d+)\s*(?:action)?\s*should\s*be\s*(?:the\s*)?expected\s*(?:result)?\s*(?:for|of)\s*step\s*(\d+)',
+                line_lower
+            )
+            if merge_match:
+                source_step = int(merge_match.group(1)) - 1  # 0-indexed
+                target_step = int(merge_match.group(2)) - 1
+
+                if 0 <= source_step < len(fix['steps']) and 0 <= target_step < len(fix['steps']):
+                    # Move source step's expected (or action content) to target step's expected
+                    source_expected = fix['steps'][source_step]['expected']
+                    if not source_expected:
+                        # If source has no expected, use its action as the expected
+                        source_expected = fix['steps'][source_step]['action']
+
+                    fix['steps'][target_step]['expected'] = source_expected
+                    fix['steps'].pop(source_step)
+                    fix['has_changes'] = True
+                    fix['changes_made'].append(f"Merged step {source_step + 1} into step {target_step + 1}")
+
+            # Pattern: "Step X should be expected result of step Y" (without "action")
+            merge_match2 = re.search(
+                r'step\s*(\d+)\s*should\s*be\s*expected\s*(?:result)?\s*of\s*step\s*(\d+)',
+                line_lower
+            )
+            if merge_match2 and not merge_match:
+                source_step = int(merge_match2.group(1)) - 1
+                target_step = int(merge_match2.group(2)) - 1
+
+                if 0 <= source_step < len(fix['steps']) and 0 <= target_step < len(fix['steps']):
+                    # Add expected result to target step based on the action pattern
+                    target_action = fix['steps'][target_step]['action'].lower()
+
+                    if 'create new drawing' in target_action or 'select create new' in target_action:
+                        fix['steps'][target_step]['expected'] = 'Workspace is displayed and Home Screen is not visible.'
+                    elif 'close project' in target_action:
+                        fix['steps'][target_step]['expected'] = 'Home Screen is displayed.'
+                    elif 'save' in target_action:
+                        fix['steps'][target_step]['expected'] = 'File is saved successfully.'
+
+                    fix['has_changes'] = True
+                    fix['changes_made'].append(f"Added expected result to step {target_step + 1}")
+
+        return fix
+
+    def _apply_general_feedback(self, fix: Dict, general_feedback: List[str]) -> Dict:
+        """Apply general feedback patterns to all tests."""
+        feedback_text = ' '.join(general_feedback).lower()
+
+        # Check for "ready state" feedback
+        if 'ready state' in feedback_text or 'should be in ready' in feedback_text:
+            fix['state'] = 'Ready'
+
+        return fix
+
+    def _generate_fixes_with_llm(self, test_cases: Dict, feedback: Dict) -> Dict:
+        """Use LLM to interpret feedback and generate fixes."""
+        import json
+        import re
+
+        try:
+            from openai import OpenAI
+            api_key = os.getenv('OPENAI_API_KEY')
+            if not api_key:
+                print("  OPENAI_API_KEY not set, falling back to manual parsing")
+                return self._generate_fixes_manual(test_cases, feedback)
+
+            client = OpenAI(api_key=api_key)
+        except ImportError:
+            print("  OpenAI package not installed, falling back to manual parsing")
+            return self._generate_fixes_manual(test_cases, feedback)
+
+        # Build test cases for prompt
+        tc_list = []
+        for tc_id, tc_data in test_cases.items():
+            tc_list.append({
+                'id': tc_id,
+                'title': tc_data['title'],
+                'state': tc_data['state'],
+                'steps': [{'step': i+1, 'action': s['action'], 'expected': s['expected']}
+                         for i, s in enumerate(tc_data['steps'])]
+            })
+
+        prompt = f"""Apply ONLY the specific fixes from the reviewer feedback to these test cases.
+
+FEEDBACK:
+{feedback['raw']}
+
+TEST CASES:
+{json.dumps(tc_list, indent=2)}
+
+RULES:
+1. Keep original titles EXACTLY as they are
+2. Apply ONLY the specific fixes mentioned in feedback
+3. If feedback says "Step X should be expected result of step Y", merge step X into step Y's expected result
+4. Change state to "Ready" if mentioned in feedback
+5. Do NOT change tests that have no specific feedback
+
+OUTPUT: JSON object where keys are test IDs (as strings), values have:
+- title: SAME as original
+- state: "Ready" or original
+- steps: array of {{action, expected}}
+- has_changes: true/false
+
+Return ONLY valid JSON."""
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Output only valid JSON. Apply only specific fixes mentioned."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.1,
+            max_tokens=16000
+        )
+
+        result = response.choices[0].message.content.strip()
+        if result.startswith("```"):
+            result = re.sub(r'^```(?:json)?\n?', '', result)
+            result = re.sub(r'\n?```$', '', result)
+
+        fixes = json.loads(result)
+        return {int(k): v for k, v in fixes.items()}
+
+    def _preview_changes(self, test_cases: Dict, fixes: Dict, output_file: str = None):
+        """Preview the changes that will be made with full detail."""
+        print("\n" + "=" * 60)
+        print("DETAILED CHANGES TO BE APPLIED TO ADO")
+        print("=" * 60)
+
+        tests_with_changes = [(tc_id, fix) for tc_id, fix in fixes.items() if fix.get('has_changes')]
+
+        if not tests_with_changes:
+            print("\nNo changes detected.")
+            return
+
+        for tc_id, fix in tests_with_changes:
+            original = test_cases[tc_id]
+            print(f"\n{'─'*60}")
+            print(f"TEST CASE ID: {tc_id}")
+            print(f"{'─'*60}")
+            print(f"Title: {fix['title']}")
+            print(f"State: {original['state']} → {fix['state']}")
+            print(f"Steps: {len(original['steps'])} → {len(fix['steps'])}")
+
+            if fix.get('changes_made'):
+                print("\nChanges Applied:")
+                for change in fix['changes_made']:
+                    print(f"  • {change}")
+
+            print("\n--- UPDATED STEPS (will be sent to ADO) ---")
+            for i, step in enumerate(fix['steps'], 1):
+                print(f"\n  Step {i}:")
+                print(f"    Action:   {step['action']}")
+                print(f"    Expected: {step['expected'] or '(empty)'}")
+
+        # Output JSON - always save to output folder
+        import json
+
+        # Determine output file path
+        if output_file:
+            # If user specified path, use it
+            final_output_path = output_file
+        else:
+            # Default to output folder with timestamp
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
+            os.makedirs(output_dir, exist_ok=True)
+            final_output_path = os.path.join(output_dir, f"fixes_{timestamp}.json")
+
+        output_data = {}
+        for tc_id, fix in tests_with_changes:
+            output_data[str(tc_id)] = {
+                'title': fix['title'],
+                'state': fix['state'],
+                'steps': fix['steps']
+            }
+        with open(final_output_path, 'w') as f:
+            json.dump(output_data, f, indent=2)
+        print(f"\n{'='*60}")
+        print(f"Fixes saved to: {final_output_path}")
+
+        print(f"\n{'='*60}")
+        print(f"SUMMARY: {len(tests_with_changes)} test case(s) will be updated")
+        print(f"{'='*60}")
+
+    def _update_ado(self, client, test_cases: Dict, fixes: Dict) -> tuple:
+        """Update test cases in ADO."""
+        success = 0
+        failed = 0
+
+        for tc_id, fix in fixes.items():
+            if not fix.get('has_changes'):
+                continue
+
+            print(f"  Updating {tc_id}...", end=" ")
+
+            try:
+                patch_doc = [
+                    {"op": "replace", "path": "/fields/System.Title", "value": fix['title']},
+                    {"op": "replace", "path": "/fields/System.State", "value": fix['state']},
+                    {"op": "replace", "path": "/fields/Microsoft.VSTS.TCM.Steps",
+                     "value": self._build_steps_xml(fix['steps'])}
+                ]
+
+                client.patch(f"_apis/wit/workitems/{tc_id}", data=patch_doc)
+                print("OK")
+                success += 1
+            except Exception as e:
+                print(f"FAILED - {e}")
+                failed += 1
+
+        return success, failed
+
+    def _build_steps_xml(self, steps: List[Dict]) -> str:
+        """Build XML for test steps."""
+        if not steps:
+            return ""
+
+        def escape_xml(text):
+            return (text.replace('&', '&amp;').replace('<', '&lt;')
+                    .replace('>', '&gt;').replace('"', '&quot;').replace("'", '&apos;'))
+
+        xml_parts = [f'<steps id="0" last="{len(steps)}">']
+        for idx, step in enumerate(steps, start=1):
+            action = escape_xml(step.get('action', ''))
+            expected = escape_xml(step.get('expected', ''))
+            xml_parts.append(f'  <step id="{idx}" type="ValidateStep">')
+            xml_parts.append(f'    <parameterizedString isformatted="true">&lt;DIV&gt;&lt;P&gt;{action}&lt;/P&gt;&lt;/DIV&gt;</parameterizedString>')
+            xml_parts.append(f'    <parameterizedString isformatted="true">&lt;DIV&gt;&lt;P&gt;{expected}&lt;/P&gt;&lt;/DIV&gt;</parameterizedString>')
+            xml_parts.append('    <description/>')
+            xml_parts.append('  </step>')
+        xml_parts.append('</steps>')
+        return '\n'.join(xml_parts)
+
+
+# =============================================================================
 # WORKFLOW ENGINE
 # =============================================================================
 
@@ -1032,6 +1528,7 @@ class WorkflowEngine:
             InitProjectWorkflow(),
             DiscoverWorkflow(),
             ListProjectsWorkflow(),
+            UpdateFromFeedbackWorkflow(),
         ]
         for workflow in workflows:
             self._workflows[workflow.name] = workflow
@@ -1091,12 +1588,13 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Workflows:
-  generate         Generate test cases for a story
-  upload           Generate + Upload to ADO test suite
-  upload-existing  Upload existing test cases to ADO (skip generation)
-  init-project     Initialize a new project configuration
-  discover         Discover project config from ADO stories
-  list-projects    List all available project configurations
+  generate              Generate test cases for a story
+  upload                Generate + Upload to ADO test suite
+  upload-existing       Upload existing test cases to ADO (skip generation)
+  update-from-feedback  Update test cases based on reviewer feedback
+  init-project          Initialize a new project configuration
+  discover              Discover project config from ADO stories
+  list-projects         List all available project configurations
 
 Examples:
   # Using default project (env-quickdraw)
@@ -1110,6 +1608,11 @@ Examples:
 
   # Generate and upload
   python3 workflows.py upload --story-id 273566
+
+  # Update tests based on reviewer feedback
+  python3 workflows.py update-from-feedback --csv "tests.csv" --feedback "feedback.txt"
+  python3 workflows.py update-from-feedback --csv "tests.csv" --feedback "feedback.txt" --dry-run
+  python3 workflows.py update-from-feedback --csv "tests.csv" --feedback "feedback.txt" --use-llm
 
   # Initialize new project
   python3 workflows.py init-project --name "MediaPedia" --org myorg --ado-project MediaPedia
@@ -1167,6 +1670,20 @@ Examples:
 
     # List projects workflow
     subparsers.add_parser('list-projects', help='List all projects')
+
+    # Update from feedback workflow
+    feedback_parser = subparsers.add_parser('update-from-feedback',
+                                            help='Update test cases based on reviewer feedback')
+    feedback_parser.add_argument('--csv', dest='csv_file', required=True,
+                                 help='CSV file exported from ADO with existing test cases')
+    feedback_parser.add_argument('--feedback', dest='feedback_file', required=True,
+                                 help='Text file with reviewer/customer feedback')
+    feedback_parser.add_argument('--dry-run', action='store_true',
+                                 help='Preview changes without updating ADO')
+    feedback_parser.add_argument('--use-llm', action='store_true',
+                                 help='Use LLM to interpret feedback (requires OPENAI_API_KEY)')
+    feedback_parser.add_argument('--output', dest='output_file',
+                                 help='Save fixes to JSON file for review before applying')
 
     args = parser.parse_args()
 
