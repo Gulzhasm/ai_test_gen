@@ -21,11 +21,14 @@ import asyncio
 import json
 import sys
 import os
+import time
+import traceback
+import requests
 from pathlib import Path
 from typing import Dict, List, Optional
 
 # Add project root to path
-PROJECT_ROOT = Path(__file__).parent
+PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 # Load environment variables
@@ -191,8 +194,7 @@ async def generate_tests_for_story(
         }
 
     except Exception as e:
-        import traceback
-        return {"error": str(e), "traceback": traceback.format_exc()}
+        return {"error": str(e), "details": traceback.format_exc()}
 
 
 # =============================================================================
@@ -216,8 +218,6 @@ async def upload_tests_for_story(
         Dict with upload results
     """
     try:
-        import time
-        import requests
         from infrastructure.ado.ado_repository import ADOTestSuiteRepository
         from infrastructure.ado.http_client import ADOHttpClient
         from projects.test_suite_creator import TestSuiteCreator
@@ -320,14 +320,11 @@ async def upload_tests_for_story(
         }
 
     except Exception as e:
-        import traceback
-        return {"error": str(e), "traceback": traceback.format_exc()}
+        return {"error": str(e), "details": traceback.format_exc()}
 
 
 def _create_test_case(config, ado_client, title, steps, objective, tc_id, obj_gen) -> Optional[int]:
     """Create a test case work item in ADO."""
-    import requests
-
     url = f"{ado_client.base_url}/_apis/wit/workitems/$Test Case?api-version=7.1"
 
     # Build steps XML
@@ -382,8 +379,6 @@ def _build_steps_xml(steps: List[Dict]) -> str:
 
 def _add_to_suite(ado_client, plan_id: int, suite_id: int, test_case_id: int) -> bool:
     """Add test case to test suite."""
-    import requests
-
     url = f"{ado_client.base_url}/_apis/testplan/Plans/{plan_id}/Suites/{suite_id}/TestCase?api-version=7.1"
     body = [{'workItem': {'id': test_case_id}}]
 
@@ -427,8 +422,7 @@ async def get_story_details(story_id: str, project_id: str = "env-quickdraw") ->
         }
 
     except Exception as e:
-        import traceback
-        return {"error": str(e), "traceback": traceback.format_exc()}
+        return {"error": str(e), "details": traceback.format_exc()}
 
 
 # =============================================================================
