@@ -1,0 +1,134 @@
+# Example Project Configuration: Jira + TestRail Integration
+#
+# This example shows how to:
+# - Fetch user stories from Jira (source_platform: jira)
+# - Upload test cases to TestRail (target_platform: testrail)
+#
+# All credentials and connection info come from .env:
+#   JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PROJECT_KEY
+#   TESTRAIL_BASE_URL, TESTRAIL_EMAIL, TESTRAIL_API_KEY, TESTRAIL_PROJECT_ID
+#
+# This YAML only contains project-specific settings (app config, rules, etc.)
+
+project_id: example-jira-testrail
+
+# Platform selection
+source_platform: jira      # Fetch stories from Jira (credentials from .env)
+target_platform: testrail  # Upload test cases to TestRail (credentials from .env)
+
+# Application Configuration (Project-Specific)
+application:
+  name: My Application
+  description: Example application for Jira + TestRail demo
+  type: web  # desktop, web, mobile, hybrid
+
+  # Step templates
+  prereq_template: "Pre-req: User is logged into {app_name}"
+  launch_step: "Navigate to {app_name}."
+  launch_expected: "Application dashboard is displayed."
+  close_step: "Log out of {app_name}."
+
+  # UI surfaces (customize for your app)
+  ui_surfaces:
+    - Dashboard
+    - Navigation Menu
+    - Settings Page
+    - User Profile
+    - Search
+    - Forms
+    - Modal Dialog
+
+  # Entry point mappings (keyword -> UI location)
+  entry_point_mappings:
+    login: Login Page
+    dashboard: Dashboard
+    settings: Settings Page
+    profile: User Profile
+    search: Search
+    create: Forms
+    edit: Forms
+    delete: Modal Dialog
+
+  # Supported platforms
+  platforms:
+    - Chrome
+    - Firefox
+    - Safari
+    - Edge
+
+  # Features NOT available in this app (prevents impossible tests)
+  unavailable_features:
+    - offline mode
+    - mobile app
+    - desktop app
+
+# Jira Configuration (Project-Specific Settings Only)
+# Connection info (base_url, email, api_token, project_key) comes from .env
+jira:
+  is_cloud: true  # True for Jira Cloud, False for Jira Server/Data Center
+
+  # Custom field name for Acceptance Criteria (optional)
+  # Leave null to auto-discover, or specify the custom field name/ID
+  ac_field_name: null
+
+  # QA Prep configuration
+  qa_prep_issue_type: Sub-task
+  qa_prep_label: qa-prep
+
+# TestRail Configuration (Project-Specific Settings Only)
+# Connection info (base_url, email, api_key, project_id) comes from .env
+testrail:
+  # Suite ID for multi-suite projects (null for single-suite)
+  suite_id: null
+
+  # Default section for new test cases (null = creates per story)
+  default_section_id: null
+
+  # Default priority: 1=Low, 2=Medium, 3=High, 4=Critical
+  default_priority_id: 2
+
+  # Default test type ID (optional)
+  default_type_id: null
+
+# ADO Configuration (Not used when using Jira/TestRail)
+# Keep minimal placeholder for backward compatibility
+ado:
+  organization: not-used
+  project: not-used
+  area_path: not-used
+
+# Test Generation Rules (Project-Specific)
+rules:
+  forbidden_words:
+    - "or / OR"
+    - "if available"
+    - "if supported"
+    - "ambiguous"
+    - "TBD"
+    - "TODO"
+
+  forbidden_area_terms:
+    - Functionality
+    - Accessibility
+    - Behavior
+    - Validation
+    - General
+    - System
+
+  allowed_areas:
+    - Dashboard
+    - Navigation Menu
+    - Settings Page
+    - User Profile
+    - Search
+    - Forms
+    - Modal Dialog
+
+  first_test_id: "AC1"
+  test_id_increment: 5
+
+# Output & LLM Configuration
+output_dir: output
+llm_enabled: true
+llm_provider: openai
+llm_model: gpt-4o-mini

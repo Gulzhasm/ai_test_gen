@@ -295,7 +295,7 @@ Only return valid JSON, no explanation."""
             output_dir=kwargs.get('output_dir', 'output'),
         )
 
-    # ============ Private Helper Methods ============
+    # Private Helper Methods
 
     def _infer_app_type(self, text: str) -> str:
         """Infer application type from text content."""

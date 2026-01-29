@@ -270,7 +270,7 @@ class GenericTestGenerator:
                 return feature_part[1].strip()
         return "Feature"
 
-    # ============ Step Template Methods ============
+    # Step Template Methods
 
     def _get_prereq_step(self) -> Dict[str, str]:
         """Get the prerequisite step using project config."""
@@ -296,7 +296,7 @@ class GenericTestGenerator:
             {"action": "Select the created object.", "expected": ""}
         ]
 
-    # ============ Test Generation Methods ============
+    # Test Generation Methods
 
     def _generate_test_for_ac(
         self,
@@ -729,7 +729,7 @@ class GenericTestGenerator:
 
         return accessibility_tests
 
-    # ============ Helper Methods ============
+    # Helper Methods
 
     def _parse_qa_prep(self, qa_prep: str) -> Dict:
         """Parse QA Prep content to extract testing details."""

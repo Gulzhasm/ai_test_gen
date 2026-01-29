@@ -46,14 +46,14 @@ When you encounter alternatives in acceptance criteria (e.g., "user can drag or 
 4. This ensures deterministic, unambiguous test execution
 
 Examples of FORBIDDEN vs CORRECT:
-❌ FORBIDDEN: "Click or tap the button"
-✓ CORRECT: Split into two steps - "Click the button" AND "Tap the button"
+FORBIDDEN: "Click or tap the button"
+CORRECT: Split into two steps - "Click the button" AND "Tap the button"
 
-❌ FORBIDDEN: "Label repositions automatically or manually"
-✓ CORRECT: Two separate steps testing automatic AND manual repositioning
+FORBIDDEN: "Label repositions automatically or manually"
+CORRECT: Two separate steps testing automatic AND manual repositioning
 
-❌ FORBIDDEN: "Object snaps to grid or stays in place"
-✓ CORRECT: Two separate verification steps for each behavior
+FORBIDDEN: "Object snaps to grid or stays in place"
+CORRECT: Two separate verification steps for each behavior
 
 C) Object Setup Rule (No Assumptions)
 If a test requires an object:

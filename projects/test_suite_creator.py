@@ -1,6 +1,9 @@
 """
-Auto Test Suite Creator - Creates test plans and test suites in ADO
-for projects that don't have pre-existing QA prep tasks or test suites.
+Auto Test Suite Creator - Creates test plans and test suites in ADO.
+
+Note: This module is intentionally ADO-specific because test plans and test suites
+are ADO concepts. For TestRail, sections are created via the TestRailTestSuiteRepository.
+The UploadWorkflow handles platform selection automatically.
 """
 from typing import Dict, Optional, List, Tuple
 import requests
@@ -184,7 +187,7 @@ class TestSuiteCreator:
             print(f"  Error adding test cases to suite: {e}")
             return False
 
-    # ============ Private Methods ============
+    # Private Methods
 
     def _find_test_plan(self, plan_name: str) -> Optional[TestPlanInfo]:
         """Find an existing test plan by name."""
@@ -433,7 +436,7 @@ Only return valid JSON."""
             print(f"  LLM QA Prep generation failed: {e}")
             return self.generate_qa_prep_content(story_data, acceptance_criteria)
 
-    # ============ Private Methods ============
+    # Private Methods
 
     def _extract_entry_points(self, text: str) -> List[str]:
         """Extract entry points from text using project config."""

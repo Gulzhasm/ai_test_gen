@@ -222,6 +222,59 @@ class ADOProjectConfig:
 
 
 @dataclass
+class JiraProjectConfig:
+    """Jira project configuration."""
+    base_url: str  # e.g., "https://company.atlassian.net"
+    project_key: str  # e.g., "PROJ", "TEST"
+    email: str  # User email for authentication
+    api_token: Optional[str] = None  # API token (from env var)
+
+    # Jira Cloud vs Server
+    is_cloud: bool = True
+
+    # Custom field for Acceptance Criteria (None to auto-discover)
+    ac_field_name: Optional[str] = None
+
+    # QA Prep configuration - subtask type or linked issue type
+    qa_prep_issue_type: Optional[str] = "Sub-task"
+    qa_prep_label: Optional[str] = "qa-prep"
+
+    @property
+    def organization(self) -> str:
+        """Extract organization from base URL for compatibility."""
+        # Extract subdomain from URL like "https://company.atlassian.net"
+        import re
+        match = re.search(r'https?://([^.]+)', self.base_url)
+        return match.group(1) if match else ''
+
+
+@dataclass
+class TestRailConfig:
+    """TestRail configuration."""
+    base_url: str  # e.g., "https://company.testrail.io"
+    email: str  # User email for authentication
+    api_key: Optional[str] = None  # API key (from env var)
+
+    # TestRail project and suite IDs
+    project_id: int = 0
+    suite_id: Optional[int] = None  # None for single-suite projects
+
+    # Default section for new test cases (None to create per story)
+    default_section_id: Optional[int] = None
+
+    # Test case defaults
+    default_priority_id: int = 2  # 1=Low, 2=Medium, 3=High, 4=Critical
+    default_type_id: Optional[int] = None  # Test type
+
+    @property
+    def organization(self) -> str:
+        """Extract organization from base URL for compatibility."""
+        import re
+        match = re.search(r'https?://([^.]+)', self.base_url)
+        return match.group(1) if match else ''
+
+
+@dataclass
 class TestRulesConfig:
     """Test case generation rules configuration."""
     # Forbidden words that must not appear in test output
@@ -254,8 +307,10 @@ class TestRulesConfig:
 @dataclass
 class ProjectConfig:
     """
-    Complete project configuration combining application, ADO, and rules settings.
+    Complete project configuration combining application, platform, and rules settings.
     This is the main configuration class that projects use.
+
+    Supports multiple source platforms (ADO, Jira) and target platforms (ADO, TestRail).
     """
     # Project identifier (used for config file naming)
     project_id: str  # e.g., "env-quickdraw", "mediapedia-us"
@@ -264,6 +319,16 @@ class ProjectConfig:
     application: ApplicationConfig
     ado: ADOProjectConfig
     rules: TestRulesConfig = field(default_factory=TestRulesConfig)
+
+    # Platform configurations (optional - for Jira/TestRail integration)
+    jira: Optional[JiraProjectConfig] = None  # Source: Jira stories
+    testrail: Optional[TestRailConfig] = None  # Target: TestRail test cases
+
+    # Source platform for fetching stories: "ado" or "jira"
+    source_platform: str = "ado"
+
+    # Target platform for uploading test cases: "ado" or "testrail"
+    target_platform: str = "ado"
 
     # Output configuration
     output_dir: str = "output"
@@ -363,11 +428,57 @@ class ProjectConfig:
             test_id_increment=rules_data.get('test_id_increment', 5)
         )
 
+        # Extract Jira config (optional)
+        jira_data = data.get('jira', {})
+        jira = None
+        if jira_data:
+            jira = JiraProjectConfig(
+                base_url=jira_data.get('base_url', os.getenv('JIRA_BASE_URL', '')),
+                project_key=jira_data.get('project_key', os.getenv('JIRA_PROJECT_KEY', '')),
+                email=jira_data.get('email', os.getenv('JIRA_EMAIL', '')),
+                api_token=os.getenv('JIRA_API_TOKEN'),  # Always from env for security
+                is_cloud=jira_data.get('is_cloud', True),
+                ac_field_name=jira_data.get('ac_field_name'),
+                qa_prep_issue_type=jira_data.get('qa_prep_issue_type', 'Sub-task'),
+                qa_prep_label=jira_data.get('qa_prep_label', 'qa-prep'),
+            )
+
+        # Extract TestRail config (optional)
+        testrail_data = data.get('testrail', {})
+        testrail = None
+        if testrail_data:
+            testrail = TestRailConfig(
+                base_url=testrail_data.get('base_url', os.getenv('TESTRAIL_BASE_URL', '')),
+                email=testrail_data.get('email', os.getenv('TESTRAIL_EMAIL', '')),
+                api_key=os.getenv('TESTRAIL_API_KEY'),  # Always from env for security
+                project_id=testrail_data.get('project_id', int(os.getenv('TESTRAIL_PROJECT_ID', '0'))),
+                suite_id=testrail_data.get('suite_id'),
+                default_section_id=testrail_data.get('default_section_id'),
+                default_priority_id=testrail_data.get('default_priority_id', 2),
+                default_type_id=testrail_data.get('default_type_id'),
+            )
+
+        # Determine source and target platforms
+        source_platform = data.get('source_platform', 'ado')
+        target_platform = data.get('target_platform', 'ado')
+
+        # Auto-detect from integration config if not explicitly set
+        if integration_data and 'platform' in integration_data:
+            platform = integration_data.get('platform', 'ado')
+            if platform == 'jira':
+                source_platform = 'jira'
+            elif platform == 'testrail':
+                target_platform = 'testrail'
+
         return cls(
             project_id=data.get('project_id', 'default'),
             application=application,
             ado=ado,
             rules=rules,
+            jira=jira,
+            testrail=testrail,
+            source_platform=source_platform,
+            target_platform=target_platform,
             output_dir=data.get('output_dir', 'output'),
             llm_enabled=data.get('llm_enabled', True),
             llm_provider=data.get('llm_provider', 'openai'),
@@ -423,6 +534,34 @@ class ProjectConfig:
                 'base_url_template': self.ado.integration.base_url_template,
                 'api_version': self.ado.integration.api_version,
             }
+
+        # Add Jira config if present
+        if self.jira:
+            data['jira'] = {
+                'base_url': self.jira.base_url,
+                'project_key': self.jira.project_key,
+                'email': self.jira.email,
+                'is_cloud': self.jira.is_cloud,
+                'ac_field_name': self.jira.ac_field_name,
+                'qa_prep_issue_type': self.jira.qa_prep_issue_type,
+                'qa_prep_label': self.jira.qa_prep_label,
+            }
+
+        # Add TestRail config if present
+        if self.testrail:
+            data['testrail'] = {
+                'base_url': self.testrail.base_url,
+                'email': self.testrail.email,
+                'project_id': self.testrail.project_id,
+                'suite_id': self.testrail.suite_id,
+                'default_section_id': self.testrail.default_section_id,
+                'default_priority_id': self.testrail.default_priority_id,
+                'default_type_id': self.testrail.default_type_id,
+            }
+
+        # Add platform selection
+        data['source_platform'] = self.source_platform
+        data['target_platform'] = self.target_platform
 
         return yaml.dump(data, default_flow_style=False, sort_keys=False)
 

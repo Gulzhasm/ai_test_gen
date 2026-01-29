@@ -41,7 +41,7 @@ load_dotenv()
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from infrastructure.ado import ADOStoryRepository
+from infrastructure.repository_factory import get_story_repository, get_test_repositories
 from infrastructure.export import CSVGenerator, ObjectiveGenerator
 from core.services import GenericTestGenerator
 from projects import get_project_manager
@@ -109,17 +109,17 @@ def load_existing_test_cases(json_file: str) -> Optional[List[Dict]]:
             data = json.load(f)
             return data.get('test_cases', [])
     except Exception as e:
-        print(f"  ⚠ Failed to load existing tests: {e}")
+        print(f"  Warning: Failed to load existing tests: {e}")
         return None
 
 
-def upload_tests_to_ado(
+def upload_tests_to_platform(
     test_cases: List[Dict],
     story_id: int,
     project_config
 ) -> bool:
     """
-    Upload test cases to Azure DevOps.
+    Upload test cases to target platform (ADO or TestRail).
 
     Args:
         test_cases: List of test case dictionaries
@@ -129,73 +129,66 @@ def upload_tests_to_ado(
     Returns:
         True if successful
     """
-    from infrastructure.ado import ADOTestCaseRepository, ADOTestSuiteRepository, ADOStoryRepository
-
-    print(f"\n{'='*60}")
-    print(f"Uploading {len(test_cases)} test cases to ADO")
-    print(f"{'='*60}\n")
+    target_platform = project_config.target_platform.upper()
+    print(f"\nUploading {len(test_cases)} test cases to {target_platform}\n")
 
     try:
-        # Initialize repositories
-        test_case_repo = ADOTestCaseRepository(project_config.ado)
-        suite_repo = ADOTestSuiteRepository(project_config.ado)
-        story_repo = ADOStoryRepository(project_config.ado)
+        # Use repository factory for platform-agnostic operations
+        story_repo = get_story_repository(project_config)
+        suite_repo, case_repo = get_test_repositories(project_config)
 
         # Get story title for suite name
         story = story_repo.get_story(story_id)
         if not story:
-            print(f"  ⚠ Could not fetch story {story_id}")
+            print(f"  Warning: Could not fetch story {story_id}")
             return False
 
         # Find or create test suite
         suite = suite_repo.find_suite_by_story_id(story_id)
         if not suite:
             print(f"  Creating test suite for story {story_id}...")
-            # Need to find a test plan first - use the first available
-            # This is a simplified approach; production code should handle this better
-            print(f"  ⚠ Test suite not found. Please create a test suite manually.")
+            print(f"  Warning: Test suite not found. Please create a test suite manually.")
             return False
 
         print(f"  Found test suite: {suite['name']} (ID: {suite['id']})")
 
         # Upload each test case
         created_count = 0
+        plan_id = suite.get('plan_id', 0)
+        suite_id = suite['id']
+
         for tc in test_cases:
             title = tc.get('title', '')
             steps = tc.get('steps', [])
             objective = tc.get('objective', '')
 
-            # Create test case in ADO
-            tc_id = test_case_repo.create_test_case(
+            # Create test case using repository (platform-agnostic)
+            tc_id = case_repo.create_test_case(
                 title=title,
                 steps=steps,
                 objective=objective,
-                area_path=project_config.ado.area_path,
-                assigned_to=project_config.ado.assigned_to,
-                state=project_config.ado.default_state
+                section_id=suite_id
             )
 
             if tc_id:
                 # Add to test suite
-                suite_repo.add_test_case_to_suite(
-                    plan_id=suite['plan_id'],
-                    suite_id=suite['id'],
-                    test_case_id=tc_id
-                )
+                suite_repo.add_test_case_to_suite(plan_id, suite_id, tc_id)
                 created_count += 1
-                print(f"  ✓ Created: {title[:60]}... (ID: {tc_id})")
+                print(f"  Created: {title[:60]}... (ID: {tc_id})")
             else:
-                print(f"  ✗ Failed: {title[:60]}...")
+                print(f"  Failed: {title[:60]}...")
 
-        print(f"\n{'='*60}")
-        print(f"Upload Complete: {created_count}/{len(test_cases)} test cases created")
-        print(f"{'='*60}")
+        print(f"\nUpload complete: {created_count}/{len(test_cases)} test cases created")
 
         return created_count > 0
 
     except Exception as e:
-        print(f"  ⚠ Upload failed: {e}")
+        print(f"  Upload failed: {e}")
         return False
+
+
+# Backward compatibility alias
+upload_tests_to_ado = upload_tests_to_platform
 
 
 class LLMCorrector:
@@ -265,7 +258,7 @@ class LLMCorrector:
         - Faster response time
         """
         if not self.client:
-            print("  ⚠ OpenAI client not available, skipping LLM correction")
+            print("  Warning: OpenAI client not available, skipping LLM correction")
             return test_cases
 
         # Format test cases for LLM
@@ -329,12 +322,12 @@ class LLMCorrector:
             # Ensure all required accessibility tests are present
             corrected = self._ensure_accessibility_tests(corrected, story_id, feature_name)
 
-            print(f"  ✓ LLM corrected {len(test_cases)} → {len(corrected)} test cases")
+            print(f"  OK: LLM corrected {len(test_cases)} → {len(corrected)} test cases")
 
             return corrected
 
         except Exception as e:
-            print(f"  ⚠ LLM correction failed: {e}")
+            print(f"  Warning: LLM correction failed: {e}")
             return test_cases
 
     def _build_fallback_prompts(
@@ -510,7 +503,7 @@ Expected total: 15-25 comprehensive test cases.'''
         if not missing_platforms:
             return test_cases
 
-        print(f"  ⚠ Missing accessibility tests for: {', '.join(missing_platforms)}")
+        print(f"  Warning: Missing accessibility tests for: {', '.join(missing_platforms)}")
         print(f"  → Adding {len(missing_platforms)} missing accessibility test(s)...")
 
         # Get the highest test ID to continue numbering
@@ -598,6 +591,28 @@ Expected total: 15-25 comprehensive test cases.'''
         }
 
 
+def ensure_credentials(config) -> None:
+    """Ensure all platform credentials are loaded from environment."""
+    # ADO credentials (for source or target)
+    if config.source_platform == 'ado' or config.target_platform == 'ado':
+        if not config.ado.pat:
+            config.ado.pat = os.getenv('ADO_PAT')
+
+    # Jira credentials (for source)
+    if config.source_platform == 'jira' and config.jira:
+        if not config.jira.api_token:
+            config.jira.api_token = os.getenv('JIRA_API_TOKEN')
+        if not config.jira.base_url:
+            config.jira.base_url = os.getenv('JIRA_BASE_URL', '')
+        if not config.jira.email:
+            config.jira.email = os.getenv('JIRA_EMAIL', '')
+
+    # TestRail credentials (for target)
+    if config.target_platform == 'testrail' and config.testrail:
+        if not config.testrail.api_key:
+            config.testrail.api_key = os.getenv('TESTRAIL_API_KEY')
+
+
 def generate_and_correct(
     story_id: int,
     output_dir: str = "output",
@@ -607,31 +622,32 @@ def generate_and_correct(
     Generate test cases using non-LLM generator, then correct with LLM.
 
     Args:
-        story_id: ADO story ID
+        story_id: Story ID from source platform
         output_dir: Output directory
         skip_correction: If True, skip LLM correction step
 
     Returns:
         True if successful
     """
-    print(f"\n{'='*60}")
-    print(f"Hybrid Test Generation for Story {story_id}")
-    print(f"Mode: {'Non-LLM Only' if skip_correction else 'Non-LLM + LLM Correction'}")
-    print(f"{'='*60}\n")
+    # Get project configuration
+    project_manager = get_project_manager()
+    project_manager.load_from_directory()
+    project_config = project_manager.get_or_create_default()
 
-    # Step 1: Fetch story data from ADO
-    print("Step 1: Fetching story data from ADO...")
+    source_platform = project_config.source_platform.upper()
+
+    print(f"\nHybrid Test Generation for Story {story_id}")
+    print(f"Source Platform: {source_platform}")
+    print(f"Mode: {'Non-LLM Only' if skip_correction else 'Non-LLM + LLM Correction'}\n")
+
+    # Step 1: Fetch story data from source platform
+    print(f"Step 1: Fetching story data from {source_platform}...")
     try:
-        # Get project configuration
-        project_manager = get_project_manager()
-        project_manager.load_from_directory()
-        project_config = project_manager.get_or_create_default()
+        # Ensure credentials are loaded
+        ensure_credentials(project_config)
 
-        # Ensure PAT is set
-        if not project_config.ado.pat:
-            project_config.ado.pat = os.getenv('ADO_PAT')
-
-        story_repo = ADOStoryRepository(project_config.ado)
+        # Use repository factory for platform-agnostic story fetching
+        story_repo = get_story_repository(project_config)
         story = story_repo.get_story(story_id)
         if not story:
             print(f"ERROR: Failed to fetch story {story_id}")
@@ -669,7 +685,7 @@ def generate_and_correct(
     if not skip_correction:
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key or api_key == "your-api-key-here":
-            print("\n  ⚠ OPENAI_API_KEY not configured, skipping LLM correction")
+            print("\n  Warning: OPENAI_API_KEY not configured, skipping LLM correction")
         else:
             print("\nStep 3: Correcting test cases with LLM...")
             corrector = LLMCorrector(
@@ -733,10 +749,7 @@ def generate_and_correct(
         }, f, indent=2)
     print(f"  Debug JSON saved: {json_path}")
 
-    # Summary
-    print(f"\n{'='*60}")
-    print("GENERATION COMPLETE")
-    print(f"{'='*60}")
+    print(f"\nGeneration complete")
     print(f"  Story: {story_id} - {title}")
     print(f"  Test cases generated: {len(test_cases)}")
     print(f"  Output directory: {output_dir}")

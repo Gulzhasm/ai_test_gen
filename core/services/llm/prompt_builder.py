@@ -638,7 +638,7 @@ As an expert QA engineer with 10+ years of experience, you know that:
                 lines.append(f"     - Title must include \"({platform})\"")
             lines.append("")
 
-        lines.append(f"⚠️ REQUIRED: Generate exactly {len(self.ctx.platforms)} separate accessibility test cases!")
+        lines.append(f"IMPORTANT: REQUIRED: Generate exactly {len(self.ctx.platforms)} separate accessibility test cases!")
 
         return "\n".join(lines)
 
@@ -664,7 +664,7 @@ As an expert QA engineer with 10+ years of experience, you know that:
         if not self.ctx.platforms:
             return "Add accessibility tests appropriate for the application type."
 
-        lines = [f"⚠️ MANDATORY: Create {len(self.ctx.platforms)} SEPARATE accessibility tests:"]
+        lines = [f"IMPORTANT: MANDATORY: Create {len(self.ctx.platforms)} SEPARATE accessibility tests:"]
         for i, platform in enumerate(self.ctx.platforms, 1):
             platform_lower = platform.lower()
             if 'windows' in platform_lower:

@@ -43,10 +43,6 @@ from projects.project_config import create_new_project_config, get_env_quickdraw
 from projects.test_suite_creator import TestSuiteCreator, QAPrepGenerator
 
 
-# =============================================================================
-# DOMAIN: Workflow Result
-# =============================================================================
-
 class WorkflowStatus(Enum):
     SUCCESS = "success"
     FAILED = "failed"
@@ -64,10 +60,6 @@ class WorkflowResult:
         if self.data is None:
             self.data = {}
 
-
-# =============================================================================
-# INTERFACE: IWorkflow
-# =============================================================================
 
 class IWorkflow(ABC):
     """Interface for all workflows."""
@@ -95,10 +87,6 @@ class IWorkflow(ABC):
         pass
 
 
-# =============================================================================
-# WORKFLOW 1: Generate Test Cases (Generic)
-# =============================================================================
-
 class GenerateWorkflow(IWorkflow):
     """
     Generate test cases using project configuration.
@@ -121,9 +109,23 @@ class GenerateWorkflow(IWorkflow):
             return "story_id must be a positive integer"
         return None
 
+    def _ensure_credentials(self, config: ProjectConfig):
+        """Ensure all platform credentials are loaded from environment."""
+        # ADO credentials
+        if not config.ado.pat:
+            config.ado.pat = os.getenv('ADO_PAT')
+
+        # Jira credentials
+        if config.jira and not config.jira.api_token:
+            config.jira.api_token = os.getenv('JIRA_API_TOKEN')
+
+        # TestRail credentials
+        if config.testrail and not config.testrail.api_key:
+            config.testrail.api_key = os.getenv('TESTRAIL_API_KEY')
+
     def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
         import json
-        from infrastructure.ado import ADOStoryRepository
+        from infrastructure import get_story_repository
         from infrastructure.export import CSVGenerator, ObjectiveGenerator
         from core.services import GenericTestGenerator
 
@@ -131,32 +133,33 @@ class GenerateWorkflow(IWorkflow):
         output_dir = kwargs.get('output_dir') or config.output_dir or 'output'
         skip_correction = kwargs.get('skip_correction', False)
 
-        print(f"\n{'='*60}")
-        print(f"WORKFLOW: Generate Test Cases")
+        # Determine source platform
+        source_platform = config.source_platform.upper()
+
+        print(f"\nWorkflow: Generate Test Cases")
         print(f"Project: {config.project_id} ({config.application.name})")
+        print(f"Source Platform: {source_platform}")
         print(f"Story ID: {story_id}")
-        print(f"Mode: {'Rule-based only' if skip_correction else 'Rule-based + LLM Correction'}")
-        print(f"{'='*60}\n")
+        print(f"Mode: {'Rule-based only' if skip_correction else 'Rule-based + LLM Correction'}\n")
 
-        # Step 1: Fetch story data
-        print("[1/3] Fetching story data from ADO...")
+        # Step 1: Fetch story data using platform-appropriate repository
+        print(f"[1/3] Fetching story data from {source_platform}...")
         try:
-            # Ensure PAT is set
-            if not config.ado.pat:
-                config.ado.pat = os.getenv('ADO_PAT')
+            # Ensure credentials are set from environment
+            self._ensure_credentials(config)
 
-            story_repo = ADOStoryRepository(config.ado)
+            story_repo = get_story_repository(config)
             story = story_repo.get_story(story_id)
             if not story:
                 return WorkflowResult(
                     status=WorkflowStatus.FAILED,
-                    message=f"Failed to fetch story {story_id}"
+                    message=f"Failed to fetch story {story_id} from {source_platform}"
                 )
             qa_prep = story_repo.get_qa_prep(story_id) or ''
         except Exception as e:
             return WorkflowResult(
                 status=WorkflowStatus.FAILED,
-                message=f"Failed to fetch story: {e}"
+                message=f"Failed to fetch story from {source_platform}: {e}"
             )
 
         title = story.title
@@ -194,9 +197,7 @@ class GenerateWorkflow(IWorkflow):
             config, story_id, title, test_cases, output_dir, skip_correction
         )
 
-        print(f"\n{'='*60}")
-        print("GENERATION COMPLETE")
-        print(f"{'='*60}")
+        print(f"\nGeneration complete")
         print(f"  Test cases: {len(test_cases)}")
         for key, path in output_files.items():
             print(f"  {key}: {path}")
@@ -305,13 +306,9 @@ class GenerateWorkflow(IWorkflow):
         return output_files
 
 
-# =============================================================================
-# WORKFLOW 2: Generate + Upload (with Auto Suite Creation)
-# =============================================================================
-
 class UploadWorkflow(IWorkflow):
     """
-    Generate test cases and upload to ADO test suite.
+    Generate test cases and upload to target platform (ADO or TestRail).
     Supports auto-creation of test suites for projects without pre-existing ones.
     """
 
@@ -321,7 +318,7 @@ class UploadWorkflow(IWorkflow):
 
     @property
     def description(self) -> str:
-        return "Generate + Upload to ADO (with optional auto suite creation)"
+        return "Generate + Upload to target platform (ADO/TestRail)"
 
     def validate_inputs(self, **kwargs) -> Optional[str]:
         story_id = kwargs.get('story_id')
@@ -331,10 +328,24 @@ class UploadWorkflow(IWorkflow):
             return "story_id must be a positive integer"
         return None
 
+    def _ensure_credentials(self, config: ProjectConfig):
+        """Ensure all platform credentials are loaded from environment."""
+        # ADO credentials
+        if not config.ado.pat:
+            config.ado.pat = os.getenv('ADO_PAT')
+
+        # Jira credentials
+        if config.jira and not config.jira.api_token:
+            config.jira.api_token = os.getenv('JIRA_API_TOKEN')
+
+        # TestRail credentials
+        if config.testrail and not config.testrail.api_key:
+            config.testrail.api_key = os.getenv('TESTRAIL_API_KEY')
+
     def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
         import time
         import requests
-        from infrastructure.ado import ADOHttpClient, ADOStoryRepository, ADOTestSuiteRepository
+        from infrastructure import get_story_repository, get_test_repositories
         from infrastructure.export import ObjectiveGenerator
 
         story_id = kwargs['story_id']
@@ -343,35 +354,31 @@ class UploadWorkflow(IWorkflow):
         dry_run = kwargs.get('dry_run', False)
         auto_create_suite = kwargs.get('auto_create_suite', True)
 
-        print(f"\n{'='*60}")
-        print(f"WORKFLOW: Generate + Upload")
+        # Determine platforms
+        source_platform = config.source_platform.upper()
+        target_platform = config.target_platform.upper()
+
+        print(f"\nWorkflow: Generate + Upload")
         print(f"Project: {config.project_id} ({config.application.name})")
+        print(f"Source Platform: {source_platform}")
+        print(f"Target Platform: {target_platform}")
         print(f"Story ID: {story_id}")
         print(f"Mode: {'Dry Run' if dry_run else 'Live Upload'}")
-        print(f"Auto-create suite: {'Yes' if auto_create_suite else 'No'}")
-        print(f"{'='*60}\n")
+        print(f"Auto-create suite: {'Yes' if auto_create_suite else 'No'}\n")
 
-        # Initialize clients
+        # Initialize repositories using factory
         try:
-            # Ensure PAT is set
-            if not config.ado.pat:
-                config.ado.pat = os.getenv('ADO_PAT')
-
-            ado_http_client = ADOHttpClient(
-                organization=config.ado.organization,
-                project=config.ado.project,
-                pat=config.ado.pat
-            )
-            suite_repo = ADOTestSuiteRepository(config.ado)
-            story_repo = ADOStoryRepository(config.ado)
+            self._ensure_credentials(config)
+            story_repo = get_story_repository(config)
+            suite_repo, case_repo = get_test_repositories(config)
         except Exception as e:
             return WorkflowResult(
                 status=WorkflowStatus.FAILED,
-                message=f"Failed to initialize ADO client: {e}"
+                message=f"Failed to initialize {target_platform} client: {e}"
             )
 
-        # Step 1: Find or create test suite
-        print("[1/4] Finding test suite...")
+        # Step 1: Find or create test suite/section
+        print(f"[1/4] Finding test suite in {target_platform}...")
         suite_info = suite_repo.find_suite_by_story_id(story_id)
 
         if not suite_info:
@@ -381,17 +388,28 @@ class UploadWorkflow(IWorkflow):
                     # Fetch story title for suite name
                     story = story_repo.get_story(story_id)
                     story_title = story.title if story else f"Story {story_id}"
+                    suite_name = f"{story_id} : {story_title}"
 
-                    suite_creator = TestSuiteCreator(config)
-                    plan_info, suite_info_obj = suite_creator.create_test_organization(
-                        story_id=str(story_id),
-                        story_name=story_title
-                    )
-                    suite_info = {
-                        'id': suite_info_obj.id,
-                        'name': suite_info_obj.name,
-                        'plan_id': plan_info.id
-                    }
+                    # For ADO, use TestSuiteCreator; for TestRail, use suite_repo directly
+                    if target_platform == 'ADO':
+                        suite_creator = TestSuiteCreator(config)
+                        plan_info, suite_info_obj = suite_creator.create_test_organization(
+                            story_id=str(story_id),
+                            story_name=story_title
+                        )
+                        suite_info = {
+                            'id': suite_info_obj.id,
+                            'name': suite_info_obj.name,
+                            'plan_id': plan_info.id
+                        }
+                    else:
+                        # TestRail: create section directly
+                        suite_info = suite_repo.create_suite(
+                            plan_id=config.testrail.suite_id if config.testrail else 0,
+                            suite_name=suite_name,
+                            story_id=story_id
+                        )
+
                     print(f"  Created: {suite_info['name']}")
                 except Exception as e:
                     return WorkflowResult(
@@ -406,7 +424,7 @@ class UploadWorkflow(IWorkflow):
                 )
         else:
             print(f"  Found: {suite_info['name']}")
-            print(f"  Suite ID: {suite_info['id']}, Plan ID: {suite_info['plan_id']}")
+            print(f"  Suite ID: {suite_info['id']}, Plan ID: {suite_info.get('plan_id', 'N/A')}")
 
         # Step 2: Generate test cases
         print("\n[2/4] Generating test cases...")
@@ -441,9 +459,9 @@ class UploadWorkflow(IWorkflow):
                 }
             )
 
-        # Live upload
+        # Live upload using repository
         upload_results = self._upload_test_cases(
-            config, ado_http_client, suite_info, test_cases
+            config, case_repo, suite_repo, suite_info, test_cases, target_platform
         )
 
         # Step 4: Summary
@@ -467,19 +485,20 @@ class UploadWorkflow(IWorkflow):
     def _upload_test_cases(
         self,
         config: ProjectConfig,
-        ado_client,
+        case_repo,
+        suite_repo,
         suite_info: Dict,
-        test_cases: List[Dict]
+        test_cases: List[Dict],
+        target_platform: str
     ) -> Dict:
-        """Upload test cases to ADO test suite."""
+        """Upload test cases to target platform (ADO or TestRail)."""
         import time
-        import requests
         from infrastructure.export import ObjectiveGenerator
 
         results = {'created': [], 'failed': []}
         objective_gen = ObjectiveGenerator()
 
-        plan_id = suite_info['plan_id']
+        plan_id = suite_info.get('plan_id', 0)
         suite_id = suite_info['id']
 
         for idx, tc in enumerate(test_cases, 1):
@@ -490,74 +509,38 @@ class UploadWorkflow(IWorkflow):
 
             print(f"  [{idx}/{len(test_cases)}] {tc_id}...", end=' ')
 
-            # Create test case
-            work_item_id = self._create_test_case(
-                config, ado_client, title, steps, objective, tc_id, objective_gen
-            )
+            try:
+                # Format objective for ADO if needed
+                formatted_objective = objective
+                if target_platform == 'ADO' and objective:
+                    formatted_objective = objective_gen.format_objective_for_ado(objective)
 
-            if work_item_id:
-                # Add to suite
-                if self._add_to_suite(ado_client, plan_id, suite_id, work_item_id):
-                    results['created'].append({'id': work_item_id, 'tc_id': tc_id})
-                    print(f"OK (ID: {work_item_id})")
+                # Create test case using the repository
+                work_item_id = case_repo.create_test_case(
+                    title=title,
+                    steps=steps,
+                    objective=formatted_objective,
+                    section_id=suite_id  # For TestRail
+                )
+
+                if work_item_id:
+                    # Add to suite (for ADO; TestRail handles this automatically)
+                    if suite_repo.add_test_case_to_suite(plan_id, suite_id, work_item_id):
+                        results['created'].append({'id': work_item_id, 'tc_id': tc_id})
+                        print(f"OK (ID: {work_item_id})")
+                    else:
+                        results['failed'].append({'tc_id': tc_id, 'error': 'Failed to add to suite'})
+                        print("Failed to add to suite")
                 else:
-                    results['failed'].append({'tc_id': tc_id, 'error': 'Failed to add to suite'})
-                    print("Failed to add to suite")
-            else:
-                results['failed'].append({'tc_id': tc_id, 'error': 'Failed to create'})
-                print("Failed")
+                    results['failed'].append({'tc_id': tc_id, 'error': 'Failed to create'})
+                    print("Failed")
+            except Exception as e:
+                results['failed'].append({'tc_id': tc_id, 'error': str(e)})
+                print(f"Failed: {e}")
 
             time.sleep(0.5)
 
         return results
-
-    def _create_test_case(
-        self,
-        config: ProjectConfig,
-        ado_client,
-        title: str,
-        steps: List[Dict],
-        objective: str,
-        tc_id: str,
-        objective_gen
-    ) -> Optional[int]:
-        """Create a test case work item."""
-        import requests
-
-        url = f"{ado_client.base_url}/_apis/wit/workitems/$Test Case?api-version=7.1"
-
-        # Build steps XML
-        steps_xml = self._build_steps_xml(steps)
-
-        # Format objective
-        formatted_objective = ""
-        if objective:
-            formatted_objective = objective_gen.format_objective_for_ado(objective)
-
-        patch_doc = [
-            {"op": "add", "path": "/fields/System.Title", "value": title},
-            {"op": "add", "path": "/fields/System.AssignedTo", "value": config.ado.assigned_to},
-            {"op": "add", "path": "/fields/System.State", "value": config.ado.default_state},
-            {"op": "add", "path": "/fields/System.AreaPath", "value": config.ado.area_path},
-            {"op": "add", "path": "/fields/Microsoft.VSTS.TCM.Steps", "value": steps_xml}
-        ]
-
-        if formatted_objective:
-            patch_doc.append({
-                "op": "add",
-                "path": "/fields/System.Description",
-                "value": formatted_objective
-            })
-
-        headers = ado_client.headers.copy()
-        headers['Content-Type'] = 'application/json-patch+json'
-
-        try:
-            response = requests.patch(url, headers=headers, json=patch_doc)
-            response.raise_for_status()
-            return response.json().get('id')
-        except Exception:
-            return None
 
     def _build_steps_xml(self, steps: List[Dict]) -> str:
         """Build XML for test steps."""
@@ -593,10 +576,6 @@ class UploadWorkflow(IWorkflow):
             return False
 
 
-# =============================================================================
-# WORKFLOW 3: Initialize New Project
-# =============================================================================
-
 class InitProjectWorkflow(IWorkflow):
     """
     Initialize a new project configuration.
@@ -625,11 +604,9 @@ class InitProjectWorkflow(IWorkflow):
         area_path = kwargs.get('area_path') or os.getenv('ADO_AREA_PATH', '')
         interactive = kwargs.get('interactive', False)
 
-        print(f"\n{'='*60}")
-        print(f"WORKFLOW: Initialize New Project")
+        print(f"\nWorkflow: Initialize New Project")
         print(f"Application: {app_name}")
-        print(f"Project ID: {project_id}")
-        print(f"{'='*60}\n")
+        print(f"Project ID: {project_id}\n")
 
         # Create discovery for interactive mode
         discovery = ApplicationDiscovery()
@@ -699,10 +676,6 @@ class InitProjectWorkflow(IWorkflow):
         )
 
 
-# =============================================================================
-# WORKFLOW 4: Discover Project from Stories
-# =============================================================================
-
 class DiscoverWorkflow(IWorkflow):
     """
     Discover application characteristics from existing ADO stories.
@@ -715,7 +688,7 @@ class DiscoverWorkflow(IWorkflow):
 
     @property
     def description(self) -> str:
-        return "Discover project configuration from ADO stories"
+        return "Discover project configuration from stories"
 
     def validate_inputs(self, **kwargs) -> Optional[str]:
         story_ids = kwargs.get('story_ids')
@@ -723,32 +696,40 @@ class DiscoverWorkflow(IWorkflow):
             return "At least one story_id is required"
         return None
 
+    def _ensure_credentials(self, config: ProjectConfig):
+        """Ensure all platform credentials are loaded from environment."""
+        # ADO credentials
+        if not config.ado.pat:
+            config.ado.pat = os.getenv('ADO_PAT')
+
+        # Jira credentials
+        if config.jira and not config.jira.api_token:
+            config.jira.api_token = os.getenv('JIRA_API_TOKEN')
+
+        # TestRail credentials
+        if config.testrail and not config.testrail.api_key:
+            config.testrail.api_key = os.getenv('TESTRAIL_API_KEY')
+
     def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
-        from infrastructure.ado import ADOStoryRepository
-        from projects.project_config import ADOProjectConfig
+        from infrastructure import get_story_repository
 
         story_ids = kwargs['story_ids']
         project_name = kwargs.get('project_name', 'discovered-project')
         ado_org = kwargs.get('ado_org') or config.ado.organization
         ado_project = kwargs.get('ado_project') or config.ado.project
 
-        print(f"\n{'='*60}")
-        print(f"WORKFLOW: Discover Project from Stories")
-        print(f"Stories: {story_ids}")
-        print(f"Target Project Name: {project_name}")
-        print(f"{'='*60}\n")
+        source_platform = config.source_platform.upper()
 
-        # Fetch stories
-        print("[1/3] Fetching stories from ADO...")
+        print(f"\nWorkflow: Discover Project from Stories")
+        print(f"Source Platform: {source_platform}")
+        print(f"Stories: {story_ids}")
+        print(f"Target Project Name: {project_name}\n")
+
+        # Fetch stories using platform-appropriate repository
+        print(f"[1/3] Fetching stories from {source_platform}...")
         try:
-            # Create temporary ADO config for fetching
-            temp_ado_config = ADOProjectConfig(
-                organization=ado_org,
-                project=ado_project,
-                area_path=config.ado.area_path,
-                pat=os.getenv('ADO_PAT')
-            )
-            story_repo = ADOStoryRepository(temp_ado_config)
+            self._ensure_credentials(config)
+            story_repo = get_story_repository(config)
 
             stories = []
             for story_id in story_ids:
@@ -768,7 +749,7 @@ class DiscoverWorkflow(IWorkflow):
         except Exception as e:
             return WorkflowResult(
                 status=WorkflowStatus.FAILED,
-                message=f"Failed to connect to ADO: {e}"
+                message=f"Failed to connect to {source_platform}: {e}"
             )
 
         if not stories:
@@ -820,10 +801,6 @@ class DiscoverWorkflow(IWorkflow):
         )
 
 
-# =============================================================================
-# WORKFLOW 5: List Projects
-# =============================================================================
-
 class ListProjectsWorkflow(IWorkflow):
     """List all available project configurations."""
 
@@ -844,16 +821,15 @@ class ListProjectsWorkflow(IWorkflow):
 
         projects = manager.list_projects()
 
-        print(f"\n{'='*60}")
-        print("Available Projects")
-        print(f"{'='*60}\n")
+        print(f"\nAvailable Projects\n")
 
         for project_id in projects:
             proj_config = manager.get_project(project_id)
             active = " (active)" if project_id == config.project_id else ""
             print(f"  {project_id}{active}")
             print(f"    Application: {proj_config.application.name}")
-            print(f"    ADO: {proj_config.ado.organization}/{proj_config.ado.project}")
+            print(f"    Source: {proj_config.source_platform}")
+            print(f"    Target: {proj_config.target_platform}")
             print()
 
         return WorkflowResult(
@@ -863,13 +839,9 @@ class ListProjectsWorkflow(IWorkflow):
         )
 
 
-# =============================================================================
-# WORKFLOW 6: Upload Existing Test Cases
-# =============================================================================
-
 class UploadExistingWorkflow(IWorkflow):
     """
-    Upload existing test cases from files to ADO.
+    Upload existing test cases from files to target platform (ADO or TestRail).
     Skips generation and uses previously generated test cases.
     """
 
@@ -879,7 +851,7 @@ class UploadExistingWorkflow(IWorkflow):
 
     @property
     def description(self) -> str:
-        return "Upload existing test cases to ADO (skip generation)"
+        return "Upload existing test cases to target platform (skip generation)"
 
     def validate_inputs(self, **kwargs) -> Optional[str]:
         story_id = kwargs.get('story_id')
@@ -919,15 +891,31 @@ class UploadExistingWorkflow(IWorkflow):
             print(f"  Failed to load test cases: {e}")
             return None
 
+    def _ensure_credentials(self, config: ProjectConfig):
+        """Ensure all platform credentials are loaded from environment."""
+        # ADO credentials
+        if not config.ado.pat:
+            config.ado.pat = os.getenv('ADO_PAT')
+
+        # Jira credentials
+        if config.jira and not config.jira.api_token:
+            config.jira.api_token = os.getenv('JIRA_API_TOKEN')
+
+        # TestRail credentials
+        if config.testrail and not config.testrail.api_key:
+            config.testrail.api_key = os.getenv('TESTRAIL_API_KEY')
+
     def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
+        from infrastructure import get_test_repositories
+
         story_id = kwargs['story_id']
         output_dir = kwargs.get('output_dir') or config.output_dir or 'output'
+        target_platform = config.target_platform.upper()
 
-        print(f"\n{'='*60}")
-        print(f"WORKFLOW: Upload Existing Test Cases")
+        print(f"\nWorkflow: Upload Existing Test Cases")
         print(f"Project: {config.project_id} ({config.application.name})")
-        print(f"Story ID: {story_id}")
-        print(f"{'='*60}\n")
+        print(f"Target Platform: {target_platform}")
+        print(f"Story ID: {story_id}\n")
 
         # Step 1: Find existing files
         print("[1/3] Looking for existing test files...")
@@ -953,26 +941,18 @@ class UploadExistingWorkflow(IWorkflow):
 
         print(f"  Loaded {len(test_cases)} test cases")
 
-        # Step 3: Upload to ADO using UploadWorkflow's upload logic
-        print(f"\n[3/3] Uploading to ADO...")
+        # Step 3: Upload using platform-appropriate repository
+        print(f"\n[3/3] Uploading to {target_platform}...")
 
-        # Ensure PAT is set
-        if not config.ado.pat:
-            config.ado.pat = os.getenv('ADO_PAT')
-
-        from infrastructure.ado import ADOHttpClient, ADOTestSuiteRepository, ADOStoryRepository
+        # Ensure credentials are set
+        self._ensure_credentials(config)
 
         try:
-            ado_client = ADOHttpClient(
-                organization=config.ado.organization,
-                project=config.ado.project,
-                pat=config.ado.pat
-            )
-            suite_repo = ADOTestSuiteRepository(config.ado)
+            suite_repo, case_repo = get_test_repositories(config)
         except Exception as e:
             return WorkflowResult(
                 status=WorkflowStatus.FAILED,
-                message=f"Failed to initialize ADO client: {e}"
+                message=f"Failed to initialize {target_platform} client: {e}"
             )
 
         # Find test suite
@@ -988,12 +968,10 @@ class UploadExistingWorkflow(IWorkflow):
         # Upload using UploadWorkflow's method
         upload_workflow = UploadWorkflow()
         upload_results = upload_workflow._upload_test_cases(
-            config, ado_client, suite_info, test_cases
+            config, case_repo, suite_repo, suite_info, test_cases, target_platform
         )
 
-        print(f"\n{'='*60}")
-        print("UPLOAD COMPLETE")
-        print(f"{'='*60}")
+        print(f"\nUpload complete")
         print(f"  Created: {len(upload_results['created'])}")
         print(f"  Failed: {len(upload_results['failed'])}")
 
@@ -1010,10 +988,6 @@ class UploadExistingWorkflow(IWorkflow):
             }
         )
 
-
-# =============================================================================
-# WORKFLOW 7: Update Test Cases from Reviewer Feedback
-# =============================================================================
 
 class UpdateFromFeedbackWorkflow(IWorkflow):
     """
@@ -1053,22 +1027,21 @@ class UpdateFromFeedbackWorkflow(IWorkflow):
     def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
         import csv
         import re
-        from infrastructure.ado import ADOHttpClient
 
         csv_file = kwargs['csv_file']
         feedback_file = kwargs['feedback_file']
         dry_run = kwargs.get('dry_run', False)
         use_llm = kwargs.get('use_llm', False)
         output_file = kwargs.get('output_file', None)
+        target_platform = config.target_platform.upper()
 
-        print(f"\n{'='*60}")
-        print(f"WORKFLOW: Update Test Cases from Reviewer Feedback")
+        print(f"\nWorkflow: Update Test Cases from Reviewer Feedback")
         print(f"Project: {config.project_id}")
+        print(f"Target Platform: {target_platform}")
         print(f"CSV File: {csv_file}")
         print(f"Feedback File: {feedback_file}")
         print(f"Mode: {'Dry Run' if dry_run else 'Live Update'}")
-        print(f"LLM Assistance: {'Enabled' if use_llm else 'Disabled (manual parsing)'}")
-        print(f"{'='*60}\n")
+        print(f"LLM Assistance: {'Enabled' if use_llm else 'Disabled (manual parsing)'}\n")
 
         # Step 1: Parse test cases from CSV
         print("[1/4] Parsing test cases from CSV...")
@@ -1102,8 +1075,15 @@ class UpdateFromFeedbackWorkflow(IWorkflow):
                 data={'fixes': fixes, 'dry_run': True}
             )
 
-        # Step 4: Update ADO
-        print(f"\n[4/4] Updating ADO...")
+        # Step 4: Update target platform
+        print(f"\n[4/4] Updating {target_platform}...")
+
+        # Currently only ADO update is supported
+        if target_platform != 'ADO':
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                message=f"Update from feedback not yet supported for {target_platform}"
+            )
 
         if not config.ado.pat:
             config.ado.pat = os.getenv('ADO_PAT')
@@ -1114,6 +1094,7 @@ class UpdateFromFeedbackWorkflow(IWorkflow):
                 message="ADO_PAT environment variable not set"
             )
 
+        from infrastructure.ado import ADOHttpClient
         client = ADOHttpClient(
             organization=config.ado.organization,
             project=config.ado.project,
@@ -1122,9 +1103,7 @@ class UpdateFromFeedbackWorkflow(IWorkflow):
 
         success, failed = self._update_ado(client, test_cases, fixes)
 
-        print(f"\n{'='*60}")
-        print("UPDATE COMPLETE")
-        print(f"{'='*60}")
+        print(f"\nUpdate complete")
         print(f"  Success: {success}")
         print(f"  Failed: {failed}")
 
@@ -1396,9 +1375,7 @@ Return ONLY valid JSON."""
 
     def _preview_changes(self, test_cases: Dict, fixes: Dict, output_file: str = None):
         """Preview the changes that will be made with full detail."""
-        print("\n" + "=" * 60)
-        print("DETAILED CHANGES TO BE APPLIED TO ADO")
-        print("=" * 60)
+        print("\nDETAILED CHANGES TO BE APPLIED\n")
 
         tests_with_changes = [(tc_id, fix) for tc_id, fix in fixes.items() if fix.get('has_changes')]
 
@@ -1408,9 +1385,7 @@ Return ONLY valid JSON."""
 
         for tc_id, fix in tests_with_changes:
             original = test_cases[tc_id]
-            print(f"\n{'─'*60}")
-            print(f"TEST CASE ID: {tc_id}")
-            print(f"{'─'*60}")
+            print(f"\nTest Case ID: {tc_id}")
             print(f"Title: {fix['title']}")
             print(f"State: {original['state']} → {fix['state']}")
             print(f"Steps: {len(original['steps'])} → {len(fix['steps'])}")
@@ -1450,12 +1425,8 @@ Return ONLY valid JSON."""
             }
         with open(final_output_path, 'w') as f:
             json.dump(output_data, f, indent=2)
-        print(f"\n{'='*60}")
-        print(f"Fixes saved to: {final_output_path}")
-
-        print(f"\n{'='*60}")
-        print(f"SUMMARY: {len(tests_with_changes)} test case(s) will be updated")
-        print(f"{'='*60}")
+        print(f"\nFixes saved to: {final_output_path}")
+        print(f"Summary: {len(tests_with_changes)} test case(s) will be updated")
 
     def _update_ado(self, client, test_cases: Dict, fixes: Dict) -> tuple:
         """Update test cases in ADO."""
@@ -1506,10 +1477,6 @@ Return ONLY valid JSON."""
         xml_parts.append('</steps>')
         return '\n'.join(xml_parts)
 
-
-# =============================================================================
-# WORKFLOW ENGINE
-# =============================================================================
 
 class WorkflowEngine:
     """Orchestrates workflow execution with project configuration."""
@@ -1577,10 +1544,6 @@ class WorkflowEngine:
         # Execute with config
         return workflow.execute(config, **kwargs)
 
-
-# =============================================================================
-# CLI
-# =============================================================================
 
 def main():
     parser = argparse.ArgumentParser(

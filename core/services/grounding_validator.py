@@ -275,14 +275,14 @@ class GroundingValidator:
         report += "=" * 80 + "\n\n"
 
         report += f"Total test cases: {len(test_cases)}\n"
-        report += f"Validation status: {'✓ PASSED' if is_valid else '✗ FAILED'}\n"
+        report += f"Validation status: {'PASSED: PASSED' if is_valid else 'FAILED: FAILED'}\n"
         report += f"Total errors: {len(errors)}\n\n"
 
         if errors:
             report += "ERRORS:\n"
             report += "-" * 80 + "\n"
             for error in errors:
-                report += f"  ✗ {error}\n"
+                report += f"  FAILED: {error}\n"
             report += "\n"
 
         report += "GROUNDED SPEC SUMMARY:\n"

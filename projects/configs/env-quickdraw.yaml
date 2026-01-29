@@ -3,6 +3,10 @@
 
 project_id: env-quickdraw
 
+# Platform selection - ADO for both source and target
+source_platform: ado   # Where to fetch stories from: ado | jira
+target_platform: ado   # Where to upload test cases: ado | testrail
+
 application:
   name: ENV QuickDraw
   description: Drawing and dimensioning application for ENV platform

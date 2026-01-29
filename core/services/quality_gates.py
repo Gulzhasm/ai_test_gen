@@ -347,9 +347,9 @@ class QualityGateRunner:
         is_valid, errors = self.validate_all_tests(test_cases)
 
         if is_valid:
-            print("✓ ALL QUALITY GATES PASSED")
+            print("OK: ALL QUALITY GATES PASSED")
         else:
-            print(f"✗ QUALITY GATES FAILED ({len(errors)} errors)")
+            print(f"FAILED: QUALITY GATES FAILED ({len(errors)} errors)")
             print("\nErrors:")
             for error in errors:
                 print(f"  • {error}")
