@@ -1478,6 +1478,267 @@ Return ONLY valid JSON."""
         return '\n'.join(xml_parts)
 
 
+class UpdateObjectivesWorkflow(IWorkflow):
+    """
+    Update only the objectives/summary field for existing test cases in ADO.
+
+    Reads ADO work item IDs from an exported CSV file and updates their Summary field
+    using objectives from the local generated JSON file.
+
+    Usage:
+        python3 workflows.py update-objectives --csv "exported.csv" --story-id 272265
+        python3 workflows.py update-objectives --csv "exported.csv" --story-id 272265 --dry-run
+    """
+
+    @property
+    def name(self) -> str:
+        return "update-objectives"
+
+    @property
+    def description(self) -> str:
+        return "Update objectives/summary field for existing test cases in ADO"
+
+    def validate_inputs(self, **kwargs) -> Optional[str]:
+        story_id = kwargs.get('story_id')
+        csv_file = kwargs.get('csv_file')
+
+        if not story_id:
+            return "story_id is required"
+        if not isinstance(story_id, int) or story_id <= 0:
+            return "story_id must be a positive integer"
+        if not csv_file:
+            return "csv_file is required (--csv)"
+        if not os.path.exists(csv_file):
+            return f"CSV file not found: {csv_file}"
+        return None
+
+    def _find_existing_files(self, story_id: int, output_dir: str) -> Dict[str, str]:
+        """Find existing test case files for a story."""
+        found_files = {}
+
+        if not os.path.exists(output_dir):
+            return found_files
+
+        patterns = {
+            'json': f"{output_dir}/{story_id}_*DEBUG.json",
+            'objectives': f"{output_dir}/{story_id}_*OBJECTIVES.txt"
+        }
+
+        for file_type, pattern in patterns.items():
+            matches = glob.glob(pattern)
+            if matches:
+                found_files[file_type] = max(matches, key=os.path.getmtime)
+
+        return found_files
+
+    def _load_test_cases(self, json_file: str) -> Optional[List[Dict]]:
+        """Load test cases from JSON file."""
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data.get('test_cases', [])
+        except Exception as e:
+            print(f"  Failed to load test cases: {e}")
+            return None
+
+    def _build_objectives_map(self, test_cases: List[Dict]) -> Dict[str, str]:
+        """Build a map of test case ID pattern to formatted objective."""
+        from infrastructure.export import ObjectiveGenerator
+
+        obj_gen = ObjectiveGenerator()
+        objectives_map = {}
+
+        for tc in test_cases:
+            tc_id = tc.get('id', '')  # e.g., "272265-AC1" or "272265-005"
+            objective = tc.get('objective', '')
+
+            if tc_id and objective:
+                # Format objective for ADO
+                formatted = obj_gen.format_objective_for_ado(objective)
+                objectives_map[tc_id] = formatted
+            elif tc_id:
+                # Generate objective from title if not present
+                title = tc.get('title', '')
+                if title:
+                    generated_obj = obj_gen.create_objective_from_title(title)
+                    formatted = obj_gen.format_objective_for_ado(generated_obj)
+                    objectives_map[tc_id] = formatted
+
+        return objectives_map
+
+    def _parse_ado_csv(self, csv_file: str) -> List[Dict]:
+        """
+        Parse ADO-exported CSV to extract work item IDs and titles.
+
+        Returns list of dicts with 'ado_id' and 'title' keys.
+        """
+        import csv
+
+        test_cases = []
+
+        with open(csv_file, 'r', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                # Only process rows with an ID (test case header rows)
+                if row.get('ID') and row['ID'].strip():
+                    test_cases.append({
+                        'ado_id': int(row['ID']),
+                        'title': row.get('Title', '')
+                    })
+
+        return test_cases
+
+    def _extract_test_id_from_title(self, title: str) -> Optional[str]:
+        """Extract test ID (e.g., '272265-AC1' or '272265-005') from title."""
+        import re
+        match = re.match(r'^(\d+-(?:AC\d+|\d+))', title)
+        if match:
+            return match.group(1)
+        return None
+
+    def _ensure_credentials(self, config: ProjectConfig):
+        """Ensure ADO credentials are loaded from environment."""
+        if not config.ado.pat:
+            config.ado.pat = os.getenv('ADO_PAT')
+
+    def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
+        story_id = kwargs['story_id']
+        csv_file = kwargs['csv_file']
+        output_dir = kwargs.get('output_dir') or config.output_dir or 'output'
+        dry_run = kwargs.get('dry_run', False)
+
+        print(f"\nWorkflow: Update Objectives in ADO")
+        print(f"Project: {config.project_id} ({config.application.name})")
+        print(f"Story ID: {story_id}")
+        print(f"CSV File: {csv_file}")
+        print(f"Mode: {'Dry Run' if dry_run else 'Live Update'}\n")
+
+        # Step 1: Parse ADO CSV to get work item IDs
+        print("[1/4] Parsing ADO CSV file...")
+        ado_test_cases = self._parse_ado_csv(csv_file)
+
+        if not ado_test_cases:
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                message=f"No test cases found in CSV file: {csv_file}"
+            )
+
+        print(f"  Found {len(ado_test_cases)} test cases in CSV")
+        for tc in ado_test_cases:
+            tc_id = self._extract_test_id_from_title(tc['title'])
+            print(f"    [{tc['ado_id']}] {tc_id or tc['title'][:40]}")
+
+        # Step 2: Find and load local objectives
+        print("\n[2/4] Loading objectives from local files...")
+        existing_files = self._find_existing_files(story_id, output_dir)
+
+        if not existing_files.get('json'):
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                message=f"No local test files found for story {story_id} in {output_dir}. Run 'generate' first."
+            )
+
+        print(f"  Found: {existing_files['json']}")
+
+        test_cases = self._load_test_cases(existing_files['json'])
+        if not test_cases:
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                message="Failed to load test cases from local file"
+            )
+
+        objectives_map = self._build_objectives_map(test_cases)
+        print(f"  Loaded {len(objectives_map)} objectives")
+
+        # Step 3: Match ADO IDs with objectives
+        print("\n[3/4] Matching test cases with objectives...")
+        matches = []
+        for tc in ado_test_cases:
+            tc_id = self._extract_test_id_from_title(tc['title'])
+            if tc_id and tc_id in objectives_map:
+                matches.append({
+                    'ado_id': tc['ado_id'],
+                    'tc_id': tc_id,
+                    'objective': objectives_map[tc_id]
+                })
+                print(f"    [{tc['ado_id']}] {tc_id} -> Matched")
+            else:
+                print(f"    [{tc['ado_id']}] {tc_id or 'Unknown'} -> No match")
+
+        if not matches:
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                message="No matching objectives found for test cases"
+            )
+
+        print(f"  Matched {len(matches)}/{len(ado_test_cases)} test cases")
+
+        # Step 4: Update objectives in ADO
+        print(f"\n[4/4] Updating objectives in ADO...")
+
+        if dry_run:
+            print("\n[DRY RUN - No changes made]\n")
+            for m in matches:
+                preview = m['objective'][:80] + "..." if len(m['objective']) > 80 else m['objective']
+                print(f"  [{m['ado_id']}] {m['tc_id']}")
+                print(f"    Would update to: {preview}\n")
+
+            return WorkflowResult(
+                status=WorkflowStatus.SUCCESS,
+                message=f"Dry run: Would update {len(matches)} objectives",
+                data={'dry_run': True, 'matches': len(matches)}
+            )
+
+        # Live update
+        self._ensure_credentials(config)
+
+        if not config.ado.pat:
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                message="ADO_PAT environment variable not set"
+            )
+
+        from infrastructure.ado import ADOHttpClient
+        client = ADOHttpClient(
+            organization=config.ado.organization,
+            project=config.ado.project,
+            pat=config.ado.pat
+        )
+
+        success = 0
+        failed = 0
+
+        for m in matches:
+            print(f"  [{m['ado_id']}] {m['tc_id']}...", end=" ")
+
+            try:
+                patch_doc = [
+                    {
+                        "op": "replace",
+                        "path": "/fields/System.Description",
+                        "value": m['objective']
+                    }
+                ]
+
+                client.patch(f"_apis/wit/workitems/{m['ado_id']}?api-version=7.1", data=patch_doc)
+                print("OK")
+                success += 1
+            except Exception as e:
+                print(f"FAILED - {e}")
+                failed += 1
+
+        print(f"\nUpdate complete")
+        print(f"  Success: {success}")
+        print(f"  Failed: {failed}")
+
+        status = WorkflowStatus.SUCCESS if failed == 0 else WorkflowStatus.PARTIAL
+        return WorkflowResult(
+            status=status,
+            message=f"Updated {success}/{len(matches)} objectives",
+            data={'success': success, 'failed': failed}
+        )
+
+
 class WorkflowEngine:
     """Orchestrates workflow execution with project configuration."""
 
@@ -1496,6 +1757,7 @@ class WorkflowEngine:
             DiscoverWorkflow(),
             ListProjectsWorkflow(),
             UpdateFromFeedbackWorkflow(),
+            UpdateObjectivesWorkflow(),
         ]
         for workflow in workflows:
             self._workflows[workflow.name] = workflow
@@ -1554,6 +1816,7 @@ Workflows:
   generate              Generate test cases for a story
   upload                Generate + Upload to ADO test suite
   upload-existing       Upload existing test cases to ADO (skip generation)
+  update-objectives     Update objectives/summary field for existing test cases in ADO
   update-from-feedback  Update test cases based on reviewer feedback
   init-project          Initialize a new project configuration
   discover              Discover project config from ADO stories
@@ -1571,6 +1834,10 @@ Examples:
 
   # Generate and upload
   python3 workflows.py upload --story-id 273566
+
+  # Update only objectives in ADO (from CSV + local files)
+  python3 workflows.py update-objectives --csv "exported.csv" --story-id 272265
+  python3 workflows.py update-objectives --csv "exported.csv" --story-id 272265 --dry-run
 
   # Update tests based on reviewer feedback
   python3 workflows.py update-from-feedback --csv "tests.csv" --feedback "feedback.txt"
@@ -1647,6 +1914,18 @@ Examples:
                                  help='Use LLM to interpret feedback (requires OPENAI_API_KEY)')
     feedback_parser.add_argument('--output', dest='output_file',
                                  help='Save fixes to JSON file for review before applying')
+
+    # Update objectives workflow
+    objectives_parser = subparsers.add_parser('update-objectives',
+                                              help='Update objectives/summary field for existing test cases in ADO')
+    objectives_parser.add_argument('--csv', dest='csv_file', required=True,
+                                   help='CSV file exported from ADO with existing test cases')
+    objectives_parser.add_argument('--story-id', type=int, required=True,
+                                   help='Story ID to find local objective files')
+    objectives_parser.add_argument('--output-dir', default=None,
+                                   help='Directory containing local test files')
+    objectives_parser.add_argument('--dry-run', action='store_true',
+                                   help='Preview changes without updating ADO')
 
     args = parser.parse_args()
 
