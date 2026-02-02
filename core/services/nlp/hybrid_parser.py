@@ -1,8 +1,12 @@
 """
-Hybrid AC parser combining spaCy NLP with regex fallback.
+Hybrid AC parser combining embedding, spaCy NLP, and regex fallback.
 
-Provides domain-agnostic parsing with graceful degradation.
+Provides domain-agnostic parsing with graceful degradation:
+1. Embedding (highest quality) - semantic similarity matching
+2. spaCy (good quality) - linguistic dependency parsing
+3. Regex (fallback) - pattern matching
 """
+import os
 import re
 from typing import List, Optional, Tuple
 
@@ -12,17 +16,21 @@ from .spacy_parser import SpacySemanticParser, SPACY_AVAILABLE
 
 
 class HybridACParser(ISemanticParser):
-    """Hybrid parser combining spaCy NLP with regex fallback.
+    """Hybrid parser combining embedding, spaCy NLP, and regex fallback.
 
-    Uses spaCy for domain-agnostic semantic extraction when confidence
-    is high enough, falling back to regex patterns for specific domains.
+    Uses a three-layer fallback chain:
+    1. Embedding parser (if enabled and confidence >= threshold)
+    2. spaCy parser (if available and confidence >= threshold)
+    3. Regex parser (always available as fallback)
     """
 
     def __init__(
         self,
         prefer_nlp: bool = True,
         confidence_threshold: float = 0.7,
-        spacy_model: str = "en_core_web_sm"
+        spacy_model: str = "en_core_web_sm",
+        embedding_enabled: Optional[bool] = None,
+        embedding_threshold: float = 0.80
     ):
         """Initialize hybrid parser.
 
@@ -30,13 +38,36 @@ class HybridACParser(ISemanticParser):
             prefer_nlp: Prefer spaCy over regex when both available
             confidence_threshold: Minimum confidence to accept spaCy results
             spacy_model: spaCy model to use
+            embedding_enabled: Enable embedding parser (default from env)
+            embedding_threshold: Minimum confidence for embedding results
         """
         self._prefer_nlp = prefer_nlp
         self._confidence_threshold = confidence_threshold
+        self._embedding_threshold = embedding_threshold
+
+        # Check embedding enabled from env if not specified
+        if embedding_enabled is None:
+            embedding_enabled = os.getenv("EMBEDDING_ENABLED", "false").lower() == "true"
+        self._embedding_enabled = embedding_enabled
 
         # Initialize parsers
         self._spacy_parser = SpacySemanticParser(model=spacy_model)
         self._regex_parser = ACParser()
+
+        # Initialize embedding parser if enabled
+        self._embedding_parser = None
+        if self._embedding_enabled:
+            try:
+                from .embedding_parser import EmbeddingSemanticParser
+                self._embedding_parser = EmbeddingSemanticParser(
+                    threshold=embedding_threshold
+                )
+                if not self._embedding_parser.is_available:
+                    print("Warning: Embedding parser enabled but not available")
+                    self._embedding_parser = None
+            except Exception as e:
+                print(f"Warning: Failed to initialize embedding parser: {e}")
+                self._embedding_parser = None
 
         # Track which parser was used
         self._last_method = "none"
@@ -56,8 +87,15 @@ class HybridACParser(ISemanticParser):
         """Get the method used for the last parse."""
         return self._last_method
 
+    @property
+    def embedding_available(self) -> bool:
+        """Check if embedding parser is available."""
+        return self._embedding_parser is not None and self._embedding_parser.is_available
+
     def parse(self, text: str) -> SemanticComponents:
         """Parse AC text using best available method.
+
+        Fallback chain: embedding → spaCy → regex
 
         Args:
             text: Raw AC text
@@ -68,7 +106,15 @@ class HybridACParser(ISemanticParser):
         # Clean the text
         clean_text = self._clean_text(text)
 
-        # Try spaCy first if available and preferred
+        # Layer 1: Try embedding first if available
+        if self._embedding_parser and self._embedding_parser.is_available:
+            embedding_result = self._embedding_parser.parse(clean_text)
+
+            if embedding_result.confidence >= self._embedding_threshold:
+                self._last_method = "embedding"
+                return embedding_result
+
+        # Layer 2: Try spaCy if available and preferred
         if self._prefer_nlp and self._spacy_parser.is_available:
             spacy_result = self._spacy_parser.parse(clean_text)
 
@@ -76,7 +122,7 @@ class HybridACParser(ISemanticParser):
                 self._last_method = "spacy"
                 return spacy_result
 
-        # Fall back to regex parser
+        # Layer 3: Fall back to regex parser
         regex_result = self._parse_with_regex(clean_text)
         self._last_method = "regex"
 
@@ -194,8 +240,8 @@ class HybridACParser(ISemanticParser):
             method="regex"
         )
 
-    def get_both_results(self, text: str) -> dict:
-        """Get results from both parsers for comparison.
+    def get_all_results(self, text: str) -> dict:
+        """Get results from all available parsers for comparison.
 
         Useful for debugging and evaluation.
 
@@ -203,15 +249,21 @@ class HybridACParser(ISemanticParser):
             text: Raw AC text
 
         Returns:
-            Dictionary with both parser results
+            Dictionary with all parser results
         """
         clean_text = self._clean_text(text)
 
         results = {
             "text": clean_text,
-            "regex": None,
-            "spacy": None
+            "embedding": None,
+            "spacy": None,
+            "regex": None
         }
+
+        # Get embedding result if available
+        if self._embedding_parser and self._embedding_parser.is_available:
+            embedding_result = self._embedding_parser.parse(clean_text)
+            results["embedding"] = embedding_result.to_dict()
 
         # Get regex result
         regex_semantics = self._regex_parser.parse(clean_text)
@@ -231,21 +283,32 @@ class HybridACParser(ISemanticParser):
 
         return results
 
+    # Backward compatibility alias
+    def get_both_results(self, text: str) -> dict:
+        """Alias for get_all_results for backward compatibility."""
+        return self.get_all_results(text)
+
 
 def create_parser(
     prefer_nlp: bool = True,
-    confidence_threshold: float = 0.7
+    confidence_threshold: float = 0.7,
+    embedding_enabled: Optional[bool] = None,
+    embedding_threshold: float = 0.80
 ) -> HybridACParser:
     """Factory function to create a hybrid parser.
 
     Args:
         prefer_nlp: Prefer spaCy over regex
         confidence_threshold: Minimum confidence for spaCy results
+        embedding_enabled: Enable embedding parser (default from env)
+        embedding_threshold: Minimum confidence for embedding results
 
     Returns:
         Configured HybridACParser
     """
     return HybridACParser(
         prefer_nlp=prefer_nlp,
-        confidence_threshold=confidence_threshold
+        confidence_threshold=confidence_threshold,
+        embedding_enabled=embedding_enabled,
+        embedding_threshold=embedding_threshold
     )

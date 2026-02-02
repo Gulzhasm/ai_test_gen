@@ -1,0 +1,396 @@
+{
+  "version": "1.0",
+  "description": "Canonical AC patterns for semantic embedding matching. Migrated from ac_parser.py ACTION_PATTERNS, OUTCOME_PATTERNS, BOUNDARY_PATTERNS.",
+  "patterns": [
+    {
+      "id": "action_bring_to_front",
+      "canonical": "bring to front",
+      "category": "action",
+      "subcategory": "z_order",
+      "synonyms": [
+        "move to front",
+        "bring above objects",
+        "move above other objects",
+        "place on top layer",
+        "elevate z-order",
+        "bring above all",
+        "put in front of everything",
+        "send to top"
+      ],
+      "regex_fallback": "(bring|move|send)\\s+(?:to\\s+)?(front|above)"
+    },
+    {
+      "id": "action_send_to_back",
+      "canonical": "send to back",
+      "category": "action",
+      "subcategory": "z_order",
+      "synonyms": [
+        "move to back",
+        "send under objects",
+        "move behind other objects",
+        "place on bottom layer",
+        "lower z-order",
+        "send under all",
+        "put behind everything"
+      ],
+      "regex_fallback": "(bring|move|send)\\s+(?:to\\s+)?(back|under)"
+    },
+    {
+      "id": "action_rotate",
+      "canonical": "rotate",
+      "category": "action",
+      "subcategory": "transform",
+      "synonyms": [
+        "rotate object",
+        "spin",
+        "turn",
+        "rotate shape",
+        "apply rotation"
+      ],
+      "regex_fallback": "(rotate|flip|mirror|transform|scale)"
+    },
+    {
+      "id": "action_flip",
+      "canonical": "flip",
+      "category": "action",
+      "subcategory": "transform",
+      "synonyms": [
+        "flip object",
+        "mirror",
+        "flip horizontally",
+        "flip vertically",
+        "mirror shape"
+      ]
+    },
+    {
+      "id": "action_scale",
+      "canonical": "scale",
+      "category": "action",
+      "subcategory": "transform",
+      "synonyms": [
+        "resize",
+        "scale object",
+        "change size",
+        "make bigger",
+        "make smaller",
+        "enlarge",
+        "shrink"
+      ]
+    },
+    {
+      "id": "action_enable",
+      "canonical": "enable",
+      "category": "action",
+      "subcategory": "state",
+      "synonyms": [
+        "turn on",
+        "activate",
+        "make available",
+        "switch on",
+        "enable feature",
+        "make active"
+      ],
+      "regex_fallback": "(enable|disable|toggle|show|hide)"
+    },
+    {
+      "id": "action_disable",
+      "canonical": "disable",
+      "category": "action",
+      "subcategory": "state",
+      "synonyms": [
+        "turn off",
+        "deactivate",
+        "make unavailable",
+        "switch off",
+        "gray out",
+        "disable feature",
+        "make inactive"
+      ]
+    },
+    {
+      "id": "action_show",
+      "canonical": "show",
+      "category": "action",
+      "subcategory": "visibility",
+      "synonyms": [
+        "display",
+        "make visible",
+        "reveal",
+        "show element",
+        "unhide"
+      ]
+    },
+    {
+      "id": "action_hide",
+      "canonical": "hide",
+      "category": "action",
+      "subcategory": "visibility",
+      "synonyms": [
+        "conceal",
+        "make invisible",
+        "hide element",
+        "remove from view"
+      ]
+    },
+    {
+      "id": "action_toggle",
+      "canonical": "toggle",
+      "category": "action",
+      "subcategory": "state",
+      "synonyms": [
+        "switch",
+        "toggle on off",
+        "flip state",
+        "toggle setting"
+      ]
+    },
+    {
+      "id": "action_select",
+      "canonical": "select",
+      "category": "action",
+      "subcategory": "user_action",
+      "synonyms": [
+        "choose",
+        "pick",
+        "click on",
+        "select item",
+        "highlight"
+      ],
+      "regex_fallback": "user\\s+(chooses?|selects?|clicks?|toggles?)"
+    },
+    {
+      "id": "action_click",
+      "canonical": "click",
+      "category": "action",
+      "subcategory": "user_action",
+      "synonyms": [
+        "press",
+        "tap",
+        "click button",
+        "click on"
+      ]
+    },
+    {
+      "id": "action_create",
+      "canonical": "create",
+      "category": "action",
+      "subcategory": "crud",
+      "synonyms": [
+        "add",
+        "insert",
+        "draw",
+        "create new",
+        "make new"
+      ],
+      "regex_fallback": "(add|remove|create|delete)"
+    },
+    {
+      "id": "action_delete",
+      "canonical": "delete",
+      "category": "action",
+      "subcategory": "crud",
+      "synonyms": [
+        "remove",
+        "erase",
+        "destroy",
+        "delete item"
+      ]
+    },
+    {
+      "id": "outcome_moves_to_highest_zorder",
+      "canonical": "moves to highest z-order",
+      "category": "outcome",
+      "subcategory": "z_order",
+      "synonyms": [
+        "appears above all",
+        "rendered on top",
+        "displayed in front",
+        "moves to top layer",
+        "comes to the front",
+        "is on top of everything"
+      ],
+      "regex_fallback": "(?:move[s]?|appear[s]?)\\s+(?:to\\s+)?(?:the\\s+)?(highest|top|above all)"
+    },
+    {
+      "id": "outcome_moves_to_lowest_zorder",
+      "canonical": "moves to lowest z-order",
+      "category": "outcome",
+      "subcategory": "z_order",
+      "synonyms": [
+        "appears below all",
+        "rendered at bottom",
+        "displayed behind",
+        "moves to bottom layer",
+        "goes to the back"
+      ],
+      "regex_fallback": "(?:move[s]?|appear[s]?)\\s+(?:to\\s+)?(?:the\\s+)?(lowest|bottom|below all)"
+    },
+    {
+      "id": "outcome_increases_zorder",
+      "canonical": "increases z-order by one level",
+      "category": "outcome",
+      "subcategory": "z_order",
+      "synonyms": [
+        "moves up one level",
+        "goes up in stack",
+        "one layer higher"
+      ],
+      "regex_fallback": "(?:increase[s]?|move[s]? up)\\s+(?:by\\s+)?one\\s+level"
+    },
+    {
+      "id": "outcome_decreases_zorder",
+      "canonical": "decreases z-order by one level",
+      "category": "outcome",
+      "subcategory": "z_order",
+      "synonyms": [
+        "moves down one level",
+        "goes down in stack",
+        "one layer lower"
+      ],
+      "regex_fallback": "(?:decrease[s]?|move[s]? down)\\s+(?:by\\s+)?one\\s+level"
+    },
+    {
+      "id": "outcome_is_enabled",
+      "canonical": "is enabled",
+      "category": "outcome",
+      "subcategory": "state",
+      "synonyms": [
+        "becomes active",
+        "is available",
+        "can be used",
+        "is clickable",
+        "becomes enabled"
+      ],
+      "regex_fallback": "(?:become[s]?|are|is)\\s+(enabled|disabled|visible|hidden)"
+    },
+    {
+      "id": "outcome_is_disabled",
+      "canonical": "is disabled",
+      "category": "outcome",
+      "subcategory": "state",
+      "synonyms": [
+        "is grayed out",
+        "cannot be clicked",
+        "is inactive",
+        "is unavailable",
+        "becomes disabled"
+      ]
+    },
+    {
+      "id": "outcome_is_visible",
+      "canonical": "is visible",
+      "category": "outcome",
+      "subcategory": "visibility",
+      "synonyms": [
+        "is displayed",
+        "appears on screen",
+        "is shown",
+        "becomes visible"
+      ]
+    },
+    {
+      "id": "outcome_is_hidden",
+      "canonical": "is hidden",
+      "category": "outcome",
+      "subcategory": "visibility",
+      "synonyms": [
+        "is not displayed",
+        "disappears",
+        "is not shown",
+        "becomes hidden"
+      ]
+    },
+    {
+      "id": "outcome_remains_unchanged",
+      "canonical": "remains unchanged",
+      "category": "outcome",
+      "subcategory": "state",
+      "synonyms": [
+        "stays the same",
+        "no change",
+        "is not affected",
+        "keeps its state"
+      ],
+      "regex_fallback": "(?:remain[s]?|stay[s]?)\\s+(?:the\\s+same|unchanged)"
+    },
+    {
+      "id": "boundary_no_selection",
+      "canonical": "no selection",
+      "category": "boundary",
+      "subcategory": "selection",
+      "synonyms": [
+        "nothing selected",
+        "no object selected",
+        "empty selection",
+        "without selection",
+        "when nothing is selected"
+      ],
+      "regex_fallback": "(?:when|with|if)\\s+no\\s+(selection|object)"
+    },
+    {
+      "id": "boundary_at_top",
+      "canonical": "already at top",
+      "category": "boundary",
+      "subcategory": "position",
+      "synonyms": [
+        "at highest z-order",
+        "already in front",
+        "at top layer",
+        "when at the top"
+      ],
+      "regex_fallback": "(?:at|when at|already at)\\s+(?:the\\s+)?(top|front|highest)"
+    },
+    {
+      "id": "boundary_at_bottom",
+      "canonical": "already at bottom",
+      "category": "boundary",
+      "subcategory": "position",
+      "synonyms": [
+        "at lowest z-order",
+        "already at back",
+        "at bottom layer",
+        "when at the bottom"
+      ],
+      "regex_fallback": "(?:at|when at|already at)\\s+(?:the\\s+)?(bottom|back|lowest)"
+    },
+    {
+      "id": "boundary_wrong_type",
+      "canonical": "wrong object type",
+      "category": "boundary",
+      "subcategory": "type",
+      "synonyms": [
+        "non-ellipse",
+        "non-circle",
+        "rectangle instead",
+        "incorrect type"
+      ],
+      "regex_fallback": "(?:when|with|if)\\s+(?:an?\\s+)?(non-ellipse|non-circle|rectangle|wrong\\s+type)"
+    },
+    {
+      "id": "boundary_multi_selection",
+      "canonical": "multiple selection",
+      "category": "boundary",
+      "subcategory": "selection",
+      "synonyms": [
+        "multi-select",
+        "multiple objects selected",
+        "more than one selected",
+        "group selection"
+      ],
+      "regex_fallback": "multi(?:-|\\s)?select"
+    },
+    {
+      "id": "boundary_repeated_action",
+      "canonical": "repeated action",
+      "category": "boundary",
+      "subcategory": "repetition",
+      "synonyms": [
+        "duplicate action",
+        "reapply",
+        "do again",
+        "perform twice"
+      ],
+      "regex_fallback": "(?:repeat|duplicate|reappl)"
+    }
+  ]
+}
