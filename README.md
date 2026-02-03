@@ -8,13 +8,14 @@ Generate high-quality test cases from Azure DevOps user stories automatically us
 
 1. [Overview](#overview)
 2. [Quick Start (5 minutes)](#quick-start-5-minutes)
-3. [CLI Commands](#cli-commands)
-4. [Adding Your Project](#adding-your-project)
-5. [Configuration Reference](#configuration-reference)
-6. [Output Files](#output-files)
-7. [MCP Integration (GitHub Copilot)](#mcp-integration-github-copilot)
-8. [Architecture](#architecture)
-9. [Troubleshooting](#troubleshooting)
+3. [Docker Setup (Recommended)](#docker-setup-recommended)
+4. [CLI Commands](#cli-commands)
+5. [Adding Your Project](#adding-your-project)
+6. [Configuration Reference](#configuration-reference)
+7. [Output Files](#output-files)
+8. [MCP Integration (GitHub Copilot)](#mcp-integration-github-copilot)
+9. [Architecture](#architecture)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -85,6 +86,84 @@ python workflows.py generate --story-id 272889
 ```
 
 **Output:** Test cases saved to `output/` folder as CSV, JSON, and objectives files.
+
+---
+
+## Docker Setup (Recommended)
+
+Docker provides a consistent environment across all team members - no Python version conflicts or dependency issues.
+
+### Prerequisites
+
+1. Install [Docker Desktop](https://docs.docker.com/desktop/)
+2. Get the `.env` file (contains ADO/OpenAI credentials)
+
+### Quick Start with Docker
+
+```bash
+# 1. Build the image (first time only, ~3 min)
+docker build -t test-gen:v1 .
+
+# 2. Verify it works
+docker run test-gen:v1 --help
+
+# 3. Run with credentials and output volume
+docker run --env-file .env -v $(pwd)/output:/app/output \
+    test-gen:v1 generate --story-id 272889
+```
+
+### Common Docker Commands
+
+```bash
+# Generate test cases
+docker run --env-file .env -v $(pwd)/output:/app/output \
+    test-gen:v1 generate --story-id 272889
+
+# Generate + Upload to ADO (dry run)
+docker run --env-file .env -v $(pwd)/output:/app/output \
+    test-gen:v1 upload --story-id 272889 --dry-run
+
+# Generate + Upload to ADO (live)
+docker run --env-file .env -v $(pwd)/output:/app/output \
+    test-gen:v1 upload --story-id 272889
+
+# List projects
+docker run test-gen:v1 list-projects
+
+# Update objectives
+docker run --env-file .env -v $(pwd)/output:/app/output \
+    test-gen:v1 update-objectives --story-id 272889
+```
+
+### Shell Alias (Optional)
+
+Add to your `~/.bashrc` or `~/.zshrc`:
+
+```bash
+alias testgen='docker run --env-file .env -v $(pwd)/output:/app/output test-gen:v1'
+
+# Then simply run:
+# testgen generate --story-id 272889
+# testgen upload --story-id 272889 --dry-run
+```
+
+### Docker vs Local Python
+
+| Aspect | Docker | Local Python |
+|--------|--------|--------------|
+| Setup time | ~3 min (one command) | ~10 min (venv, pip, spacy model) |
+| Works on | Any machine with Docker | Requires Python 3.10 |
+| Dependencies | Isolated in container | May conflict with other projects |
+| Team consistency | Identical for everyone | "Works on my machine" issues |
+
+### Rebuilding After Code Changes
+
+```bash
+# If you modify the code, rebuild the image
+docker build -t test-gen:v1 .
+
+# Docker caches layers, so rebuilds are fast if only code changed
+```
 
 ---
 
@@ -449,6 +528,30 @@ source venv310/bin/activate
 pip install -r requirements.txt
 ```
 
+### Docker Issues
+
+**"Cannot connect to Docker daemon"**
+- Ensure Docker Desktop is running (check system tray/menu bar)
+
+**"No such file: .env"**
+- Copy `.env` file to project root: `cp /path/to/.env .`
+- Never commit `.env` to git
+
+**"Permission denied" on output folder**
+```bash
+sudo chown -R $(whoami) output/
+```
+
+**Need to debug inside container?**
+```bash
+docker run -it --entrypoint /bin/bash test-gen:v1
+# Now you're inside the container
+```
+
+**Container runs but can't connect to ADO**
+- Verify `.env` has correct `ADO_PAT` value
+- Check `--env-file .env` flag is included in command
+
 ---
 
 ## Support
@@ -462,10 +565,12 @@ For issues or questions:
 
 ## Version
 
-**v5.0** - Multi-project support with AI-powered test generation
+**v5.1** - Docker support + Multi-project AI test generation
 
 ### Recent Changes
+- **Docker support** for consistent team environments
 - Project-agnostic framework with YAML configuration
 - Enhanced LLM prompts (expert QA engineer persona)
+- `update-objectives` workflow now fetches directly from ADO (no CSV required)
 - Reorganized codebase structure
 - Comprehensive documentation

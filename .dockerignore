@@ -1,0 +1,35 @@
+# Virtual environments
+venv/
+venv310/
+.venv/
+__pycache__/
+*.pyc
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Git
+.git/
+.gitignore
+
+# Output files (don't bake into image)
+output/
+*.csv
+*.json
+
+# Environment files (secrets!)
+.env
+.env.*
+
+# Notes and docs (not needed in container)
+notes/
+docs/
+*.md
+
+# Tests (optional - exclude for smaller prod image)
+# tests/
+
+# Claude/MCP config
+.claude/

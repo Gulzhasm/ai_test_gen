@@ -1482,12 +1482,15 @@ class UpdateObjectivesWorkflow(IWorkflow):
     """
     Update only the objectives/summary field for existing test cases in ADO.
 
-    Reads ADO work item IDs from an exported CSV file and updates their Summary field
-    using objectives from the local generated JSON file.
+    Can fetch test case IDs directly from ADO by story ID, or from an exported CSV file.
 
     Usage:
+        # Fetch test cases from ADO by story ID (preferred)
+        python3 workflows.py update-objectives --story-id 272265
+        python3 workflows.py update-objectives --story-id 272265 --dry-run
+
+        # Or use CSV export (legacy)
         python3 workflows.py update-objectives --csv "exported.csv" --story-id 272265
-        python3 workflows.py update-objectives --csv "exported.csv" --story-id 272265 --dry-run
     """
 
     @property
@@ -1506,9 +1509,8 @@ class UpdateObjectivesWorkflow(IWorkflow):
             return "story_id is required"
         if not isinstance(story_id, int) or story_id <= 0:
             return "story_id must be a positive integer"
-        if not csv_file:
-            return "csv_file is required (--csv)"
-        if not os.path.exists(csv_file):
+        # CSV is now optional - if not provided, will fetch from ADO
+        if csv_file and not os.path.exists(csv_file):
             return f"CSV file not found: {csv_file}"
         return None
 
@@ -1588,6 +1590,39 @@ class UpdateObjectivesWorkflow(IWorkflow):
 
         return test_cases
 
+    def _fetch_test_cases_from_ado(self, config: ProjectConfig, story_id: int) -> List[Dict]:
+        """
+        Fetch test cases from ADO by finding the test suite for the story.
+
+        Returns list of dicts with 'ado_id' and 'title' keys.
+        """
+        from infrastructure import get_test_repositories
+
+        self._ensure_credentials(config)
+
+        try:
+            suite_repo, _ = get_test_repositories(config)
+
+            # Find the test suite for this story
+            suite_info = suite_repo.find_suite_by_story_id(story_id)
+            if not suite_info:
+                print(f"  No test suite found for story {story_id}")
+                return []
+
+            print(f"  Found suite: {suite_info['name']}")
+            print(f"  Suite ID: {suite_info['id']}, Plan ID: {suite_info['plan_id']}")
+
+            # Get test cases from the suite
+            test_cases = suite_repo.get_test_cases_in_suite(
+                suite_info['plan_id'],
+                suite_info['id']
+            )
+
+            return test_cases
+        except Exception as e:
+            print(f"  Error fetching test cases from ADO: {e}")
+            return []
+
     def _extract_test_id_from_title(self, title: str) -> Optional[str]:
         """Extract test ID (e.g., '272265-AC1' or '272265-005') from title."""
         import re
@@ -1603,27 +1638,35 @@ class UpdateObjectivesWorkflow(IWorkflow):
 
     def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
         story_id = kwargs['story_id']
-        csv_file = kwargs['csv_file']
+        csv_file = kwargs.get('csv_file')
         output_dir = kwargs.get('output_dir') or config.output_dir or 'output'
         dry_run = kwargs.get('dry_run', False)
 
         print(f"\nWorkflow: Update Objectives in ADO")
         print(f"Project: {config.project_id} ({config.application.name})")
         print(f"Story ID: {story_id}")
-        print(f"CSV File: {csv_file}")
+        print(f"Source: {'CSV File' if csv_file else 'ADO (fetch by story ID)'}")
+        if csv_file:
+            print(f"CSV File: {csv_file}")
         print(f"Mode: {'Dry Run' if dry_run else 'Live Update'}\n")
 
-        # Step 1: Parse ADO CSV to get work item IDs
-        print("[1/4] Parsing ADO CSV file...")
-        ado_test_cases = self._parse_ado_csv(csv_file)
+        # Step 1: Get ADO test cases (from CSV or directly from ADO)
+        if csv_file:
+            print("[1/4] Parsing ADO CSV file...")
+            ado_test_cases = self._parse_ado_csv(csv_file)
+            source_desc = f"CSV file: {csv_file}"
+        else:
+            print("[1/4] Fetching test cases from ADO...")
+            ado_test_cases = self._fetch_test_cases_from_ado(config, story_id)
+            source_desc = f"ADO test suite for story {story_id}"
 
         if not ado_test_cases:
             return WorkflowResult(
                 status=WorkflowStatus.FAILED,
-                message=f"No test cases found in CSV file: {csv_file}"
+                message=f"No test cases found in {source_desc}"
             )
 
-        print(f"  Found {len(ado_test_cases)} test cases in CSV")
+        print(f"  Found {len(ado_test_cases)} test cases")
         for tc in ado_test_cases:
             tc_id = self._extract_test_id_from_title(tc['title'])
             print(f"    [{tc['ado_id']}] {tc_id or tc['title'][:40]}")
@@ -1835,9 +1878,12 @@ Examples:
   # Generate and upload
   python3 workflows.py upload --story-id 273566
 
-  # Update only objectives in ADO (from CSV + local files)
+  # Update objectives in ADO (fetches test cases directly from ADO)
+  python3 workflows.py update-objectives --story-id 272265
+  python3 workflows.py update-objectives --story-id 272265 --dry-run
+
+  # Update objectives in ADO (from CSV export - legacy)
   python3 workflows.py update-objectives --csv "exported.csv" --story-id 272265
-  python3 workflows.py update-objectives --csv "exported.csv" --story-id 272265 --dry-run
 
   # Update tests based on reviewer feedback
   python3 workflows.py update-from-feedback --csv "tests.csv" --feedback "feedback.txt"
@@ -1918,10 +1964,10 @@ Examples:
     # Update objectives workflow
     objectives_parser = subparsers.add_parser('update-objectives',
                                               help='Update objectives/summary field for existing test cases in ADO')
-    objectives_parser.add_argument('--csv', dest='csv_file', required=True,
-                                   help='CSV file exported from ADO with existing test cases')
+    objectives_parser.add_argument('--csv', dest='csv_file', required=False, default=None,
+                                   help='CSV file exported from ADO (optional - if not provided, fetches from ADO)')
     objectives_parser.add_argument('--story-id', type=int, required=True,
-                                   help='Story ID to find local objective files')
+                                   help='Story ID to find local objective files and test suite in ADO')
     objectives_parser.add_argument('--output-dir', default=None,
                                    help='Directory containing local test files')
     objectives_parser.add_argument('--dry-run', action='store_true',

@@ -486,6 +486,33 @@ class ADOTestSuiteRepository(ITestSuiteRepository):
             print(f"Error adding test case to suite: {e}")
             return False
 
+    def get_test_cases_in_suite(
+        self,
+        plan_id: int,
+        suite_id: int
+    ) -> List[Dict[str, Any]]:
+        """Get all test cases in a test suite.
+
+        Returns:
+            List of dicts with 'ado_id' and 'title' keys for each test case.
+        """
+        test_cases = []
+        try:
+            result = self._client.get(
+                f"_apis/testplan/Plans/{plan_id}/Suites/{suite_id}/TestCase"
+            )
+
+            for item in result.get('value', []):
+                work_item = item.get('workItem', {})
+                test_cases.append({
+                    'ado_id': work_item.get('id'),
+                    'title': work_item.get('name', '')
+                })
+        except Exception as e:
+            print(f"Error getting test cases from suite: {e}")
+
+        return test_cases
+
 
 class ADOTestCaseRepository(ITestCaseRepository):
     """Azure DevOps implementation of test case repository."""
