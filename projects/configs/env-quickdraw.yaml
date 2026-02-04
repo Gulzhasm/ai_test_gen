@@ -16,22 +16,32 @@ application:
   prereq_template: "Pre-req: The {app_name} App is installed"
   launch_step: "Launch the {app_name} application."
   launch_expected: "Model space(Gray) and Canvas(white) space should be displayed"
+
+  # IMPORTANT: Most menus require a file/drawing to be open first
+  # This step should be added after launch for tests that access menus
+  create_file_step: "From the Home screen, select 'New File', press 'Create', select a save location, and press 'Save'."
+  create_file_expected: "A new blank drawing opens and is displayed on the Canvas."
+
   close_step: "Close the {app_name} App"
 
   # Main UI surfaces in the application
   ui_surfaces:
     - File Menu
     - Edit Menu
+    - View Menu
     - Tools Menu
+    - Help Menu
     - Dimensions Menu
     - Properties Panel
     - Dimensions Panel
+    - Settings
     - Canvas
     - Dialog Window
     - Modal Window
     - Top Action Toolbar
 
   # Map feature keywords to their entry points
+  # NOTE: Use word boundaries in code to avoid substring false matches (e.g., "cut" in "executed")
   entry_point_mappings:
     import: File Menu
     export: File Menu
@@ -55,6 +65,10 @@ application:
     propert: Properties Panel
     setting: Settings
     preference: Settings
+    help: Help Menu
+    about: Help Menu
+    manual: Help Menu
+    documentation: Help Menu
 
   # Supported platforms
   platforms:
@@ -124,7 +138,6 @@ rules:
 
   forbidden_area_terms:
     - Functionality
-    - Accessibility
     - Behavior
     - Validation
     - General
@@ -133,22 +146,26 @@ rules:
   allowed_areas:
     - File Menu
     - Edit Menu
+    - View Menu
     - Tools Menu
+    - Help Menu
     - Dimensions Menu
     - Properties Panel
     - Dimensions Panel
+    - Settings
     - Canvas
     - Dialog Window
     - Modal Window
     - Top Action Toolbar
+    - Accessibility
 
   first_test_id: AC1
   test_id_increment: 5
 
 output_dir: output
 llm_enabled: true
-llm_provider: openai
-llm_model: gpt-4o-mini
+llm_provider: anthropic
+llm_model: claude-3-5-haiku-20241022  # Fast + good quality
 
 # Patterns for bolding key terms in objectives
 objective_patterns:

@@ -284,9 +284,26 @@ class GenericTestGenerator:
         """Get the application close step using project config."""
         return {"action": self.app.get_close_step(), "expected": ""}
 
-    def _get_standard_setup_steps(self) -> List[Dict[str, str]]:
-        """Get standard setup steps (prereq + launch)."""
-        return [self._get_prereq_step(), self._get_launch_step()]
+    def _get_create_file_step(self) -> Dict[str, str]:
+        """Get the create file/drawing step using project config.
+
+        IMPORTANT: Most menus require a file/drawing to be open first.
+        """
+        return {
+            "action": self.app.get_create_file_step(),
+            "expected": self.app.get_create_file_expected()
+        }
+
+    def _get_standard_setup_steps(self, include_create_file: bool = True) -> List[Dict[str, str]]:
+        """Get standard setup steps (prereq + launch + optional create file).
+
+        Args:
+            include_create_file: If True, includes create file step (required for most menu access).
+        """
+        steps = [self._get_prereq_step(), self._get_launch_step()]
+        if include_create_file:
+            steps.append(self._get_create_file_step())
+        return steps
 
     def _get_object_setup_steps(self) -> List[Dict[str, str]]:
         """Get object interaction setup steps."""
@@ -576,11 +593,13 @@ class GenericTestGenerator:
         # Check for touch platforms
         touch_platforms = [p for p in platforms if p in ['iPad', 'Android Tablet', 'iPhone', 'Android Phone']]
 
-        if touch_platforms:
+        # Generate separate touch tests for each touch platform (avoid generic "Tablet/Mobile")
+        for platform in touch_platforms:
             test_id = f"{story_id}-{self.test_id_counter:03d}"
             self.test_id_counter += self.rules.test_id_increment
 
-            title = f"{test_id}: {feature_name} / {entry_point} / Touch interaction (Tablet/Mobile)"
+            # Use exact platform name instead of generic "Tablet/Mobile"
+            title = f"{test_id}: {feature_name} / {entry_point} / Touch interaction ({platform})"
 
             steps = self._get_standard_setup_steps()
 
@@ -595,11 +614,11 @@ class GenericTestGenerator:
                 {"action": f"Navigate to {entry_point} using touch.", "expected": ""},
                 {"action": f"Perform the {feature_name} action using touch gestures.", "expected": ""},
                 {"action": f"Verify the {feature_name} functionality works correctly with touch input.",
-                 "expected": f"{feature_name} works correctly with touch interaction."},
+                 "expected": f"{feature_name} works correctly with touch interaction on {platform}."},
             ])
             steps.append(self._get_close_step())
 
-            objective = f"Verify that <b>{feature_name}</b> works correctly on <b>touch devices</b> using <b>touch or stylus</b>"
+            objective = f"Verify that <b>{feature_name}</b> works correctly on <b>{platform}</b> using <b>touch or stylus</b>"
             platform_tests.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
 
         return platform_tests
@@ -616,17 +635,19 @@ class GenericTestGenerator:
         platforms = qa_details.get('platforms', self.app.supported_platforms)
         entry_point = self.app.determine_entry_point(feature_name, qa_details.get('entry_points', []))
 
-        # Windows accessibility test
+        # Windows accessibility test - use exact platform name in title
+        windows_platform = 'Windows 11' if 'Windows 11' in platforms else ('Windows 10' if 'Windows 10' in platforms else 'Windows')
         if 'Windows 11' in platforms or 'Windows 10' in platforms or 'Windows' in platforms:
             test_id = f"{story_id}-{self.test_id_counter:03d}"
             self.test_id_counter += self.rules.test_id_increment
 
-            title = f"{test_id}: {feature_name} / Accessibility / Keyboard navigation and labels (Windows)"
+            title = f"{test_id}: {feature_name} / Accessibility / Keyboard navigation and labels ({windows_platform})"
 
             steps = [
                 self._get_prereq_step(),
                 {"action": "Pre-req: Accessibility Insights for Windows is installed", "expected": ""},
                 self._get_launch_step(),
+                self._get_create_file_step(),
                 {"action": f"Navigate to {entry_point} using keyboard.", "expected": ""},
                 {"action": f"Verify the {feature_name} controls are keyboard accessible.",
                  "expected": f"Keyboard focus moves to {feature_name} controls with visible focus indicator."},
@@ -635,7 +656,7 @@ class GenericTestGenerator:
             ]
             steps.append(self._get_close_step())
 
-            objective = f"Verify that <b>{feature_name}</b> controls meet <b>WCAG 2.1 AA</b> standards on <b>Windows</b>"
+            objective = f"Verify that <b>{feature_name}</b> controls meet <b>WCAG 2.1 AA</b> standards on <b>{windows_platform}</b>"
             accessibility_tests.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
 
         # macOS accessibility test
@@ -649,6 +670,7 @@ class GenericTestGenerator:
                 self._get_prereq_step(),
                 {"action": "Pre-req: VoiceOver is enabled (Cmd+F5)", "expected": ""},
                 self._get_launch_step(),
+                self._get_create_file_step(),
                 {"action": f"Navigate to {entry_point} using keyboard (Tab/Arrow keys).", "expected": ""},
                 {"action": f"Verify the {feature_name} controls are announced with meaningful labels.",
                  "expected": f"VoiceOver announces {feature_name} controls with meaningful labels and roles."},
@@ -660,17 +682,19 @@ class GenericTestGenerator:
             objective = f"Verify that <b>{feature_name}</b> controls are accessible via <b>VoiceOver</b> on <b>macOS</b>"
             accessibility_tests.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
 
-        # iPad/iOS accessibility test
+        # iPad/iOS accessibility test - use exact platform name in title
+        ios_platform = 'iPad' if 'iPad' in platforms else 'iPhone'
         if 'iPad' in platforms or 'iPhone' in platforms:
             test_id = f"{story_id}-{self.test_id_counter:03d}"
             self.test_id_counter += self.rules.test_id_increment
 
-            title = f"{test_id}: {feature_name} / Accessibility / VoiceOver navigation (iOS)"
+            title = f"{test_id}: {feature_name} / Accessibility / VoiceOver navigation ({ios_platform})"
 
             steps = [
                 self._get_prereq_step(),
-                {"action": "Pre-req: VoiceOver is enabled", "expected": ""},
+                {"action": f"Pre-req: VoiceOver is enabled on the {ios_platform}", "expected": ""},
                 self._get_launch_step(),
+                self._get_create_file_step(),
                 {"action": f"Navigate to {entry_point} using VoiceOver swipe gestures.", "expected": ""},
                 {"action": f"Verify the {feature_name} controls are announced with meaningful labels.",
                  "expected": f"VoiceOver announces {feature_name} controls with meaningful labels and roles."},
@@ -679,20 +703,22 @@ class GenericTestGenerator:
             ]
             steps.append(self._get_close_step())
 
-            objective = f"Verify that <b>{feature_name}</b> controls are accessible via <b>VoiceOver</b>"
+            objective = f"Verify that <b>{feature_name}</b> controls are accessible via <b>VoiceOver</b> on <b>{ios_platform}</b>"
             accessibility_tests.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
 
-        # Android accessibility test
+        # Android accessibility test - use exact platform name in title
+        android_platform = 'Android Tablet' if 'Android Tablet' in platforms else ('Android Phone' if 'Android Phone' in platforms else 'Android')
         if 'Android Tablet' in platforms or 'Android Phone' in platforms or 'Android' in platforms:
             test_id = f"{story_id}-{self.test_id_counter:03d}"
             self.test_id_counter += self.rules.test_id_increment
 
-            title = f"{test_id}: {feature_name} / Accessibility / Accessibility Scanner (Android)"
+            title = f"{test_id}: {feature_name} / Accessibility / Accessibility Scanner ({android_platform})"
 
             steps = [
                 self._get_prereq_step(),
                 {"action": "Pre-req: Accessibility Scanner is installed", "expected": ""},
                 self._get_launch_step(),
+                self._get_create_file_step(),
                 {"action": f"Navigate to {entry_point}.", "expected": ""},
                 {"action": f"Run Accessibility Scanner on the {feature_name} controls.", "expected": ""},
                 {"action": f"Verify Accessibility Scanner reports no critical issues for {feature_name} controls.",
@@ -700,7 +726,7 @@ class GenericTestGenerator:
             ]
             steps.append(self._get_close_step())
 
-            objective = f"Verify that <b>{feature_name}</b> controls meet accessibility standards on <b>Android</b>"
+            objective = f"Verify that <b>{feature_name}</b> controls meet accessibility standards on <b>{android_platform}</b>"
             accessibility_tests.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
 
         # Web browser accessibility (for web apps)
@@ -716,6 +742,7 @@ class GenericTestGenerator:
                     self._get_prereq_step(),
                     {"action": "Pre-req: Screen reader (NVDA/JAWS/VoiceOver) is enabled", "expected": ""},
                     self._get_launch_step(),
+                    self._get_create_file_step(),
                     {"action": f"Navigate to {entry_point} using keyboard (Tab/Arrow keys).", "expected": ""},
                     {"action": f"Verify the {feature_name} controls have correct ARIA roles and labels.",
                      "expected": "Screen reader announces controls with meaningful labels."},
@@ -747,9 +774,11 @@ class GenericTestGenerator:
             'negative_scenarios': []
         }
 
-        # Extract entry points using project config
+        # Extract entry points using project config with word boundary matching
+        # Avoids false matches like 'cut' in 'executed'
         for keyword, entry_point in self.app.entry_point_mappings.items():
-            if keyword in qa_lower:
+            pattern = rf'\b{re.escape(keyword)}\b'
+            if re.search(pattern, qa_lower):
                 if entry_point not in details['entry_points']:
                     details['entry_points'].append(entry_point)
 

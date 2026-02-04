@@ -105,6 +105,8 @@ class PromptContext:
     prereq_template: str
     launch_step: str
     launch_expected: str
+    create_file_step: str  # IMPORTANT: Most menus require a file/drawing first
+    create_file_expected: str
     close_step: str
 
     # Test rules
@@ -154,6 +156,8 @@ class PromptBuilder:
             prereq_template=config.application.prereq_template,
             launch_step=config.application.launch_step,
             launch_expected=config.application.launch_expected or "",
+            create_file_step=getattr(config.application, 'create_file_step', 'Create a new file/document.'),
+            create_file_expected=getattr(config.application, 'create_file_expected', 'A new blank file is created.'),
             close_step=config.application.close_step,
             forbidden_words=config.rules.forbidden_words,
             allowed_areas=config.rules.allowed_areas,
@@ -299,8 +303,8 @@ Each test case MUST have an "objective" field that:
 4. All tests have proper objective field
 5. No forbidden language used
 6. ID sequence correct (AC1, then 005, 010, 015...)
-7. Include edge case, negative, and state transition tests
-8. Expected total: 15-25 comprehensive test cases
+7. Include edge case and negative tests (undo/redo ONLY for object manipulation features)
+8. Expected total: {self._get_target_test_count()} test cases
 
 Output corrected JSON only: {{"test_cases": [...]}}'''
 
@@ -381,19 +385,19 @@ This is a **{self.ctx.feature_type}** feature.
 ### TASK 4: ADD SENSIBLE TEST COVERAGE
 Think: "What tests would I write if I had limited time but needed thorough coverage?"
 - Edge cases (empty state, no selection, rapid actions)
-- Negative tests (invalid inputs, wrong conditions)
-- State tests (undo/redo if applicable)
+- Negative tests (invalid inputs, wrong conditions){self._get_state_test_guidance()}
 - Touch tests for: {', '.join([p for p in self.ctx.platforms if 'windows' not in p.lower()])}
 
 ## STEP TEMPLATES
 - Pre-requisite: "{self.ctx.prereq_template.format(app_name=self.ctx.app_name)}"
 - Launch: "{self.ctx.launch_step.format(app_name=self.ctx.app_name)}"
+- Create File (REQUIRED - menus disabled without file): "{self.ctx.create_file_step}"
 - Close: "{self.ctx.close_step.format(app_name=self.ctx.app_name)}"
 
 ## OUTPUT
 Return JSON with high-quality test cases: {{"test_cases": [...]}}
 
-Target: very well-crafted test cases, test case count depending on feature complexity, typically 15-25 tests including:
+Target: {self._get_target_test_count()} well-crafted test cases based on feature complexity, including:
 - Core functionality tests (map to AC items)
 - {len(self.ctx.platforms)} accessibility tests (one per platform)
 - Relevant edge cases and negative tests
@@ -586,6 +590,8 @@ As an expert QA engineer with 10+ years of experience, you know that:
         """Build the step templates section."""
         prereq = self.ctx.prereq_template.format(app_name=self.ctx.app_name)
         launch = self.ctx.launch_step.format(app_name=self.ctx.app_name)
+        create_file = self.ctx.create_file_step
+        create_file_expected = self.ctx.create_file_expected
         close = self.ctx.close_step.format(app_name=self.ctx.app_name)
 
         lines = [
@@ -600,7 +606,10 @@ As an expert QA engineer with 10+ years of experience, you know that:
             lines.append(f'   Expected: "{self.ctx.launch_expected}"')
 
         lines.extend([
-            f"3. Last step: Close/Exit step (empty expected)",
+            f"3. Third step: Create new file/drawing (REQUIRED - menus are disabled without a file open)",
+            f'   Action: "{create_file}"',
+            f'   Expected: "{create_file_expected}"',
+            f"4. Last step: Close/Exit step (empty expected)",
             f'   Action: "{close}"',
         ])
 
@@ -846,6 +855,38 @@ Only add boundary/input tests if the feature has actual inputs."""
         }
 
         return guidance.get(feature_type, guidance['general'])
+
+    def _get_target_test_count(self) -> str:
+        """
+        Get target test count range based on feature type.
+
+        Navigation/display features need fewer tests (simpler scope).
+        Input/calculation/object manipulation need more (complex interactions).
+        """
+        feature_type = self.ctx.feature_type
+
+        if feature_type in ('navigation', 'display'):
+            return "8-15"
+        elif feature_type in ('input', 'calculation', 'object_manipulation'):
+            return "15-25"
+        else:
+            return "12-20"
+
+    def _get_state_test_guidance(self) -> str:
+        """
+        Get state test guidance based on feature type.
+
+        Only object manipulation features need undo/redo tests.
+        Navigation/display features should NOT have undo/redo tests.
+        """
+        feature_type = self.ctx.feature_type
+
+        if feature_type == 'object_manipulation':
+            return "\n- State tests (undo/redo functionality)"
+        elif feature_type in ('navigation', 'display'):
+            return ""  # No undo/redo for navigation/display
+        else:
+            return ""  # Default: don't suggest undo/redo unless it's object manipulation
 
     @staticmethod
     def _format_list(items: List[str], prefix: str = "- ") -> str:

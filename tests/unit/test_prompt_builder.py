@@ -59,6 +59,8 @@ class TestPromptContext:
             prereq_template="Pre-req: {app_name} is installed",
             launch_step="Launch {app_name}",
             launch_expected="App launches",
+            create_file_step="Create a new file.",
+            create_file_expected="New file is created.",
             close_step="Close {app_name}",
             forbidden_words=["or", "if available"],
             allowed_areas=["File Menu", "Canvas"]
@@ -95,6 +97,8 @@ class TestPromptBuilder:
             prereq_template="Pre-req: {app_name} is installed",
             launch_step="Launch {app_name}",
             launch_expected="App launches successfully",
+            create_file_step="Create a new file.",
+            create_file_expected="New file is created.",
             close_step="Close {app_name}",
             forbidden_words=["or", "if available"],
             allowed_areas=["File Menu", "Canvas", "Tools Menu"]

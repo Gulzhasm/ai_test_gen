@@ -7,6 +7,7 @@ from typing import List, Dict, Optional, Any
 from pathlib import Path
 import yaml
 import os
+import re
 
 
 @dataclass
@@ -20,6 +21,11 @@ class ApplicationConfig:
     prereq_template: str = "Pre-req: The {app_name} is installed"
     launch_step: str = "Launch the {app_name}."
     launch_expected: str = "Application loads successfully."
+
+    # Create file step - IMPORTANT: Most menus require a file/drawing to be open first
+    create_file_step: str = "Create a new file/document."
+    create_file_expected: str = "A new blank file is created."
+
     close_step: str = "Close the {app_name}."
 
     # Feature constraints - CRITICAL for accurate test generation
@@ -78,32 +84,58 @@ class ApplicationConfig:
         """Get formatted launch step for this application."""
         return self.launch_step.format(app_name=self.name)
 
+    def get_create_file_step(self) -> str:
+        """Get the create file/drawing step for this application."""
+        return self.create_file_step
+
+    def get_create_file_expected(self) -> str:
+        """Get the expected result for create file step."""
+        return self.create_file_expected
+
     def get_close_step(self) -> str:
         """Get formatted close step for this application."""
         return self.close_step.format(app_name=self.name)
 
     def determine_entry_point(self, feature_name: str, hints: List[str] = None) -> str:
-        """Determine the most appropriate entry point for a feature."""
+        """Determine the most appropriate entry point for a feature.
+
+        Uses word boundary matching to avoid false positives like 'cut' in 'executed'.
+        """
         if hints:
             return hints[0]
 
         feature_lower = feature_name.lower()
         for keyword, entry_point in self.entry_point_mappings.items():
-            if keyword in feature_lower:
+            # Use word boundary regex to avoid substring false matches
+            # e.g., 'cut' should not match 'executed'
+            pattern = rf'\b{re.escape(keyword)}\b'
+            if re.search(pattern, feature_lower):
                 return entry_point
 
         return 'Application Menu'
 
     def requires_object_interaction(self, text: str) -> bool:
-        """Determine if the text indicates object interaction is needed."""
+        """Determine if the text indicates object interaction is needed.
+
+        Uses word boundary matching to avoid false positives.
+        """
         text_lower = text.lower()
-        return any(keyword in text_lower for keyword in self.object_interaction_keywords)
+        for keyword in self.object_interaction_keywords:
+            pattern = rf'\b{re.escape(keyword)}\b'
+            if re.search(pattern, text_lower):
+                return True
+        return False
 
     def is_feature_available(self, feature_text: str) -> bool:
-        """Check if a feature is available in this application."""
+        """Check if a feature is available in this application.
+
+        Uses word boundary matching to avoid false positives.
+        """
         text_lower = feature_text.lower()
         for unavailable in self.unavailable_features:
-            if unavailable.lower() in text_lower:
+            # Use word boundary matching for multi-word phrases
+            pattern = rf'\b{re.escape(unavailable.lower())}\b'
+            if re.search(pattern, text_lower):
                 return False
         return True
 
@@ -381,6 +413,9 @@ class ProjectConfig:
             prereq_template=app_data.get('prereq_template', 'Pre-req: The {app_name} is installed'),
             launch_step=app_data.get('launch_step', 'Launch the {app_name}.'),
             launch_expected=app_data.get('launch_expected', 'Application loads successfully.'),
+            # Create file step - menus require a file/drawing to be open first
+            create_file_step=app_data.get('create_file_step', 'Create a new file/document.'),
+            create_file_expected=app_data.get('create_file_expected', 'A new blank file is created.'),
             close_step=app_data.get('close_step', 'Close the {app_name}.'),
             main_ui_surfaces=app_data.get('ui_surfaces', []),
             entry_point_mappings=app_data.get('entry_point_mappings', {}),

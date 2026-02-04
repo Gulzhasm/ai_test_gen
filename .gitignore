@@ -8,6 +8,7 @@ env/
 venv/
 ENV/
 .venv
+.pytest_cache
 
 # Output files
 output/*.csv
