@@ -178,8 +178,10 @@ class GenerateWorkflow(IWorkflow):
         # Step 2: Generate test cases using GenericTestGenerator
         print("\n[2/3] Generating test cases...")
         generator = GenericTestGenerator(config)
+        # Include description in story_data for proper entry point detection
+        description = getattr(story, 'description', '') or ''
         test_cases = generator.generate_test_cases(
-            story_data={'story_id': story_id, 'title': title},
+            story_data={'story_id': story_id, 'title': title, 'description': description},
             criteria=acceptance_criteria,
             qa_prep_content=qa_prep
         )

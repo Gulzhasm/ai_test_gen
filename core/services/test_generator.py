@@ -2,9 +2,12 @@
 Generic Test Generator - Project-agnostic test case generation.
 Uses ProjectConfig to generate test cases for any application.
 Integrates quality enhancement for high-quality, deterministic output.
+Uses StoryTypeClassifier to avoid irrelevant edge cases.
+Uses story description to generate context-rich, meaningful test scenarios.
 """
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Tuple
 import re
+from dataclasses import dataclass, field
 
 import sys
 import os
@@ -12,6 +15,204 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from projects.project_config import ProjectConfig
 from projects.test_suite_creator import QAPrepGenerator
+from core.services.story_type_classifier import StoryType, StoryTypeClassifier
+
+
+# =============================================================================
+# DESCRIPTION PARSER - Extract structured info from story descriptions
+# =============================================================================
+
+@dataclass
+class DescriptionContext:
+    """Parsed context from story description."""
+    menu_path: str = ""  # e.g., "Help → User Manual"
+    user_flow: List[str] = field(default_factory=list)  # e.g., ["User selects Help → User Manual", "QuickDraw opens the built-in manual viewer"]
+    key_features: List[str] = field(default_factory=list)  # e.g., ["offline access", "in-app viewer", "PDF manuals"]
+    main_purpose: str = ""  # e.g., "provides users with direct access to official QuickDraw documentation"
+    raw_description: str = ""
+
+
+class DescriptionParser:
+    """
+    Parses story descriptions to extract structured context for test generation.
+
+    Extracts:
+    - Menu Path: Navigation path to the feature
+    - User Flow: Step-by-step user actions
+    - Key Features: Main capabilities/characteristics
+    - Main Purpose: What the feature does
+    """
+
+    @classmethod
+    def parse(cls, description: str) -> DescriptionContext:
+        """Parse description and extract structured context."""
+        if not description:
+            return DescriptionContext()
+
+        ctx = DescriptionContext(raw_description=description)
+        desc_lower = description.lower()
+
+        # Extract Menu Path
+        ctx.menu_path = cls._extract_menu_path(description)
+
+        # Extract User Flow
+        ctx.user_flow = cls._extract_user_flow(description)
+
+        # Extract Key Features
+        ctx.key_features = cls._extract_key_features(description)
+
+        # Extract Main Purpose
+        ctx.main_purpose = cls._extract_main_purpose(description)
+
+        return ctx
+
+    @classmethod
+    def _extract_menu_path(cls, description: str) -> str:
+        """Extract menu navigation path from description."""
+        # Pattern: "Menu Path:" or "Navigation:" followed by path
+        patterns = [
+            r'Menu\s*Path\s*:?\s*\n?\s*([^\n]+)',
+            r'Navigation\s*:?\s*\n?\s*([^\n]+)',
+            r'Access\s+(?:via|through)\s*:?\s*\n?\s*([^\n]+)',
+            r'(?:Go\s+to|Navigate\s+to)\s+([A-Z][a-z]+(?:\s*[→>-]\s*[A-Z][a-z]+)+)',
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, description, re.IGNORECASE)
+            if match:
+                path = match.group(1).strip()
+                # Clean up the path
+                path = re.sub(r'\s*[→>-]+\s*', ' → ', path)
+                return path
+
+        return ""
+
+    @classmethod
+    def _extract_user_flow(cls, description: str) -> List[str]:
+        """Extract user flow steps from description."""
+        flow_steps = []
+
+        # Look for "User Flow" section
+        flow_match = re.search(r'User\s*Flow\s*:?\s*\n((?:[•\-\*]\s*[^\n]+\n?)+)', description, re.IGNORECASE)
+        if flow_match:
+            flow_text = flow_match.group(1)
+            # Extract bullet points
+            bullets = re.findall(r'[•\-\*]\s*([^\n]+)', flow_text)
+            flow_steps.extend([b.strip() for b in bullets if b.strip()])
+
+        # Also look for numbered steps
+        numbered_match = re.search(r'(?:Steps?|Flow)\s*:?\s*\n((?:\d+\.\s*[^\n]+\n?)+)', description, re.IGNORECASE)
+        if numbered_match:
+            numbered_text = numbered_match.group(1)
+            steps = re.findall(r'\d+\.\s*([^\n]+)', numbered_text)
+            flow_steps.extend([s.strip() for s in steps if s.strip()])
+
+        return flow_steps
+
+    @classmethod
+    def _extract_key_features(cls, description: str) -> List[str]:
+        """Extract key features/characteristics from description."""
+        features = []
+        desc_lower = description.lower()
+
+        # Common feature indicators
+        feature_patterns = [
+            r'(?:provides?|offers?|supports?|enables?|allows?)\s+([^\.]+)',
+            r'(?:full|complete)\s+(\w+\s+access)',
+            r'(?:in-app|built-in|native)\s+(\w+)',
+            r'(\w+)\s+(?:is\s+)?(?:displayed|shown)\s+(?:in|within)\s+(?:the\s+)?app',
+            r'(?:offline|online)\s+(\w+)',
+            r'(?:PDF|document|manual)\s+(\w+)',
+        ]
+
+        for pattern in feature_patterns:
+            matches = re.findall(pattern, desc_lower)
+            features.extend([m.strip() for m in matches if m.strip() and len(m.strip()) > 3])
+
+        # Look for explicit feature lists
+        feature_list_match = re.search(r'(?:Features?|Capabilities?)\s*:?\s*\n((?:[•\-\*]\s*[^\n]+\n?)+)', description, re.IGNORECASE)
+        if feature_list_match:
+            feature_text = feature_list_match.group(1)
+            bullets = re.findall(r'[•\-\*]\s*([^\n]+)', feature_text)
+            features.extend([b.strip() for b in bullets if b.strip()])
+
+        # Deduplicate and limit
+        seen = set()
+        unique_features = []
+        for f in features:
+            f_lower = f.lower()
+            if f_lower not in seen and len(f) > 3:
+                seen.add(f_lower)
+                unique_features.append(f)
+
+        return unique_features[:10]  # Limit to 10 features
+
+    @classmethod
+    def _extract_main_purpose(cls, description: str) -> str:
+        """Extract the main purpose/what the feature does."""
+        # First sentence often describes the purpose
+        # Look for "Description" section or first paragraph
+
+        # Remove headers
+        text = re.sub(r'^Description\s*:?\s*\n?', '', description, flags=re.IGNORECASE)
+
+        # Get first meaningful sentence
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+        for sentence in sentences:
+            sentence = sentence.strip()
+            # Skip very short or header-like sentences
+            if len(sentence) > 20 and not re.match(r'^[A-Z][a-z]+\s*:', sentence):
+                # Clean up
+                sentence = re.sub(r'\s+', ' ', sentence)
+                return sentence
+
+        return ""
+
+
+def detect_redundant_acs(criteria: List[str]) -> List[Tuple[int, int, str]]:
+    """
+    Detect redundant/similar acceptance criteria.
+
+    Returns list of tuples: (ac_index1, ac_index2, reason)
+    """
+    redundant = []
+
+    # Normalize ACs for comparison
+    normalized = []
+    for ac in criteria:
+        norm = ac.lower().strip()
+        # Remove common variations
+        norm = re.sub(r'[\"\']', '', norm)
+        norm = re.sub(r'\s+', ' ', norm)
+        normalized.append(norm)
+
+    # Check for similar ACs
+    for i, ac1 in enumerate(normalized):
+        for j, ac2 in enumerate(normalized):
+            if i >= j:
+                continue
+
+            # Check for high similarity
+            if cls_similar(ac1, ac2):
+                reason = "Similar content"
+                redundant.append((i, j, reason))
+
+    return redundant
+
+
+def cls_similar(text1: str, text2: str, threshold: float = 0.8) -> bool:
+    """Check if two texts are similar using word overlap."""
+    words1 = set(text1.split())
+    words2 = set(text2.split())
+
+    if not words1 or not words2:
+        return False
+
+    intersection = words1 & words2
+    union = words1 | words2
+
+    similarity = len(intersection) / len(union)
+    return similarity >= threshold
 
 # Import quality enhancement services
 try:
@@ -66,6 +267,10 @@ class GenericTestGenerator:
         self._step_builder = None
         self._test_corrector = None
 
+        # Description context (set during test generation)
+        self.description_context: Optional[DescriptionContext] = None
+        self.story_type: StoryType = StoryType.UNKNOWN
+
         if self.enable_quality_enhancement:
             self._quality_analyzer = get_quality_analyzer()
             self._step_builder = get_semantic_step_builder()
@@ -79,6 +284,9 @@ class GenericTestGenerator:
         """
         Generate comprehensive test cases for a story.
 
+        Uses BOTH story description AND acceptance criteria to generate
+        context-rich, meaningful test scenarios.
+
         Args:
             story_data: Story information (story_id, title, description).
             criteria: List of acceptance criteria bullets.
@@ -91,6 +299,22 @@ class GenericTestGenerator:
         story_id = story_data['story_id']
         feature_name = self._extract_feature_name(story_data['title'])
 
+        # Parse story DESCRIPTION to extract context
+        description = story_data.get('description', '')
+        self.description_context = DescriptionParser.parse(description)
+        if self.description_context.menu_path:
+            print(f"  Menu path from description: {self.description_context.menu_path}")
+        if self.description_context.key_features:
+            print(f"  Key features: {', '.join(self.description_context.key_features[:3])}")
+
+        # Classify story type to avoid irrelevant edge cases
+        self.story_type = StoryTypeClassifier.classify(
+            story_data.get('title', ''),
+            criteria,
+            qa_prep_content or ""
+        )
+        print(f"  Story type classified as: {self.story_type.value}")
+
         # Parse QA Prep or generate equivalent
         qa_details = self._parse_qa_prep(qa_prep_content) if qa_prep_content else {}
 
@@ -99,12 +323,91 @@ class GenericTestGenerator:
             qa_generator = QAPrepGenerator(self.config)
             qa_details = qa_generator.generate_qa_prep_content(story_data, criteria)
 
+        # Override entry point for Help/Documentation stories
+        if self.story_type == StoryType.HELP_DOCUMENTATION:
+            qa_details['entry_points'] = ['Help Menu']
+
+        # Detect Properties Panel entry point from description/ACs
+        # This is important for stories where features are accessed via Properties Panel
+        combined_text = (description + ' ' + ' '.join(criteria)).lower()
+        properties_panel_detected = False
+        if 'properties panel' in combined_text or 'properties' in combined_text and 'panel' in combined_text:
+            # Check if description/ACs explicitly mention Properties panel as control point
+            properties_patterns = [
+                r'(?:controlled?|access(?:ed|ible)?|available|configur(?:ed?|able)|manag(?:ed?|able)|set|adjust(?:ed|able)?)\s+(?:via|through|from|in|using)\s+(?:the\s+)?properties\s*panel',
+                r'properties\s*panel\s+(?:controls?|provides?|allows?|contains?|displays?|shows?)',
+            ]
+            for pattern in properties_patterns:
+                if re.search(pattern, combined_text, re.IGNORECASE):
+                    qa_details['entry_points'] = ['Properties Panel']
+                    properties_panel_detected = True
+                    print(f"  Entry point set to Properties Panel (detected from description/AC)")
+                    break
+            else:
+                # Fallback: If story type is PROPERTIES, use Properties Panel
+                if self.story_type == StoryType.PROPERTIES:
+                    qa_details['entry_points'] = ['Properties Panel']
+                    properties_panel_detected = True
+                    print(f"  Entry point set to Properties Panel (PROPERTIES story type)")
+
+        # Use menu path from description if available (but NOT if Properties Panel was explicitly detected)
+        if self.description_context.menu_path and not properties_panel_detected:
+            # Extract the menu name from path (e.g., "Help → User Manual" -> "Help Menu")
+            menu_parts = self.description_context.menu_path.split('→')
+            if menu_parts:
+                menu_name = menu_parts[0].strip() + " Menu"
+                if menu_name not in qa_details.get('entry_points', []):
+                    qa_details['entry_points'] = [menu_name] + qa_details.get('entry_points', [])
+
+        # Detect edge cases and negative scenarios from description/ACs
+        # This ensures edge cases are generated even without QA prep
+        if 'negative_scenarios' not in qa_details:
+            qa_details['negative_scenarios'] = []
+        if 'edge_cases' not in qa_details:
+            qa_details['edge_cases'] = []
+
+        # Detect no_selection edge case from ACs
+        no_selection_patterns = [
+            r'enabled\s+only\s+when.*(?:object|item|element).*selected',
+            r'disabled\s+when\s+no.*selected',
+            r'requires?\s+(?:a|an|at least one)\s+(?:object|selection)',
+            r'only\s+(?:available|enabled|active)\s+(?:when|if).*selected',
+            r'at\s+least\s+one\s+object\s+(?:is\s+)?selected',
+        ]
+        for pattern in no_selection_patterns:
+            if re.search(pattern, combined_text, re.IGNORECASE):
+                if 'no_selection' not in qa_details['negative_scenarios']:
+                    qa_details['negative_scenarios'].append('no_selection')
+                break
+
+        # Detect undo/redo edge case from ACs
+        if re.search(r'\bundo\b.*\bredo\b|\bredo\b.*\bundo\b|\bundo/redo\b', combined_text, re.IGNORECASE):
+            if 'undo_redo' not in qa_details.get('edge_cases', []):
+                qa_details.setdefault('undo_redo_actions', []).append('transformation')
+
+        # Detect and track redundant ACs to avoid duplicate tests
+        self._redundant_acs = self._detect_redundant_criteria(criteria)
+        if self._redundant_acs:
+            print(f"  Detected {len(self._redundant_acs)} similar AC pairs (will consolidate)")
+
         # Generate test cases from AC
+        skipped_redundant = set()
         for idx, ac_bullet in enumerate(criteria):
             # Skip cancelled AC
             if self._is_cancelled(ac_bullet):
                 print(f"  Skipping cancelled AC{idx + 1}: {ac_bullet[:50]}...")
                 continue
+
+            # Skip if this AC was marked as redundant with an earlier one
+            if idx in skipped_redundant:
+                print(f"  Skipping AC{idx + 1}: Merged with earlier similar AC")
+                continue
+
+            # Check if this AC has redundant siblings - mark them for skipping
+            for (ac1_idx, ac2_idx, reason) in self._redundant_acs:
+                if ac1_idx == idx:
+                    skipped_redundant.add(ac2_idx)
+                    print(f"  AC{ac2_idx + 1} will be consolidated with AC{idx + 1}")
 
             # Check feature feasibility (skip if feature doesn't exist in app)
             feasibility = self.app.check_ac_feasibility(ac_bullet)
@@ -306,11 +609,16 @@ class GenericTestGenerator:
         return steps
 
     def _get_object_setup_steps(self) -> List[Dict[str, str]]:
-        """Get object interaction setup steps."""
+        """Get object interaction setup steps (after file is created).
+
+        These steps should be added AFTER the standard setup steps which
+        already include file creation.
+        """
         return [
-            {"action": "Create a new document/drawing.", "expected": ""},
-            {"action": "Create an object (e.g., shape, record, item) in the workspace.", "expected": ""},
-            {"action": "Select the created object.", "expected": ""}
+            {"action": "Draw an object/shape on the canvas (e.g., circle, rectangle, or any measurable shape).",
+             "expected": "Object is created and displayed on the canvas."},
+            {"action": "Select the created object.",
+             "expected": "Object is selected and selection handles are visible."}
         ]
 
     # Test Generation Methods
@@ -358,29 +666,68 @@ class GenericTestGenerator:
     ) -> Dict:
         """Generate availability/access test for AC1."""
         entry_points = qa_details.get('entry_points', [])
-        entry_point = self.app.determine_entry_point(feature_name, entry_points)
+
+        # For Help/Documentation stories, always use Help Menu
+        story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
+        if story_type == StoryType.HELP_DOCUMENTATION:
+            entry_point = "Help Menu"
+        elif story_type == StoryType.PROPERTIES or 'Properties Panel' in entry_points:
+            entry_point = "Properties Panel"
+        else:
+            entry_point = self.app.determine_entry_point(feature_name, entry_points)
 
         # Generate humanistic title based on feature
         scenario = self._generate_ac1_title(feature_name, entry_point, ac_bullet)
         title = f"{test_id}: {feature_name} / {entry_point} / {scenario}"
 
-        steps = self._get_standard_setup_steps()
-        steps.extend([
-            {"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens displaying available commands."},
-            {"action": f"Locate the {feature_name} commands in the menu.",
-             "expected": f"{feature_name} commands are visible and enabled."},
-        ])
-        steps.append(self._get_close_step())
+        # Help/Documentation features don't need create file step
+        if story_type == StoryType.HELP_DOCUMENTATION:
+            steps = self._get_standard_setup_steps(include_create_file=False)
+        else:
+            steps = self._get_standard_setup_steps()
 
-        objective = f"Verify that <b>{feature_name}</b> commands are accessible from <b>{entry_point}</b>"
+            # Properties Panel features require object selection first
+            if entry_point == "Properties Panel" or story_type == StoryType.PROPERTIES:
+                steps.extend(self._get_object_setup_steps())
+
+        # Generate steps based on entry point type
+        if entry_point == "Properties Panel":
+            steps.extend([
+                {"action": f"Navigate to the {entry_point} on the right side of the screen.",
+                 "expected": f"{entry_point} is displayed showing label options for the selected object."},
+                {"action": f"Verify that label controls are visible and accessible in the {entry_point}.",
+                 "expected": "Label visibility and repositioning controls are available."},
+            ])
+            objective = f"Verify that <b>{feature_name}</b> controls are accessible from <b>{entry_point}</b> after selecting an object"
+        else:
+            steps.extend([
+                {"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens displaying available commands."},
+                {"action": f"Locate the {feature_name} command in the menu.",
+                 "expected": f"{feature_name} command is visible and enabled."},
+            ])
+            objective = f"Verify that <b>{feature_name}</b> command is accessible from <b>{entry_point}</b>"
+
+        steps.append(self._get_close_step())
 
         return {'id': test_id, 'title': title, 'steps': steps, 'objective': objective}
 
     def _generate_ac1_title(self, feature_name: str, entry_point: str, ac_bullet: str) -> str:
         """Generate a humanistic title for AC1 availability test.
 
+        Uses description context for Help/Documentation features.
         Uses LLM if available, otherwise falls back to intelligent rule-based generation.
         """
+        story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
+        desc_ctx = getattr(self, 'description_context', None)
+
+        # For Help/Documentation features, use description-aware titles
+        if story_type == StoryType.HELP_DOCUMENTATION:
+            if desc_ctx and desc_ctx.menu_path:
+                # Use the menu path to create a meaningful title
+                # e.g., "Help → User Manual" -> "Help: User Manual menu access"
+                return f"{feature_name} menu access"
+            return f"{feature_name} menu access"
+
         # Try LLM-based title generation if corrector is available
         if self._test_corrector:
             try:
@@ -466,38 +813,390 @@ class GenericTestGenerator:
         story_data: Dict,
         qa_details: Dict
     ) -> Dict:
-        """Generate a generic test based on AC content with quality enhancement."""
-        scenario = self._extract_scenario_from_ac(ac_bullet, feature_name)
-        entry_point = self.app.determine_entry_point(feature_name, qa_details.get('entry_points', []))
+        """Generate a SPECIFIC test based on AC content - never generic."""
+        story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
+        entry_points = qa_details.get('entry_points', [])
 
+        # Determine entry point based on story type
+        if story_type == StoryType.HELP_DOCUMENTATION:
+            entry_point = "Help Menu"
+        elif story_type == StoryType.PROPERTIES or 'Properties Panel' in entry_points:
+            entry_point = "Properties Panel"
+        else:
+            entry_point = self.app.determine_entry_point(feature_name, entry_points)
+
+        scenario = self._extract_scenario_from_ac(ac_bullet, feature_name)
         title = f"{test_id}: {feature_name} / {entry_point} / {scenario}"
 
-        steps = self._get_standard_setup_steps()
+        # Help/Documentation features don't need create file step
+        if story_type == StoryType.HELP_DOCUMENTATION:
+            steps = self._get_standard_setup_steps(include_create_file=False)
+        else:
+            steps = self._get_standard_setup_steps()
 
-        # Add object setup if AC requires object interaction
-        if self.app.requires_object_interaction(ac_bullet):
-            steps.extend(self._get_object_setup_steps())
+            # Add object setup if:
+            # 1. AC requires object interaction, OR
+            # 2. Story type is PROPERTIES (properties are applied to selected objects), OR
+            # 3. Entry point is Properties Panel (requires object to be selected)
+            needs_object_setup = (
+                self.app.requires_object_interaction(ac_bullet) or
+                story_type == StoryType.PROPERTIES or
+                entry_point == "Properties Panel"
+            )
+            if needs_object_setup:
+                steps.extend(self._get_object_setup_steps())
 
-        # Navigation step
-        steps.append({"action": f"Navigate to {entry_point}.", "expected": ""})
+        # Generate SPECIFIC steps based on AC analysis
+        ac_lower = ac_bullet.lower()
+        ac_steps = self._derive_specific_steps_from_ac(ac_bullet, feature_name, entry_point)
 
-        # Main action step - use enhanced extraction
-        main_action = self._extract_main_action(ac_bullet, feature_name)
-        steps.append({"action": main_action, "expected": ""})
-
-        # Verification step with specific observable outcome
-        verification = self._extract_verification(ac_bullet, feature_name)
-        expected_result = self._format_expected_result(verification)
-        steps.append({
-            "action": f"Verify the {feature_name} functionality.",
-            "expected": expected_result
-        })
-
+        steps.extend(ac_steps)
         steps.append(self._get_close_step())
 
-        objective = f"Verify that <b>{feature_name}</b> {verification}"
+        # Generate specific objective from AC - context-aware
+        if story_type == StoryType.HELP_DOCUMENTATION:
+            # Use AC-specific objective for Help features
+            objective = self._generate_help_objective(ac_bullet, feature_name)
+        else:
+            objective = f"Verify that {self._humanize_objective(ac_bullet, feature_name)}"
 
         return {'id': test_id, 'title': title, 'steps': steps, 'objective': objective}
+
+    def _derive_specific_steps_from_ac(
+        self,
+        ac_bullet: str,
+        feature_name: str,
+        entry_point: str
+    ) -> List[Dict[str, str]]:
+        """Derive SPECIFIC test steps from AC text - never generic.
+
+        Context-aware based on story type to generate appropriate steps
+        for different feature types (Help/Documentation, Tool, Dialog, etc.)
+        """
+        steps = []
+        ac_lower = ac_bullet.lower()
+        story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
+
+        # Handle Help/Documentation features with context-appropriate steps
+        if story_type == StoryType.HELP_DOCUMENTATION:
+            return self._derive_help_documentation_steps(ac_bullet, feature_name, entry_point)
+
+        # Handle Properties Panel features - these require object selection first
+        if entry_point == "Properties Panel" or story_type == StoryType.PROPERTIES:
+            return self._derive_properties_panel_steps(ac_bullet, feature_name, entry_point)
+
+        # Pattern-based step generation for specific AC types
+
+        # 1. Dialog/menu opening ACs
+        if 'opens' in ac_lower or 'open' in ac_lower:
+            menu_match = re.search(r'(file|edit|view|tools?|insert|help)\s*(?:→|->|menu)?', ac_lower)
+            if menu_match:
+                menu = menu_match.group(1).capitalize()
+                steps.append({"action": f"Open the {menu} Menu.", "expected": f"{menu} Menu opens displaying available commands."})
+
+            action_match = re.search(r'(?:select|click|choose)\s+["\']?(\w+)["\']?', ac_lower)
+            if action_match:
+                action = action_match.group(1).capitalize()
+                steps.append({"action": f"Select '{action}'.", "expected": f"The {feature_name} dialog opens."})
+            else:
+                steps.append({"action": f"Select the {feature_name} command.", "expected": f"The {feature_name} dialog opens."})
+
+        # 2. Default value ACs
+        elif 'default' in ac_lower:
+            steps.append({"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens."})
+            default_match = re.search(r'default(?:\s+preset)?\s*=\s*["\']?([^"\'\.]+)', ac_bullet, re.IGNORECASE)
+            if default_match:
+                default_val = default_match.group(1).strip()
+                steps.append({"action": f"Verify the default preset value.", "expected": f"Preset shows '{default_val}'."})
+            else:
+                steps.append({"action": "Verify the default preset values are displayed.", "expected": "Default values are shown correctly."})
+
+        # 3. Field/control availability ACs
+        elif 'field' in ac_lower or 'available' in ac_lower or 'include' in ac_lower:
+            steps.append({"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens."})
+            # Extract field names if listed
+            field_match = re.search(r'fields?\s*(?:available|include)?:?\s*([^\.]+)', ac_bullet, re.IGNORECASE)
+            if field_match:
+                fields_str = field_match.group(1)
+                fields = [f.strip() for f in re.split(r'[,;]', fields_str) if f.strip() and len(f.strip()) > 1]
+                for field in fields[:5]:  # Limit to 5 fields
+                    clean_field = re.sub(r'\([^)]+\)', '', field).strip()
+                    if clean_field:
+                        steps.append({"action": f"Verify {clean_field} is displayed.", "expected": f"{clean_field} field/control is visible."})
+            else:
+                steps.append({"action": f"Verify all required controls are displayed.", "expected": "All controls are visible and functional."})
+
+        # 4. Setting dependency ACs
+        elif 'follow' in ac_lower and 'setting' in ac_lower:
+            # Extract what setting
+            setting_match = re.search(r'follow(?:s)?\s+(?:the\s+)?(?:current\s+)?(\w+(?:\s+\w+)?)\s+setting', ac_lower)
+            setting_name = setting_match.group(1) if setting_match else "Unit of Measure"
+            steps.append({"action": f"Open Settings.", "expected": "Settings panel/dialog opens."})
+            steps.append({"action": f"Note the current {setting_name} setting.", "expected": ""})
+            steps.append({"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens."})
+            steps.append({"action": f"Verify the dropdown reflects the current {setting_name} setting.", "expected": f"Dropdown value matches the {setting_name} setting."})
+
+        # 5. Recent items ACs
+        elif 'recent' in ac_lower:
+            steps.append({"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens."})
+            steps.append({"action": "Locate the Recent Items section.", "expected": "Recent Items section is displayed."})
+            steps.append({"action": "Verify Recent Items shows previously used presets.", "expected": "Most recently used canvas presets are listed."})
+
+        # 6. Create/action button ACs
+        elif 'create' in ac_lower or 'initialize' in ac_lower:
+            steps.append({"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens."})
+            steps.append({"action": "Set desired size and unit values.", "expected": ""})
+            steps.append({"action": "Click 'Create' button.", "expected": "A new blank canvas is created with the selected settings."})
+            steps.append({"action": "Verify the canvas reflects the chosen dimensions.", "expected": "Canvas matches the specified size and units."})
+
+        # 7. Close/cancel button ACs
+        elif 'close' in ac_lower or 'cancel' in ac_lower or 'exit' in ac_lower:
+            steps.append({"action": "Open an existing document.", "expected": "Document is displayed."})
+            steps.append({"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens."})
+            steps.append({"action": "Modify some values in the dialog.", "expected": ""})
+            steps.append({"action": "Click 'Close' button.", "expected": "Dialog closes without creating a new document."})
+            steps.append({"action": "Verify the previous document is still displayed.", "expected": "User returns to the previously open document."})
+
+        # 8. Accessibility/WCAG ACs (handled separately, skip here)
+        elif 'accessibility' in ac_lower or 'wcag' in ac_lower or '508' in ac_lower:
+            pass  # Will be generated by accessibility test generator
+
+        # 9. Fallback: Extract specific action from AC text
+        else:
+            steps.append({"action": f"Navigate to {entry_point}.", "expected": f"{entry_point} is accessible."})
+
+            # Extract the main action verb and object
+            action = self._extract_main_action(ac_bullet, feature_name)
+            expected = self._extract_verification(ac_bullet, feature_name)
+            expected_formatted = self._format_expected_result(expected)
+
+            steps.append({"action": action, "expected": ""})
+            steps.append({"action": f"Verify: {expected}", "expected": expected_formatted})
+
+        return steps
+
+    def _derive_help_documentation_steps(
+        self,
+        ac_bullet: str,
+        feature_name: str,
+        entry_point: str
+    ) -> List[Dict[str, str]]:
+        """Derive steps for Help/Documentation features.
+
+        These features don't involve object manipulation, so we focus on:
+        - Menu navigation to Help
+        - Opening the viewer/manual
+        - Content display verification
+        - Offline access verification
+        - No external browser verification
+        """
+        steps = []
+        ac_lower = ac_bullet.lower()
+
+        # Step 1: Open Help Menu
+        steps.append({
+            "action": f"Open the {entry_point}.",
+            "expected": f"{entry_point} opens displaying available commands."
+        })
+
+        # Step 2: Select User Manual
+        steps.append({
+            "action": f"Select the {feature_name} command.",
+            "expected": "The in-app viewer opens displaying the manual content."
+        })
+
+        # Step 3: Context-specific verification based on AC content
+        if 'appear' in ac_lower and 'menu' in ac_lower:
+            # AC: "User Manual" appears under the Help menu
+            steps.clear()  # Reset steps
+            steps.append({
+                "action": f"Open the {entry_point}.",
+                "expected": f"{entry_point} opens."
+            })
+            steps.append({
+                "action": f"Verify \"{feature_name}\" appears in the menu.",
+                "expected": f"\"{feature_name}\" is visible in the {entry_point}."
+            })
+
+        elif 'viewer' in ac_lower and 'open' in ac_lower:
+            # AC: Selecting it opens an in-app viewer
+            steps.append({
+                "action": "Verify the manual content is displayed in the in-app viewer.",
+                "expected": "PDF manual content is displayed correctly."
+            })
+
+        elif 'offline' in ac_lower or 'internet' in ac_lower:
+            # AC: Viewer displays content without requiring internet
+            steps.append({
+                "action": "Disconnect from the internet (disable WiFi/network).",
+                "expected": ""
+            })
+            steps.append({
+                "action": "Verify the manual content is still displayed without errors.",
+                "expected": "Content remains accessible without internet connection."
+            })
+
+        elif 'remain' in ac_lower and ('open' in ac_lower or 'behind' in ac_lower):
+            # AC: QuickDraw remains open behind the viewer
+            steps.append({
+                "action": "Verify the QuickDraw workspace is visible behind the viewer.",
+                "expected": "QuickDraw application remains accessible behind the viewer."
+            })
+
+        elif 'browser' in ac_lower or 'external' in ac_lower:
+            # AC: No external browser or online hosting is used
+            steps.append({
+                "action": "Verify no external browser window is launched.",
+                "expected": "No external browser is opened. Content is displayed in-app."
+            })
+
+        else:
+            # Generic Help verification
+            steps.append({
+                "action": f"Verify the {feature_name} content is displayed correctly.",
+                "expected": "Manual content is displayed in the in-app viewer."
+            })
+
+        # Step 4: Close the viewer (if applicable)
+        if 'viewer' in ac_lower or 'open' in ac_lower:
+            steps.append({
+                "action": "Close the viewer.",
+                "expected": ""
+            })
+
+        return steps
+
+    def _derive_properties_panel_steps(
+        self,
+        ac_bullet: str,
+        feature_name: str,
+        entry_point: str
+    ) -> List[Dict[str, str]]:
+        """Derive steps for Properties Panel features.
+
+        Properties Panel features require object selection first, then
+        manipulating properties through the panel.
+        """
+        steps = []
+        ac_lower = ac_bullet.lower()
+
+        # Step 1: Navigate to Properties Panel (object should already be selected from setup steps)
+        steps.append({
+            "action": f"Navigate to the {entry_point} on the right side of the screen.",
+            "expected": f"{entry_point} is displayed showing options for the selected object."
+        })
+
+        # Step 2: Context-specific verification based on AC content
+        if 'label' in ac_lower and ('reposition' in ac_lower or 'position' in ac_lower):
+            # AC: Labels can be repositioned
+            steps.append({
+                "action": "Locate the label position controls in the Properties Panel.",
+                "expected": "Label position controls are visible and enabled."
+            })
+            steps.append({
+                "action": "Change the label position using the available controls.",
+                "expected": "Label is repositioned on the canvas."
+            })
+            steps.append({
+                "action": "Verify the label is displayed at the new position.",
+                "expected": "Label appears at the repositioned location without overlapping other labels."
+            })
+
+        elif 'label' in ac_lower and 'visibility' in ac_lower:
+            # AC: Label visibility control
+            steps.append({
+                "action": "Locate the label visibility controls in the Properties Panel.",
+                "expected": "Label visibility toggle/controls are visible."
+            })
+            steps.append({
+                "action": "Toggle the label visibility.",
+                "expected": "Label visibility changes accordingly on the canvas."
+            })
+
+        elif 'label' in ac_lower and ('display' in ac_lower or 'show' in ac_lower or 'multiple' in ac_lower):
+            # AC: Multiple labels display
+            steps.append({
+                "action": "Verify all available labels for the object are shown in the Properties Panel.",
+                "expected": "All applicable labels (e.g., Radius, Diameter, Length, Dimensions, GPS coordinates) are listed."
+            })
+            steps.append({
+                "action": "Enable multiple labels for the object.",
+                "expected": "Multiple labels are displayed on the canvas."
+            })
+
+        elif 'overlap' in ac_lower or 'readability' in ac_lower or 'clutter' in ac_lower:
+            # AC: Avoid label overlapping
+            steps.append({
+                "action": "Enable multiple labels that would normally overlap.",
+                "expected": "Labels are displayed on the canvas."
+            })
+            steps.append({
+                "action": "Verify that label repositioning helps avoid overlapping.",
+                "expected": "Labels can be repositioned to improve readability and avoid visual clutter."
+            })
+
+        elif 'geometric' in ac_lower or 'preserve' in ac_lower:
+            # AC: Preserve geometric meaning
+            steps.append({
+                "action": "Reposition a measurement label (e.g., radius or diameter).",
+                "expected": "Label is repositioned within acceptable bounds."
+            })
+            steps.append({
+                "action": "Verify the geometric meaning is preserved.",
+                "expected": "Label remains close to the related geometry (e.g., radius label stays near the radius line)."
+            })
+
+        elif 'control' in ac_lower and 'panel' in ac_lower:
+            # AC: Features controlled via Properties Panel
+            steps.append({
+                "action": f"Locate the {feature_name} controls in the Properties Panel.",
+                "expected": f"{feature_name} controls are visible and accessible."
+            })
+            steps.append({
+                "action": f"Use the controls to adjust {feature_name}.",
+                "expected": "Changes are reflected on the canvas immediately."
+            })
+
+        elif 'supported' in ac_lower or 'applies' in ac_lower:
+            # AC: Feature applies only to supported items
+            steps.append({
+                "action": f"Verify {feature_name} is available for the selected object type.",
+                "expected": f"{feature_name} controls are enabled for supported object types."
+            })
+            steps.append({
+                "action": f"Apply {feature_name} to the object.",
+                "expected": f"{feature_name} is applied successfully to the supported object."
+            })
+
+        else:
+            # Generic Properties Panel verification
+            steps.append({
+                "action": f"Locate the {feature_name} options in the Properties Panel.",
+                "expected": f"{feature_name} options are visible and accessible."
+            })
+            steps.append({
+                "action": f"Verify {feature_name} can be controlled via the Properties Panel.",
+                "expected": f"{feature_name} settings can be adjusted from the Properties Panel."
+            })
+
+        return steps
+
+    def _humanize_objective(self, ac_bullet: str, feature_name: str) -> str:
+        """Create a human-readable objective from AC text."""
+        text = ac_bullet.strip()
+
+        # Remove common prefixes
+        text = re.sub(r'^(?:the\s+)?(?:user\s+)?(?:can|should|must|shall)\s+', '', text, flags=re.IGNORECASE)
+
+        # Lowercase first char if not acronym
+        if text and text[0].isupper() and (len(text) < 2 or not text[1].isupper()):
+            text = text[0].lower() + text[1:]
+
+        # Truncate if too long
+        if len(text) > 100:
+            text = text[:97].rsplit(' ', 1)[0] + '...'
+
+        return text
 
     def _format_expected_result(self, verification: str) -> str:
         """Format verification text as a proper expected result."""
@@ -522,27 +1221,41 @@ class GenericTestGenerator:
     ) -> Optional[Dict]:
         """Generate test for edge case scenario."""
         edge_type = edge_case['type']
-        entry_point = edge_case.get('entry_point', 'Application Menu')
+        story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
+
+        # For Help/Documentation stories, always use Help Menu
+        if story_type == StoryType.HELP_DOCUMENTATION:
+            entry_point = "Help Menu"
+        else:
+            entry_point = edge_case.get('entry_point', 'Application Menu')
+
         title = f"{test_id}: {feature_name} / {entry_point} / {edge_case['title']}"
 
-        steps = self._get_standard_setup_steps()
+        # Help/Documentation features don't need create file step
+        if story_type == StoryType.HELP_DOCUMENTATION:
+            steps = self._get_standard_setup_steps(include_create_file=False)
+        else:
+            steps = self._get_standard_setup_steps()
 
         if edge_type == 'no_selection':
+            # Note: Standard setup already includes file creation, so don't add another
             steps.extend([
-                {"action": "Create a new document/drawing.", "expected": ""},
-                {"action": f"Navigate to {entry_point}.", "expected": ""},
-                {"action": f"Attempt to use the {feature_name} feature.", "expected": ""},
+                {"action": f"Navigate to {entry_point}.", "expected": f"{entry_point} is displayed."},
+                {"action": f"Attempt to use the {feature_name} feature without selecting any object.",
+                 "expected": ""},
                 {"action": "Verify appropriate feedback is provided when no object is selected.",
                  "expected": "Feature is disabled or provides feedback that no object is selected."},
             ])
             objective = f"Verify that <b>{feature_name}</b> provides appropriate feedback when <b>no object is selected</b>"
 
         elif edge_type == 'invalid_type':
+            # Note: Standard setup already includes file creation
             steps.extend([
-                {"action": "Create a new document/drawing.", "expected": ""},
-                {"action": "Create an object of incompatible type.", "expected": ""},
-                {"action": "Select the object.", "expected": ""},
-                {"action": f"Navigate to {entry_point}.", "expected": ""},
+                {"action": "Create an object of incompatible type (e.g., text annotation).",
+                 "expected": "Object is created on the canvas."},
+                {"action": "Select the object.",
+                 "expected": "Object is selected with selection handles visible."},
+                {"action": f"Navigate to {entry_point}.", "expected": f"{entry_point} is displayed."},
                 {"action": f"Attempt to use the {feature_name} feature.", "expected": ""},
                 {"action": "Verify appropriate feedback is provided for incompatible object type.",
                  "expected": "Feature is disabled or provides feedback about incompatible object type."},
@@ -550,12 +1263,14 @@ class GenericTestGenerator:
             objective = f"Verify that <b>{feature_name}</b> handles <b>incompatible object types</b> appropriately"
 
         elif edge_type == 'duplicate_prevention':
+            # Note: Standard setup already includes file creation
             steps.extend([
-                {"action": "Create a new document/drawing.", "expected": ""},
-                {"action": "Create and select an object.", "expected": ""},
-                {"action": f"Navigate to {entry_point}.", "expected": ""},
-                {"action": f"Apply the {feature_name} feature.", "expected": ""},
-                {"action": "Verify the feature is applied once.", "expected": "Feature is applied successfully."},
+                {"action": "Draw an object/shape on the canvas.",
+                 "expected": "Object is created and displayed on the canvas."},
+                {"action": "Select the created object.",
+                 "expected": "Object is selected with selection handles visible."},
+                {"action": f"Navigate to {entry_point}.", "expected": f"{entry_point} is displayed."},
+                {"action": f"Apply the {feature_name} feature.", "expected": "Feature is applied successfully."},
                 {"action": f"Navigate to {entry_point} again.", "expected": ""},
                 {"action": f"Attempt to apply the {feature_name} feature again.", "expected": ""},
                 {"action": "Verify no duplicate is created.",
@@ -588,32 +1303,129 @@ class GenericTestGenerator:
         """Generate platform-specific tests."""
         platform_tests = []
         platforms = qa_details.get('platforms', [])
-        entry_point = self.app.determine_entry_point(feature_name, qa_details.get('entry_points', []))
+        story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
+        entry_points = qa_details.get('entry_points', [])
 
-        # Check for touch platforms
-        touch_platforms = [p for p in platforms if p in ['iPad', 'Android Tablet', 'iPhone', 'Android Phone']]
+        # Determine entry point based on story type
+        if story_type == StoryType.HELP_DOCUMENTATION:
+            entry_point = "Help Menu"
+        elif story_type == StoryType.PROPERTIES or 'Properties Panel' in entry_points:
+            entry_point = "Properties Panel"
+        else:
+            entry_point = self.app.determine_entry_point(feature_name, entry_points)
 
-        # Generate separate touch tests for each touch platform (avoid generic "Tablet/Mobile")
-        for platform in touch_platforms:
+        # Check for touch platforms - separate tablets and phones
+        tablet_platforms = [p for p in platforms if p in ['iPad', 'Android Tablet']]
+        phone_platforms = [p for p in platforms if p in ['iPhone', 'Android Phone']]
+
+        # Combine tablet touch tests into a single "(Tablets)" test if both iPad and Android Tablet present
+        if len(tablet_platforms) >= 2:
+            # Combined tablets test
             test_id = f"{story_id}-{self.test_id_counter:03d}"
             self.test_id_counter += self.rules.test_id_increment
 
-            # Use exact platform name instead of generic "Tablet/Mobile"
-            title = f"{test_id}: {feature_name} / {entry_point} / Touch interaction ({platform})"
+            title = f"{test_id}: {feature_name} / {entry_point} / Touch interaction (Tablets)"
 
-            steps = self._get_standard_setup_steps()
+            # Help/Documentation features don't need create file step
+            if story_type == StoryType.HELP_DOCUMENTATION:
+                steps = self._get_standard_setup_steps(include_create_file=False)
+            else:
+                steps = self._get_standard_setup_steps()
 
-            if self.app.requires_object_interaction(feature_name):
-                steps.extend([
-                    {"action": "Create a new document/drawing.", "expected": ""},
-                    {"action": "Create an object using touch gestures.", "expected": ""},
-                    {"action": "Select the object.", "expected": ""},
-                ])
+                # Add object setup for Properties Panel or object interaction features
+                needs_object = (
+                    self.app.requires_object_interaction(feature_name) or
+                    entry_point == "Properties Panel" or
+                    story_type == StoryType.PROPERTIES
+                )
+                if needs_object:
+                    steps.extend([
+                        {"action": "Draw an object/shape on the canvas using touch gestures.",
+                         "expected": "Object is created and displayed on the canvas."},
+                        {"action": "Select the object using touch.",
+                         "expected": "Object is selected and selection handles are visible."},
+                    ])
 
             steps.extend([
-                {"action": f"Navigate to {entry_point} using touch.", "expected": ""},
-                {"action": f"Perform the {feature_name} action using touch gestures.", "expected": ""},
-                {"action": f"Verify the {feature_name} functionality works correctly with touch input.",
+                {"action": f"Navigate to {entry_point} using touch.", "expected": f"{entry_point} opens."},
+                {"action": f"Access the {feature_name} using touch gestures.", "expected": f"The {feature_name} feature is activated."},
+                {"action": f"Verify the {feature_name} is accessible via touch input.",
+                 "expected": f"{feature_name} works correctly with touch interaction on iPad and Android Tablet."},
+            ])
+            steps.append(self._get_close_step())
+
+            objective = f"Verify that <b>{feature_name}</b> works correctly on <b>iPad and Android Tablet</b> using <b>touch or stylus</b>"
+            platform_tests.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
+        elif len(tablet_platforms) == 1:
+            # Single tablet platform - use specific name
+            platform = tablet_platforms[0]
+            test_id = f"{story_id}-{self.test_id_counter:03d}"
+            self.test_id_counter += self.rules.test_id_increment
+
+            title = f"{test_id}: {feature_name} / {entry_point} / Touch interaction ({platform})"
+
+            # Help/Documentation features don't need create file step
+            if story_type == StoryType.HELP_DOCUMENTATION:
+                steps = self._get_standard_setup_steps(include_create_file=False)
+            else:
+                steps = self._get_standard_setup_steps()
+
+                # Add object setup for Properties Panel or object interaction features
+                needs_object = (
+                    self.app.requires_object_interaction(feature_name) or
+                    entry_point == "Properties Panel" or
+                    story_type == StoryType.PROPERTIES
+                )
+                if needs_object:
+                    steps.extend([
+                        {"action": "Draw an object/shape on the canvas using touch gestures.",
+                         "expected": "Object is created and displayed on the canvas."},
+                        {"action": "Select the object using touch.",
+                         "expected": "Object is selected and selection handles are visible."},
+                    ])
+
+            steps.extend([
+                {"action": f"Navigate to {entry_point} using touch.", "expected": f"{entry_point} opens."},
+                {"action": f"Access the {feature_name} using touch gestures.", "expected": f"The {feature_name} feature is activated."},
+                {"action": f"Verify the {feature_name} is accessible via touch input.",
+                 "expected": f"{feature_name} works correctly with touch interaction on {platform}."},
+            ])
+            steps.append(self._get_close_step())
+
+            objective = f"Verify that <b>{feature_name}</b> works correctly on <b>{platform}</b> using <b>touch or stylus</b>"
+            platform_tests.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
+
+        # Generate separate tests for phone platforms (if any)
+        for platform in phone_platforms:
+            test_id = f"{story_id}-{self.test_id_counter:03d}"
+            self.test_id_counter += self.rules.test_id_increment
+
+            title = f"{test_id}: {feature_name} / {entry_point} / Touch interaction ({platform})"
+
+            # Help/Documentation features don't need create file step
+            if story_type == StoryType.HELP_DOCUMENTATION:
+                steps = self._get_standard_setup_steps(include_create_file=False)
+            else:
+                steps = self._get_standard_setup_steps()
+
+                # Add object setup for Properties Panel or object interaction features
+                needs_object = (
+                    self.app.requires_object_interaction(feature_name) or
+                    entry_point == "Properties Panel" or
+                    story_type == StoryType.PROPERTIES
+                )
+                if needs_object:
+                    steps.extend([
+                        {"action": "Draw an object/shape on the canvas using touch gestures.",
+                         "expected": "Object is created and displayed on the canvas."},
+                        {"action": "Select the object using touch.",
+                         "expected": "Object is selected and selection handles are visible."},
+                    ])
+
+            steps.extend([
+                {"action": f"Navigate to {entry_point} using touch.", "expected": f"{entry_point} opens."},
+                {"action": f"Access the {feature_name} using touch gestures.", "expected": f"The {feature_name} feature is activated."},
+                {"action": f"Verify the {feature_name} is accessible via touch input.",
                  "expected": f"{feature_name} works correctly with touch interaction on {platform}."},
             ])
             steps.append(self._get_close_step())
@@ -633,7 +1445,25 @@ class GenericTestGenerator:
         """Generate accessibility tests for each platform."""
         accessibility_tests = []
         platforms = qa_details.get('platforms', self.app.supported_platforms)
-        entry_point = self.app.determine_entry_point(feature_name, qa_details.get('entry_points', []))
+        story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
+        entry_points = qa_details.get('entry_points', [])
+
+        # Determine entry point based on story type
+        if story_type == StoryType.HELP_DOCUMENTATION:
+            entry_point = "Help Menu"
+        elif story_type == StoryType.PROPERTIES or 'Properties Panel' in entry_points:
+            entry_point = "Properties Panel"
+        else:
+            entry_point = self.app.determine_entry_point(feature_name, entry_points)
+
+        # Helper: should we include create file step?
+        include_create_file = story_type != StoryType.HELP_DOCUMENTATION
+
+        # Helper: should we include object setup?
+        needs_object_setup = (
+            entry_point == "Properties Panel" or
+            story_type == StoryType.PROPERTIES
+        )
 
         # Windows accessibility test - use exact platform name in title
         windows_platform = 'Windows 11' if 'Windows 11' in platforms else ('Windows 10' if 'Windows 10' in platforms else 'Windows')
@@ -641,19 +1471,32 @@ class GenericTestGenerator:
             test_id = f"{story_id}-{self.test_id_counter:03d}"
             self.test_id_counter += self.rules.test_id_increment
 
-            title = f"{test_id}: {feature_name} / Accessibility / Keyboard navigation and labels ({windows_platform})"
+            title = f"{test_id}: {feature_name} / Accessibility / Keyboard navigation ({windows_platform})"
 
             steps = [
                 self._get_prereq_step(),
                 {"action": "Pre-req: Accessibility Insights for Windows is installed", "expected": ""},
                 self._get_launch_step(),
-                self._get_create_file_step(),
-                {"action": f"Navigate to {entry_point} using keyboard.", "expected": ""},
-                {"action": f"Verify the {feature_name} controls are keyboard accessible.",
-                 "expected": f"Keyboard focus moves to {feature_name} controls with visible focus indicator."},
-                {"action": f"Verify {feature_name} controls expose meaningful labels in Accessibility Insights.",
-                 "expected": "Controls expose correct accessible name and role."},
             ]
+            if include_create_file:
+                steps.append(self._get_create_file_step())
+
+            # Add object setup for Properties Panel features
+            if needs_object_setup:
+                steps.extend(self._get_object_setup_steps())
+                steps.extend([
+                    {"action": f"Navigate to the {entry_point} on the right side of the screen.",
+                     "expected": f"{entry_point} is displayed showing options for the selected object."},
+                    {"action": f"Use the Tab key to navigate through label controls in the {entry_point}.",
+                     "expected": "Focus cycles through all label visibility and positioning controls."},
+                ])
+            else:
+                steps.extend([
+                    {"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens displaying available commands."},
+                    {"action": f"Select the {feature_name} command.", "expected": "The in-app viewer opens displaying the manual content." if story_type == StoryType.HELP_DOCUMENTATION else f"The {feature_name} dialog opens."},
+                    {"action": f"Use the Tab key to navigate through controls in the viewer.",
+                     "expected": "Focus cycles through all interactive elements within the viewer."},
+                ])
             steps.append(self._get_close_step())
 
             objective = f"Verify that <b>{feature_name}</b> controls meet <b>WCAG 2.1 AA</b> standards on <b>{windows_platform}</b>"
@@ -670,13 +1513,17 @@ class GenericTestGenerator:
                 self._get_prereq_step(),
                 {"action": "Pre-req: VoiceOver is enabled (Cmd+F5)", "expected": ""},
                 self._get_launch_step(),
-                self._get_create_file_step(),
+            ]
+            if include_create_file:
+                steps.append(self._get_create_file_step())
+
+            steps.extend([
                 {"action": f"Navigate to {entry_point} using keyboard (Tab/Arrow keys).", "expected": ""},
                 {"action": f"Verify the {feature_name} controls are announced with meaningful labels.",
                  "expected": f"VoiceOver announces {feature_name} controls with meaningful labels and roles."},
                 {"action": "Verify keyboard focus indicators are visible.",
                  "expected": "Focus indicators are clearly visible on all interactive elements."},
-            ]
+            ])
             steps.append(self._get_close_step())
 
             objective = f"Verify that <b>{feature_name}</b> controls are accessible via <b>VoiceOver</b> on <b>macOS</b>"
@@ -688,19 +1535,35 @@ class GenericTestGenerator:
             test_id = f"{story_id}-{self.test_id_counter:03d}"
             self.test_id_counter += self.rules.test_id_increment
 
-            title = f"{test_id}: {feature_name} / Accessibility / VoiceOver navigation ({ios_platform})"
+            title = f"{test_id}: {feature_name} / Accessibility / VoiceOver functionality ({ios_platform})"
 
             steps = [
                 self._get_prereq_step(),
                 {"action": f"Pre-req: VoiceOver is enabled on the {ios_platform}", "expected": ""},
                 self._get_launch_step(),
-                self._get_create_file_step(),
-                {"action": f"Navigate to {entry_point} using VoiceOver swipe gestures.", "expected": ""},
-                {"action": f"Verify the {feature_name} controls are announced with meaningful labels.",
-                 "expected": f"VoiceOver announces {feature_name} controls with meaningful labels and roles."},
-                {"action": "Verify reading order is logical.",
-                 "expected": "VoiceOver announces controls in logical order."},
             ]
+            if include_create_file:
+                steps.append(self._get_create_file_step())
+
+            # Add object setup for Properties Panel features
+            if needs_object_setup:
+                steps.extend([
+                    {"action": "Draw an object/shape on the canvas using touch gestures.",
+                     "expected": "Object is created and displayed on the canvas."},
+                    {"action": "Select the object using touch.",
+                     "expected": "Object is selected and selection handles are visible."},
+                    {"action": f"Navigate to the {entry_point} on the right side of the screen.",
+                     "expected": f"{entry_point} is displayed showing options for the selected object."},
+                    {"action": "Activate VoiceOver and navigate through the label controls.",
+                     "expected": "VoiceOver reads out the label visibility and positioning controls correctly."},
+                ])
+            else:
+                steps.extend([
+                    {"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens displaying available commands."},
+                    {"action": f"Select the {feature_name} command.", "expected": "The in-app viewer opens displaying the manual content." if story_type == StoryType.HELP_DOCUMENTATION else f"The {feature_name} dialog opens."},
+                    {"action": "Activate VoiceOver and navigate through the viewer.",
+                     "expected": "VoiceOver reads out the content and controls correctly."},
+                ])
             steps.append(self._get_close_step())
 
             objective = f"Verify that <b>{feature_name}</b> controls are accessible via <b>VoiceOver</b> on <b>{ios_platform}</b>"
@@ -718,12 +1581,28 @@ class GenericTestGenerator:
                 self._get_prereq_step(),
                 {"action": "Pre-req: Accessibility Scanner is installed", "expected": ""},
                 self._get_launch_step(),
-                self._get_create_file_step(),
-                {"action": f"Navigate to {entry_point}.", "expected": ""},
-                {"action": f"Run Accessibility Scanner on the {feature_name} controls.", "expected": ""},
-                {"action": f"Verify Accessibility Scanner reports no critical issues for {feature_name} controls.",
-                 "expected": "Controls have readable labels and appropriate roles."},
             ]
+            if include_create_file:
+                steps.append(self._get_create_file_step())
+
+            # Add object setup for Properties Panel features
+            if needs_object_setup:
+                steps.extend([
+                    {"action": "Draw an object/shape on the canvas using touch gestures.",
+                     "expected": "Object is created and displayed on the canvas."},
+                    {"action": "Select the object using touch.",
+                     "expected": "Object is selected and selection handles are visible."},
+                    {"action": f"Navigate to the {entry_point} on the right side of the screen.",
+                     "expected": f"{entry_point} is displayed showing options for the selected object."},
+                    {"action": "Run Accessibility Scanner on the Properties Panel.",
+                     "expected": "Accessibility Scanner identifies all label controls and provides feedback."},
+                ])
+            else:
+                steps.extend([
+                    {"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens displaying available commands."},
+                    {"action": f"Select the {feature_name} command.", "expected": "The in-app viewer opens displaying the manual content." if story_type == StoryType.HELP_DOCUMENTATION else f"The {feature_name} dialog opens."},
+                    {"action": "Run Accessibility Scanner on the viewer.", "expected": "Accessibility Scanner identifies all interactive elements and provides feedback."},
+                ])
             steps.append(self._get_close_step())
 
             objective = f"Verify that <b>{feature_name}</b> controls meet accessibility standards on <b>{android_platform}</b>"
@@ -782,10 +1661,10 @@ class GenericTestGenerator:
                 if entry_point not in details['entry_points']:
                     details['entry_points'].append(entry_point)
 
-        # Extract platforms
-        for platform in self.app.supported_platforms:
-            if platform.lower() in qa_lower:
-                details['platforms'].append(platform)
+        # ALWAYS use ALL supported platforms for touch/accessibility tests
+        # Platform mentions in QA prep are informational only - we test all platforms
+        # to ensure comprehensive coverage across all supported devices
+        details['platforms'] = list(self.app.supported_platforms)
 
         # Detect unit system tests
         if 'imperial' in qa_lower and 'metric' in qa_lower:
@@ -813,18 +1692,45 @@ class GenericTestGenerator:
         return details
 
     def _extract_edge_cases(self, qa_details: Dict, feature_name: str) -> List[Dict]:
-        """Extract edge case scenarios from QA details."""
-        edge_cases = []
-        entry_point = self.app.determine_entry_point(feature_name, qa_details.get('entry_points', []))
+        """Extract edge case scenarios from QA details.
 
-        if 'no_selection' in qa_details.get('negative_scenarios', []):
+        Filters out irrelevant edge cases based on story type.
+        For example, Help/Documentation stories don't need object selection tests.
+        """
+        edge_cases = []
+        story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
+        entry_points = qa_details.get('entry_points', [])
+
+        # Determine entry point based on story type
+        if story_type == StoryType.HELP_DOCUMENTATION:
+            entry_point = "Help Menu"
+        elif story_type == StoryType.PROPERTIES or 'Properties Panel' in entry_points:
+            entry_point = "Properties Panel"
+        else:
+            entry_point = self.app.determine_entry_point(feature_name, entry_points)
+
+        # Help/Documentation stories should NEVER have object-related edge cases
+        if story_type == StoryType.HELP_DOCUMENTATION:
+            # Only include Help-specific edge cases if any
+            # For now, Help features don't need typical edge cases
+            return edge_cases
+
+        # Skip object-related edge cases for non-object-manipulation story types
+        object_manipulation_types = {
+            StoryType.TOOL,
+            StoryType.MEASUREMENT,
+            StoryType.PROPERTIES
+        }
+        is_object_story = story_type in object_manipulation_types
+
+        if is_object_story and 'no_selection' in qa_details.get('negative_scenarios', []):
             edge_cases.append({
                 'type': 'no_selection',
                 'title': 'No selection behavior (disabled state)',
                 'entry_point': entry_point
             })
 
-        if 'invalid_type' in qa_details.get('negative_scenarios', []):
+        if is_object_story and 'invalid_type' in qa_details.get('negative_scenarios', []):
             edge_cases.append({
                 'type': 'invalid_type',
                 'title': 'Incompatible object type handling',
@@ -864,14 +1770,79 @@ class GenericTestGenerator:
 
         return title
 
+    def _validate_and_fix_title(self, title: str, feature_name: str) -> str:
+        """
+        Validate and fix scenario titles to ensure they are complete and meaningful.
+
+        Rules:
+        1. No truncated/incomplete phrases (e.g., "Display content without requiring")
+        2. No overly vague titles (e.g., "Selection behavior", "Functionality")
+        3. Titles should be grammatically complete
+        4. No trailing periods (they're redundant in titles)
+        """
+        if not title:
+            return f"{feature_name} functionality"
+
+        # Remove trailing periods (redundant in titles)
+        title = title.rstrip('.')
+
+        # List of incomplete/vague titles that need fixing
+        vague_titles = {
+            'Selection behavior': 'Selection and interaction behavior',
+            'Display content without requiring': 'Content accessible without internet connection',
+            'Functionality': f'{feature_name} core functionality',
+            'Feature availability': f'{feature_name} availability in menu',
+            'Behavior': f'{feature_name} expected behavior',
+            'Canvas update behavior': 'Canvas updates immediately on action',
+            'Command availability': f'{feature_name} command available in menu',
+            'Transformation behavior': 'Transformation applied to selected objects',
+        }
+
+        # Check for exact matches first
+        if title in vague_titles:
+            return vague_titles[title]
+
+        # Check for incomplete patterns (ending with prepositions or articles)
+        incomplete_endings = [
+            ' without', ' with', ' for', ' to', ' from', ' in', ' on', ' at',
+            ' the', ' a', ' an', ' and', ' or', ' but', ' if', ' when'
+        ]
+        for ending in incomplete_endings:
+            if title.lower().endswith(ending):
+                # Try to fix by adding context
+                if 'without' in ending:
+                    title = f"{title} additional requirements"
+                elif 'with' in ending:
+                    title = f"{title} specific configuration"
+                elif 'for' in ending:
+                    title = f"{title} {feature_name}"
+                else:
+                    title = f"{title} (complete scenario)"
+                break
+
+        # Ensure title doesn't start with "Verify" (redundant in scenario part of title)
+        if title.lower().startswith('verify '):
+            title = title[7:]
+            if title:
+                title = title[0].upper() + title[1:]
+
+        # Ensure minimum meaningful length
+        if len(title) < 10:
+            title = f"{feature_name} - {title}"
+
+        return title
+
     def _extract_scenario_from_ac(self, ac_bullet: str, feature_name: str) -> str:
         """Extract a clean, balanced scenario description from AC text.
 
+        Uses description context to generate meaningful, context-aware scenario titles.
         Creates action-oriented titles that follow the pattern:
         "Verify [action] [target/result]"
         """
         text = ac_bullet.strip()
         text_lower = text.lower()
+        story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
+        desc_ctx = getattr(self, 'description_context', None)
 
         # Remove common prefixes
         prefixes = ['the user can', 'user can', 'users can', 'the system shall',
@@ -882,6 +1853,14 @@ class GenericTestGenerator:
                 text = text[len(prefix):].strip()
                 text_lower = text.lower()
                 break
+
+        # =====================================================================
+        # HELP/DOCUMENTATION SPECIFIC SCENARIO TITLES
+        # Use description context to generate meaningful titles
+        # =====================================================================
+        if story_type == StoryType.HELP_DOCUMENTATION:
+            title = self._generate_help_scenario_title(text_lower, feature_name, desc_ctx)
+            return self._validate_and_fix_title(title, feature_name)
 
         # Extract key action and create balanced title - order matters (more specific first)
         action_patterns = [
@@ -925,15 +1904,12 @@ class GenericTestGenerator:
         ]
 
         # Try to match action patterns (uses regex)
-        import re
         for pattern, title in action_patterns:
             if re.search(pattern, text_lower):
-                return title
+                return self._validate_and_fix_title(title, feature_name)
 
         # If no pattern matched, create a summarized title
         # Extract the main verb and object
-        import re
-
         # Look for verb phrases
         verb_match = re.search(
             r'\b(rotate|mirror|flip|transform|update|preserve|synchronize|enable|disable|select|display|show|hide|apply)\w*\b',
@@ -950,8 +1926,8 @@ class GenericTestGenerator:
                 title = f"{verb} {obj}"
                 if len(title) > 50:
                     title = title[:47] + "..."
-                return title
-            return f"{verb} behavior"
+                return self._validate_and_fix_title(title, feature_name)
+            return self._validate_and_fix_title(f"{verb} action applied", feature_name)
 
         # Fallback: Clean and truncate
         # Remove leading articles and conjunctions
@@ -969,7 +1945,9 @@ class GenericTestGenerator:
                 truncated = truncated[:last_space]
             text = truncated + "..."
 
-        return text if text else f"{feature_name} functionality"
+        # Validate and fix the final title
+        final_title = text if text else f"{feature_name} functionality"
+        return self._validate_and_fix_title(final_title, feature_name)
 
     def _extract_main_action(self, ac_bullet: str, feature_name: str = "") -> str:
         """Extract the main action from AC text using semantic parsing."""
@@ -1013,8 +1991,13 @@ class GenericTestGenerator:
         return f"Perform the {text[:60].strip()} action."
 
     def _extract_verification(self, ac_bullet: str, feature_name: str) -> str:
-        """Extract verification criteria from AC text with specific, observable outcomes."""
+        """Extract verification criteria from AC text with specific, observable outcomes.
+
+        Context-aware based on story type to avoid object-manipulation language
+        for non-object features like Help/Documentation.
+        """
         text_lower = ac_bullet.lower()
+        story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
 
         # Use semantic step builder for specific expected result
         if self._step_builder:
@@ -1038,7 +2021,26 @@ class GenericTestGenerator:
             if result and len(result) > 10:
                 return result
 
-        # Action-specific observable outcomes
+        # Context-specific outcomes based on story type
+        if story_type == StoryType.HELP_DOCUMENTATION:
+            # Help/Documentation specific outcomes
+            help_outcomes = {
+                'open': f"{feature_name} viewer opens",
+                'display': f"{feature_name} content is displayed",
+                'appear': f"{feature_name} is visible in the menu",
+                'viewer': "In-app viewer displays content correctly",
+                'offline': "Content is accessible without internet connection",
+                'browser': "No external browser is launched",
+                'remain': "QuickDraw application remains open behind the viewer",
+                'close': f"{feature_name} viewer closes",
+            }
+            for keyword, outcome in help_outcomes.items():
+                if keyword in text_lower:
+                    return outcome
+            # Default for Help features
+            return f"{feature_name} content is displayed correctly"
+
+        # Action-specific observable outcomes (for object manipulation features)
         action_outcomes = {
             'display': f"{feature_name} is displayed",
             'show': f"{feature_name} is visible",
@@ -1071,10 +2073,254 @@ class GenericTestGenerator:
                 return f"{feature_name} is disabled"
             return f"{feature_name} is enabled"
 
-        # Default: Specific outcome based on feature name
-        return f"{feature_name} action is completed and changes are visible"
+        # Default: Context-specific outcome
+        if story_type == StoryType.HELP_DOCUMENTATION:
+            return f"{feature_name} content is displayed correctly"
+        elif story_type in {StoryType.TOOL, StoryType.MEASUREMENT}:
+            return f"{feature_name} is applied to selected object(s)"
+        elif story_type == StoryType.DIALOG:
+            return f"{feature_name} dialog operates correctly"
+        else:
+            return f"{feature_name} functionality works as expected"
 
     def _is_cancelled(self, text: str) -> bool:
         """Check if text indicates cancelled/out-of-scope."""
         text_lower = text.lower()
         return any(ind in text_lower for ind in self.rules.cancelled_indicators)
+
+    def _detect_redundant_criteria(self, criteria: List[str]) -> List[Tuple[int, int, str]]:
+        """
+        Detect redundant/similar acceptance criteria to avoid duplicate tests.
+
+        Returns list of tuples: (ac_index1, ac_index2, reason)
+        where ac_index2 should be skipped in favor of ac_index1.
+        """
+        redundant = []
+
+        # Normalize ACs for comparison
+        normalized = []
+        for ac in criteria:
+            norm = ac.lower().strip()
+            # Remove quotes and extra whitespace
+            norm = re.sub(r'[\"\']', '', norm)
+            norm = re.sub(r'\s+', ' ', norm)
+            normalized.append(norm)
+
+        # Check for similar ACs
+        for i, ac1 in enumerate(normalized):
+            for j, ac2 in enumerate(normalized):
+                if i >= j:
+                    continue
+
+                # Check for high similarity using word overlap
+                if self._are_acs_similar(ac1, ac2):
+                    reason = "Similar content - consolidating tests"
+                    redundant.append((i, j, reason))
+
+        return redundant
+
+    def _are_acs_similar(self, text1: str, text2: str, threshold: float = 0.7) -> bool:
+        """Check if two AC texts are similar using word overlap."""
+        # Extract significant words (remove common words)
+        stopwords = {'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been',
+                     'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
+                     'shall', 'should', 'can', 'could', 'may', 'might', 'must',
+                     'that', 'this', 'these', 'those', 'and', 'or', 'but', 'if',
+                     'when', 'where', 'which', 'who', 'whom', 'why', 'how',
+                     'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from',
+                     'up', 'about', 'into', 'over', 'after', 'user', 'users'}
+
+        words1 = set(w for w in text1.split() if w not in stopwords and len(w) > 2)
+        words2 = set(w for w in text2.split() if w not in stopwords and len(w) > 2)
+
+        if not words1 or not words2:
+            return False
+
+        intersection = words1 & words2
+        union = words1 | words2
+
+        similarity = len(intersection) / len(union) if union else 0
+
+        # Also check for key phrase similarity
+        # e.g., both ACs about "menu" and "appear/visible"
+        key_phrases_1 = self._extract_key_phrases(text1)
+        key_phrases_2 = self._extract_key_phrases(text2)
+
+        if key_phrases_1 and key_phrases_2:
+            phrase_overlap = len(key_phrases_1 & key_phrases_2) / len(key_phrases_1 | key_phrases_2)
+            # Boost similarity if key phrases match
+            similarity = max(similarity, phrase_overlap * 0.9)
+
+        return similarity >= threshold
+
+    def _extract_key_phrases(self, text: str) -> set:
+        """Extract key phrases from AC text for similarity comparison."""
+        phrases = set()
+
+        # Menu visibility phrases
+        if 'menu' in text and any(w in text for w in ['appear', 'visible', 'display', 'show', 'access']):
+            phrases.add('menu_visibility')
+
+        # Viewer/open phrases
+        if any(w in text for w in ['viewer', 'open', 'launch', 'display']):
+            phrases.add('viewer_open')
+
+        # Offline/internet phrases
+        if any(w in text for w in ['offline', 'internet', 'connection']):
+            phrases.add('offline_access')
+
+        # Browser phrases
+        if any(w in text for w in ['browser', 'external']):
+            phrases.add('no_browser')
+
+        return phrases
+
+    def _generate_help_scenario_title(
+        self,
+        ac_lower: str,
+        feature_name: str,
+        desc_ctx: Optional[DescriptionContext]
+    ) -> str:
+        """
+        Generate meaningful scenario titles for Help/Documentation features.
+
+        Uses description context (menu path, user flow, key features) to create
+        titles that accurately describe what the test verifies.
+        """
+        # Pattern-based title generation for Help/Documentation ACs
+        # IMPORTANT: Titles must be COMPLETE and MEANINGFUL - no truncated phrases
+        help_patterns = [
+            # Menu visibility patterns
+            (r'appear.*menu|menu.*appear|visible.*menu|menu.*visible',
+             '"User Manual" appears under the Help menu'),
+
+            # Viewer opening patterns
+            (r'select.*open.*viewer|open.*in-app.*viewer|viewer.*open|selecting.*opens',
+             'Selecting command opens in-app viewer'),
+
+            # Offline access patterns
+            (r'offline|without.*internet|no.*internet|without.*connection',
+             'Content accessible without internet connection'),
+
+            # No external browser patterns
+            (r'external.*browser|browser.*external|no.*browser|not.*browser',
+             'No external browser launched when viewing'),
+
+            # Application remains open patterns
+            (r'remain.*open|open.*behind|quickdraw.*remain|behind.*viewer',
+             'Application remains open behind viewer'),
+
+            # Unsupported features patterns
+            (r'unsupported|not.*available|absence.*feature|multi-object|batch|cloud',
+             'Unsupported features not available in UI'),
+
+            # Content display patterns
+            (r'display.*content|content.*display|pdf.*display|manual.*display',
+             'Manual content displayed correctly in viewer'),
+
+            # Close/exit patterns
+            (r'close.*viewer|viewer.*close|exit.*viewer',
+             'Viewer closes and returns to main application'),
+
+            # State persistence patterns
+            (r'persist|remember|save.*state|restore',
+             'State persists after closing and reopening'),
+
+            # Workflow/reopen patterns
+            (r'reopen|open.*again|second.*time',
+             'Reopening displays content correctly'),
+        ]
+
+        for pattern, title in help_patterns:
+            if re.search(pattern, ac_lower):
+                return title
+
+        # Use description context if available
+        if desc_ctx:
+            # Check if AC relates to user flow steps
+            for flow_step in desc_ctx.user_flow:
+                flow_lower = flow_step.lower()
+                # Check for keyword overlap
+                ac_words = set(ac_lower.split())
+                flow_words = set(flow_lower.split())
+                overlap = ac_words & flow_words
+                if len(overlap) >= 3:  # Significant overlap
+                    # Use the flow step as inspiration for the title
+                    return self._clean_flow_step_for_title(flow_step)
+
+            # Check if AC relates to key features
+            for feature in desc_ctx.key_features:
+                if feature.lower() in ac_lower:
+                    return f"{feature.capitalize()} verification"
+
+        # Fallback: Extract meaningful title from AC text
+        # Remove generic phrases
+        clean_text = re.sub(
+            r'\b(the|a|an|user|users|shall|should|must|can|will)\b',
+            '',
+            ac_lower
+        )
+        clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+
+        # Capitalize and truncate
+        if clean_text:
+            clean_text = clean_text[0].upper() + clean_text[1:]
+            if len(clean_text) > 50:
+                clean_text = clean_text[:47] + "..."
+            return clean_text
+
+        return f"{feature_name} functionality"
+
+    def _clean_flow_step_for_title(self, flow_step: str) -> str:
+        """Clean a user flow step to use as a scenario title."""
+        # Remove leading action verbs for title format
+        title = re.sub(
+            r'^(user\s+)?(selects?|opens?|clicks?|views?|navigates?)\s+',
+            '',
+            flow_step,
+            flags=re.IGNORECASE
+        )
+        title = title.strip()
+
+        # Capitalize first letter
+        if title:
+            title = title[0].upper() + title[1:]
+
+        # Truncate if too long
+        if len(title) > 50:
+            title = title[:47] + "..."
+
+        return title
+
+    def _generate_help_objective(self, ac_bullet: str, feature_name: str) -> str:
+        """Generate context-appropriate objective for Help/Documentation features.
+
+        Avoids "applied to selected object(s)" language for Help features.
+        """
+        ac_lower = ac_bullet.lower()
+
+        # Pattern-based objectives for Help features
+        if 'appear' in ac_lower and 'menu' in ac_lower:
+            return f"Verify that <b>{feature_name}</b> appears under the <b>Help menu</b>"
+
+        elif 'viewer' in ac_lower and 'open' in ac_lower:
+            return f"Verify that selecting <b>{feature_name}</b> opens an <b>in-app viewer</b> containing the PDF manual"
+
+        elif 'select' in ac_lower and ('open' in ac_lower or 'viewer' in ac_lower):
+            return f"Verify that selecting <b>{feature_name}</b> opens the <b>in-app viewer</b>"
+
+        elif 'offline' in ac_lower or 'internet' in ac_lower:
+            return f"Verify that the <b>{feature_name}</b> viewer displays content <b>without requiring an internet connection</b>"
+
+        elif 'remain' in ac_lower and ('open' in ac_lower or 'behind' in ac_lower):
+            return f"Verify that <b>QuickDraw remains open</b> behind the <b>{feature_name}</b> viewer"
+
+        elif 'browser' in ac_lower or 'external' in ac_lower:
+            return f"Verify that <b>no external browser</b> or online hosting is used for <b>{feature_name}</b>"
+
+        elif 'unsupported' in ac_lower or 'absence' in ac_lower:
+            return f"Verify that <b>unsupported features</b> are not available in the <b>{feature_name}</b>"
+
+        else:
+            # Default objective for Help features
+            return f"Verify that <b>{feature_name}</b> displays correctly in the in-app viewer"

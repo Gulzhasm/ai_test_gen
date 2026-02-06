@@ -47,6 +47,9 @@ class EdgeCaseExpander:
         elif self.story_type == StoryType.FILE_OPS:
             edge_case_tests.extend(self._generate_file_ops_edge_cases(story_id, feature_name, test_id_counter))
 
+        elif self.story_type == StoryType.HELP_DOCUMENTATION:
+            edge_case_tests.extend(self._generate_help_documentation_edge_cases(story_id, feature_name, test_id_counter))
+
         return edge_case_tests
 
     def _generate_mode_layout_edge_cases(self, story_id: int, feature_name: str, test_id_counter: int) -> List[Dict]:
@@ -126,43 +129,56 @@ class EdgeCaseExpander:
         return edge_cases
 
     def _generate_tool_edge_cases(self, story_id: int, feature_name: str, test_id_counter: int) -> List[Dict]:
-        """Generate edge cases for Tool stories."""
+        """Generate edge cases for Tool stories.
+
+        Only generates object-related edge cases (no_selection, multi-object)
+        if the feature actually involves object manipulation.
+        """
         edge_cases = []
         entry_point = self.grounded_spec.get_primary_entry_point() or "Tools Menu"
 
-        # Edge case: No selection behavior
-        if 'no_selection' not in self.grounded_spec.negative_scenarios:
+        # Check if this is an object manipulation feature by looking at ACs
+        combined_acs = ' '.join(self.grounded_spec.ac_bullets.values()).lower()
+        is_object_manipulation = any(keyword in combined_acs for keyword in [
+            'select', 'object', 'shape', 'rotate', 'mirror', 'flip', 'transform',
+            'move', 'resize', 'scale', 'draw', 'drag', 'position', 'selection'
+        ])
+
+        # Only generate object-related edge cases if the feature involves objects
+        if is_object_manipulation:
+            # Edge case: No selection behavior
+            if 'no_selection' not in self.grounded_spec.negative_scenarios:
+                test_id = f"{story_id}-{test_id_counter:03d}"
+                title = f"{test_id}: {feature_name} / {entry_point} / Tool behavior with no selection"
+                steps = [
+                    {"action": "PRE-REQ: ENV QuickDraw application is installed", "expected": ""},
+                    {"action": "Launch the ENV QuickDraw application.", "expected": ""},
+                    {"action": "Create a new drawing.", "expected": ""},
+                    {"action": f"Activate {feature_name} tool via {entry_point}.", "expected": ""},
+                    {"action": f"Attempt to use {feature_name} tool without selecting any object.", "expected": ""},
+                    {"action": "Verify the tool provides appropriate feedback and does not cause errors.", "expected": "Tool provides feedback for no selection."},
+                    {"action": "Close/Exit the QuickDraw application", "expected": ""}
+                ]
+                objective = f"Verify that <b>{feature_name} tool</b> provides <b>appropriate feedback</b> when <b>no object is selected</b>"
+                edge_cases.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
+                test_id_counter += 5
+
+            # Edge case: Multi-object selection
             test_id = f"{story_id}-{test_id_counter:03d}"
-            title = f"{test_id}: {feature_name} / {entry_point} / Tool behavior with no selection"
+            title = f"{test_id}: {feature_name} / {entry_point} / Tool applied to multiple selected objects"
             steps = [
                 {"action": "PRE-REQ: ENV QuickDraw application is installed", "expected": ""},
                 {"action": "Launch the ENV QuickDraw application.", "expected": ""},
                 {"action": "Create a new drawing.", "expected": ""},
+                {"action": "Draw multiple shapes on the Canvas.", "expected": ""},
+                {"action": "Select all drawn shapes.", "expected": ""},
                 {"action": f"Activate {feature_name} tool via {entry_point}.", "expected": ""},
-                {"action": f"Attempt to use {feature_name} tool without selecting any object.", "expected": ""},
-                {"action": "Verify the tool provides appropriate feedback and does not cause errors.", "expected": "Tool provides feedback for no selection."},
+                {"action": f"Apply {feature_name} tool to the multi-object selection.", "expected": ""},
+                {"action": "Verify the tool is applied to all selected objects.", "expected": "Tool is applied to all selected objects."},
                 {"action": "Close/Exit the QuickDraw application", "expected": ""}
             ]
-            objective = f"Verify that <b>{feature_name} tool</b> provides <b>appropriate feedback</b> when <b>no object is selected</b>"
+            objective = f"Verify that <b>{feature_name} tool</b> is <b>applied to all selected objects</b> in a multi-object selection"
             edge_cases.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
-            test_id_counter += 5
-
-        # Edge case: Multi-object selection
-        test_id = f"{story_id}-{test_id_counter:03d}"
-        title = f"{test_id}: {feature_name} / {entry_point} / Tool applied to multiple selected objects"
-        steps = [
-            {"action": "PRE-REQ: ENV QuickDraw application is installed", "expected": ""},
-            {"action": "Launch the ENV QuickDraw application.", "expected": ""},
-            {"action": "Create a new drawing.", "expected": ""},
-            {"action": "Draw multiple shapes on the Canvas.", "expected": ""},
-            {"action": "Select all drawn shapes.", "expected": ""},
-            {"action": f"Activate {feature_name} tool via {entry_point}.", "expected": ""},
-            {"action": f"Apply {feature_name} tool to the multi-object selection.", "expected": ""},
-            {"action": "Verify the tool is applied to all selected objects.", "expected": "Tool is applied to all selected objects."},
-            {"action": "Close/Exit the QuickDraw application", "expected": ""}
-        ]
-        objective = f"Verify that <b>{feature_name} tool</b> is <b>applied to all selected objects</b> in a multi-object selection"
-        edge_cases.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
 
         return edge_cases
 
@@ -278,6 +294,65 @@ class EdgeCaseExpander:
 
         return edge_cases
 
+    def _generate_help_documentation_edge_cases(self, story_id: int, feature_name: str, test_id_counter: int) -> List[Dict]:
+        """Generate edge cases for Help/Documentation stories.
+
+        These edge cases focus on:
+        - Offline access
+        - No external browser launched
+        - Viewer close behavior
+        - Content display integrity
+        """
+        edge_cases = []
+        entry_point = self.grounded_spec.get_primary_entry_point() or "Help Menu"
+
+        # Edge case: Offline access (verify content works without internet)
+        test_id = f"{story_id}-{test_id_counter:03d}"
+        title = f"{test_id}: {feature_name} / {entry_point} / Content accessible offline"
+        steps = [
+            {"action": "PRE-REQ: ENV QuickDraw application is installed", "expected": ""},
+            {"action": "Disconnect from the internet (disable WiFi/network).", "expected": ""},
+            {"action": "Launch the ENV QuickDraw application.", "expected": ""},
+            {"action": f"Open {feature_name} via {entry_point}.", "expected": ""},
+            {"action": f"Verify the {feature_name} content is displayed without errors.", "expected": f"{feature_name} content is displayed correctly without internet."},
+            {"action": "Close/Exit the QuickDraw application", "expected": ""}
+        ]
+        objective = f"Verify that <b>{feature_name}</b> content is <b>accessible offline</b> without internet connection"
+        edge_cases.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
+
+        # Edge case: No external browser (verify content stays in-app)
+        test_id_counter += 5
+        test_id = f"{story_id}-{test_id_counter:03d}"
+        title = f"{test_id}: {feature_name} / {entry_point} / No external browser launched"
+        steps = [
+            {"action": "PRE-REQ: ENV QuickDraw application is installed", "expected": ""},
+            {"action": "Launch the ENV QuickDraw application.", "expected": ""},
+            {"action": f"Open {feature_name} via {entry_point}.", "expected": ""},
+            {"action": "Verify no external browser window is opened.", "expected": "No external browser is launched."},
+            {"action": f"Verify {feature_name} content is displayed in the in-app viewer.", "expected": "Content is displayed in the in-app viewer."},
+            {"action": "Close/Exit the QuickDraw application", "expected": ""}
+        ]
+        objective = f"Verify that <b>{feature_name}</b> opens in the <b>in-app viewer</b> without launching an external browser"
+        edge_cases.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
+
+        # Edge case: Viewer close returns to main app
+        test_id_counter += 5
+        test_id = f"{story_id}-{test_id_counter:03d}"
+        title = f"{test_id}: {feature_name} / {entry_point} / Viewer close returns to main app"
+        steps = [
+            {"action": "PRE-REQ: ENV QuickDraw application is installed", "expected": ""},
+            {"action": "Launch the ENV QuickDraw application.", "expected": ""},
+            {"action": "Open an existing drawing.", "expected": ""},
+            {"action": f"Open {feature_name} via {entry_point}.", "expected": ""},
+            {"action": f"Close the {feature_name} viewer.", "expected": ""},
+            {"action": "Verify the main application remains open with the drawing intact.", "expected": "Main application is open with the drawing intact."},
+            {"action": "Close/Exit the QuickDraw application", "expected": ""}
+        ]
+        objective = f"Verify that closing <b>{feature_name} viewer</b> returns to <b>main application</b> without losing work"
+        edge_cases.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
+
+        return edge_cases
+
     def get_edge_case_count_estimate(self) -> int:
         """
         Estimate number of edge cases that will be generated.
@@ -295,5 +370,7 @@ class EdgeCaseExpander:
             return 3  # Can be up to 4 if units mentioned
         elif self.story_type == StoryType.FILE_OPS:
             return 2
+        elif self.story_type == StoryType.HELP_DOCUMENTATION:
+            return 3
         else:
             return 0

@@ -29,6 +29,7 @@ application:
     - File Menu
     - Edit Menu
     - View Menu
+    - Insert Menu
     - Tools Menu
     - Help Menu
     - Dimensions Menu
@@ -59,6 +60,10 @@ application:
     tool: Tools Menu
     draw: Tools Menu
     shape: Tools Menu
+    rotate: Tools Menu
+    mirror: Tools Menu
+    transform: Tools Menu
+    flip: Tools Menu
     dimension: Dimensions Menu
     measure: Dimensions Menu
     diameter: Dimensions Menu
@@ -69,6 +74,14 @@ application:
     about: Help Menu
     manual: Help Menu
     documentation: Help Menu
+    insert: Insert Menu
+    image: Insert Menu
+    text: Insert Menu
+    annotation: Insert Menu
+    background: File Menu
+    north: View Menu
+    scale: View Menu
+    grid: View Menu
 
   # Supported platforms
   platforms:
@@ -147,6 +160,7 @@ rules:
     - File Menu
     - Edit Menu
     - View Menu
+    - Insert Menu
     - Tools Menu
     - Help Menu
     - Dimensions Menu
@@ -164,8 +178,8 @@ rules:
 
 output_dir: output
 llm_enabled: true
-llm_provider: anthropic
-llm_model: claude-3-5-haiku-20241022  # Fast + good quality
+llm_provider: openai
+llm_model: gpt-4o-mini
 
 # Patterns for bolding key terms in objectives
 objective_patterns:

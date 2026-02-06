@@ -73,7 +73,8 @@ class ApplicationConfig:
     # Object interaction keywords (determines if object setup is needed)
     object_interaction_keywords: List[str] = field(default_factory=lambda: [
         'rotate', 'move', 'delete', 'select', 'resize', 'modify', 'edit',
-        'transform', 'flip', 'mirror', 'duplicate', 'copy', 'scale', 'reposition'
+        'transform', 'flip', 'mirror', 'duplicate', 'copy', 'scale', 'reposition',
+        'label', 'labels', 'properties panel', 'object boundary'
     ])
 
     def get_prereq_step(self) -> str:
@@ -482,15 +483,48 @@ class ProjectConfig:
         testrail_data = data.get('testrail', {})
         testrail = None
         if testrail_data:
+            # Helper to safely parse int from env var or YAML (handles empty strings and None)
+            def safe_int(value, env_var: str = None, default: int = 0) -> int:
+                """Safely convert value to int, with fallback to env var and default."""
+                if value is not None and value != '':
+                    try:
+                        return int(value)
+                    except (ValueError, TypeError):
+                        pass
+                if env_var:
+                    env_value = os.getenv(env_var, '')
+                    if env_value and env_value.strip():
+                        try:
+                            return int(env_value)
+                        except (ValueError, TypeError):
+                            pass
+                return default
+
+            def safe_optional_int(value, env_var: str = None) -> Optional[int]:
+                """Safely convert value to int, returning None if not valid."""
+                if value is not None and value != '':
+                    try:
+                        return int(value)
+                    except (ValueError, TypeError):
+                        pass
+                if env_var:
+                    env_value = os.getenv(env_var, '')
+                    if env_value and env_value.strip():
+                        try:
+                            return int(env_value)
+                        except (ValueError, TypeError):
+                            pass
+                return None
+
             testrail = TestRailConfig(
                 base_url=testrail_data.get('base_url', os.getenv('TESTRAIL_BASE_URL', '')),
                 email=testrail_data.get('email', os.getenv('TESTRAIL_EMAIL', '')),
                 api_key=os.getenv('TESTRAIL_API_KEY'),  # Always from env for security
-                project_id=testrail_data.get('project_id', int(os.getenv('TESTRAIL_PROJECT_ID', '0'))),
-                suite_id=testrail_data.get('suite_id'),
-                default_section_id=testrail_data.get('default_section_id'),
-                default_priority_id=testrail_data.get('default_priority_id', 2),
-                default_type_id=testrail_data.get('default_type_id'),
+                project_id=safe_int(testrail_data.get('project_id'), 'TESTRAIL_PROJECT_ID', 0),
+                suite_id=safe_optional_int(testrail_data.get('suite_id'), 'TESTRAIL_SUITE_ID'),
+                default_section_id=safe_optional_int(testrail_data.get('default_section_id'), 'TESTRAIL_DEFAULT_SECTION_ID'),
+                default_priority_id=safe_int(testrail_data.get('default_priority_id'), None, 2),
+                default_type_id=safe_optional_int(testrail_data.get('default_type_id'), 'TESTRAIL_DEFAULT_TYPE_ID'),
             )
 
         # Determine source and target platforms

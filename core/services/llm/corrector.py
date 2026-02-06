@@ -261,6 +261,9 @@ class LLMCorrector:
             print("  Warning: OpenAI client not available, skipping LLM correction")
             return test_cases
 
+        # Store for use in _get_minimum_test_count
+        self._current_feature_name = feature_name
+
         # Format test cases for LLM
         tc_json = json.dumps({"test_cases": test_cases}, indent=2)
 
@@ -329,6 +332,117 @@ class LLMCorrector:
         except Exception as e:
             print(f"  Warning: LLM correction failed: {e}")
             return test_cases
+
+    def _get_minimum_test_count(self, acceptance_criteria: List[str]) -> int:
+        """Calculate the minimum required test count based on story complexity."""
+        try:
+            from .prompt_builder import (
+                calculate_test_requirements,
+                detect_feature_types,
+                extract_boundary_entities,
+                extract_comprehensive_workflows,
+                detect_format_variations,
+                clean_acceptance_criteria,
+                split_scope
+            )
+
+            # Clean ACs first
+            cleaned_acs = clean_acceptance_criteria(acceptance_criteria)
+            in_scope, _ = split_scope(cleaned_acs)
+
+            # Get config values
+            platform_count = len(getattr(self._project_config.application, 'supported_platforms', [])) if self._project_config else 3
+
+            # Detect feature types
+            feature_name = getattr(self, '_current_feature_name', 'Feature')
+            feature_types = detect_feature_types(feature_name, in_scope)
+
+            # Extract complexity indicators
+            boundary_entities = extract_boundary_entities(in_scope)
+            comprehensive_workflows = extract_comprehensive_workflows(boundary_entities, in_scope)
+            format_variations = detect_format_variations(in_scope)
+
+            # Calculate using the same logic as prompt_builder
+            reqs = calculate_test_requirements(
+                ac_count=len(in_scope),
+                feature_types=feature_types,
+                boundary_entities=boundary_entities,
+                comprehensive_workflows=comprehensive_workflows,
+                format_variations=format_variations,
+                platform_count=platform_count,
+                qa_prep=""
+            )
+
+            return reqs.min_total
+
+        except ImportError:
+            # Fallback if prompt_builder not available
+            ac_count = len(acceptance_criteria)
+            platform_count = len(getattr(self._project_config.application, 'supported_platforms', [])) if self._project_config else 3
+            return max(ac_count, 3) + 5 + platform_count  # Simple fallback
+
+    def _retry_for_minimum_count(
+        self,
+        current_tests: List[Dict],
+        story_id: str,
+        feature_name: str,
+        acceptance_criteria: List[str],
+        qa_prep: str,
+        min_tests: int
+    ) -> List[Dict]:
+        """Retry LLM call with stronger emphasis on meeting minimum count."""
+        if not self.client:
+            return current_tests
+
+        shortage = min_tests - len(current_tests)
+
+        retry_prompt = f'''CRITICAL: The previous response returned only {len(current_tests)} test cases.
+The MINIMUM required is {min_tests} tests. You are SHORT by {shortage} tests.
+
+Current test cases (DO NOT reduce these):
+{json.dumps({"test_cases": current_tests}, indent=2)}
+
+## MANDATORY ADDITIONS (add {shortage}+ more tests):
+1. Add edge case tests for boundary conditions
+2. Add negative tests for invalid operations
+3. Add state/undo tests if not present
+4. Ensure all {len(acceptance_criteria)} ACs have dedicated tests
+
+Story: {story_id} - {feature_name}
+ACs: {json.dumps(acceptance_criteria)}
+
+Return the COMPLETE list of {min_tests}+ test cases in JSON format.
+DO NOT remove any existing tests. Only ADD new tests.
+'''
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are a QA test generator. Return JSON only with test_cases array."},
+                    {"role": "user", "content": retry_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=16000,
+                response_format={"type": "json_object"}
+            )
+
+            content = response.choices[0].message.content
+            result = json.loads(content)
+            new_tests = result.get("test_cases", current_tests)
+
+            # Ensure we didn't lose tests
+            if len(new_tests) >= len(current_tests):
+                new_tests = self._post_process_corrections(new_tests, story_id)
+                print(f"  → Retry successful: {len(current_tests)} → {len(new_tests)} tests")
+                return new_tests
+            else:
+                print(f"  → Retry returned fewer tests, keeping original")
+                return current_tests
+
+        except Exception as e:
+            print(f"  → Retry failed: {e}")
+            return current_tests
 
     def _build_fallback_prompts(
         self,

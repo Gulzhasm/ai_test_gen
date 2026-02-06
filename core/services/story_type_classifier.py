@@ -17,6 +17,7 @@ class StoryType(Enum):
     FILE_OPS = "File Operations"
     MENU = "Menu"
     PROPERTIES = "Properties"
+    HELP_DOCUMENTATION = "Help/Documentation"  # Help menus, manuals, about dialogs
     UNKNOWN = "Unknown"
 
 
@@ -64,6 +65,12 @@ class StoryTypeClassifier:
         'enable', 'disable', 'toggle'
     }
 
+    HELP_DOCUMENTATION_KEYWORDS = {
+        'help', 'manual', 'user manual', 'documentation', 'guide',
+        'about', 'release notes', 'license', 'credits', 'version',
+        'readme', 'faq', 'support', 'viewer', 'pdf', 'offline'
+    }
+
     @classmethod
     def classify(cls, story_title: str, ac_bullets: List[str], qa_prep: str = "") -> StoryType:
         """
@@ -85,7 +92,10 @@ class StoryTypeClassifier:
             all_text += " " + qa_prep.lower()
 
         # Count keyword matches for each story type
+        # Note: HELP_DOCUMENTATION is checked FIRST because it's more specific
+        # than generic MENU or FILE_OPS types
         scores = {
+            StoryType.HELP_DOCUMENTATION: cls._count_keywords(all_text, cls.HELP_DOCUMENTATION_KEYWORDS),
             StoryType.MODE_LAYOUT: cls._count_keywords(all_text, cls.MODE_LAYOUT_KEYWORDS),
             StoryType.DIALOG: cls._count_keywords(all_text, cls.DIALOG_KEYWORDS),
             StoryType.TOOL: cls._count_keywords(all_text, cls.TOOL_KEYWORDS),
@@ -189,6 +199,15 @@ class StoryTypeClassifier:
                 'undo_redo'
             }
 
+        elif story_type == StoryType.HELP_DOCUMENTATION:
+            return {
+                'menu_item_availability',
+                'offline_access',
+                'no_external_browser',
+                'viewer_close',
+                'keyboard_navigation'
+            }
+
         else:
             # Unknown story type - allow common scenarios only
             return {
@@ -253,6 +272,13 @@ class StoryTypeClassifier:
                 'persist_settings'
             ]
 
+        elif story_type == StoryType.HELP_DOCUMENTATION:
+            return [
+                'offline_access',
+                'no_external_browser',
+                'viewer_close'
+            ]
+
         else:
             return []
 
@@ -269,7 +295,8 @@ class StoryTypeClassifier:
             StoryType.DIALOG,
             StoryType.MENU,
             StoryType.PROPERTIES,
-            StoryType.MEASUREMENT
+            StoryType.MEASUREMENT,
+            StoryType.HELP_DOCUMENTATION
         }
 
     @staticmethod
@@ -316,6 +343,9 @@ class StoryTypeClassifier:
 
         elif story_type == StoryType.PROPERTIES:
             return ["Properties Panel"]
+
+        elif story_type == StoryType.HELP_DOCUMENTATION:
+            return ["Help Menu"]
 
         else:
             return []
