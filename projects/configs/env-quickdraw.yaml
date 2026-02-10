@@ -12,6 +12,14 @@ application:
   description: Drawing and dimensioning application for ENV platform
   type: desktop
 
+  # IMPORTANT: UI terminology clarification
+  # - "Tools Menu" = dropdown menu accessed from menu bar (contains tool commands like Hand Tool, etc.)
+  # - "Left Toolbar" = vertical toolbar on the left side (contains tool icons like Hand Tool, etc.)
+  # - "Top Action Toolbar" = horizontal toolbar at top (contains action buttons)
+  ui_terminology_notes: |
+    CORRECT: "Tools Menu" for menu dropdown, "Left Toolbar" for left-side tool icons
+    INCORRECT: "Side Panel", "Left Panel" - use "Left Toolbar" instead
+
   # Step templates
   prereq_template: "Pre-req: The {app_name} App is installed"
   launch_step: "Launch the {app_name} application."
@@ -40,6 +48,7 @@ application:
     - Dialog Window
     - Modal Window
     - Top Action Toolbar
+    - Left Toolbar  # Vertical toolbar on the left with tool icons (Hand Tool, etc.)
 
   # Map feature keywords to their entry points
   # NOTE: Use word boundaries in code to avoid substring false matches (e.g., "cut" in "executed")
@@ -56,8 +65,9 @@ application:
     cut: Edit Menu
     view: View Menu
     zoom: View Menu
-    pan: View Menu
-    tool: Tools Menu
+    pan: Left Toolbar
+    hand: Left Toolbar
+    tool: Left Toolbar
     draw: Tools Menu
     shape: Tools Menu
     rotate: Tools Menu
@@ -119,6 +129,15 @@ application:
     - version history
     - multiple objects selected
 
+  # INCORRECT UI TERMS - These do NOT exist in the app
+  # LLM should NEVER use these terms
+  forbidden_ui_terms:
+    - Left Panel
+    - Side Panel
+    - Left Menu
+    - Sidebar
+    - Side Bar
+
   # Feature notes/warnings
   feature_notes:
     rotate: "Rotation uses system default logic (typically 90-degree increments)"
@@ -171,6 +190,7 @@ rules:
     - Dialog Window
     - Modal Window
     - Top Action Toolbar
+    - Left Toolbar
     - Accessibility
 
   first_test_id: AC1

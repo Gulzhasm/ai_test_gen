@@ -244,7 +244,8 @@ class LLMCorrector:
         story_id: str,
         feature_name: str,
         acceptance_criteria: List[str],
-        qa_prep: str
+        qa_prep: str,
+        reference_steps: Optional[List[Dict]] = None
     ) -> List[Dict]:
         """
         Send test cases to LLM for correction and enhancement.
@@ -280,6 +281,13 @@ class LLMCorrector:
             system_prompt = builder.build_system_prompt()
             user_prompt = builder.build_user_prompt(tc_json)
             print(f"  Using dynamic prompts for {self._app_name}")
+
+            if reference_steps:
+                ref_section = "\n\n## REFERENCE STEPS (Use consistent wording)\n"
+                ref_section += "These steps exist in other tests. Use similar phrasing:\n"
+                for step in reference_steps[:10]:  # Limit to 10
+                    ref_section += f"- {step}\n"
+                user_prompt = user_prompt + ref_section
 
             # DEBUG: Print prompts to output file
             debug_prompt_path = os.path.join("output", f"{story_id}_PROMPTS_DEBUG.txt")
@@ -403,9 +411,12 @@ Current test cases (DO NOT reduce these):
 {json.dumps({"test_cases": current_tests}, indent=2)}
 
 ## MANDATORY ADDITIONS (add {shortage}+ more tests):
-1. Add edge case tests for boundary conditions
-2. Add negative tests for invalid operations
-3. Add state/undo tests if not present
+IMPORTANT: Only add tests that are DIRECTLY GROUNDED in the Acceptance Criteria or QA Prep.
+Do NOT infer or assume requirements. Every test must trace back to specific AC text.
+
+1. Add edge case tests ONLY if the AC mentions boundary conditions (e.g., "minimum", "maximum", "empty")
+2. Add negative tests ONLY if the AC explicitly mentions excluded features or "not" behaviors
+3. Add state/undo tests ONLY if the AC mentions undo, redo, or state persistence
 4. Ensure all {len(acceptance_criteria)} ACs have dedicated tests
 
 Story: {story_id} - {feature_name}
@@ -528,8 +539,56 @@ Expected total: 15-25 comprehensive test cases.'''
 
         return system_prompt, user_prompt
 
+    def _renumber_test_ids(self, test_cases: List[Dict], story_id: str) -> List[Dict]:
+        """
+        Renumber test case IDs to ensure proper sequence.
+
+        Sequence: AC1, 005, 010, 015, 020, 025, ...
+        Uses test_id_increment from project config (default: 5)
+        """
+        if not test_cases:
+            return test_cases
+
+        # Get increment from config or default to 5
+        increment = 5
+        if self._project_config:
+            increment = getattr(self._project_config.rules, 'test_id_increment', 5)
+
+        first_test_id = "AC1"
+        if self._project_config:
+            first_test_id = getattr(self._project_config.rules, 'first_test_id', 'AC1')
+
+        current_num = increment  # Start at 005 for second test
+
+        for idx, tc in enumerate(test_cases):
+            if idx == 0:
+                # First test is always AC1
+                new_id = f"{story_id}-{first_test_id}"
+            else:
+                # Subsequent tests use numeric IDs
+                new_id = f"{story_id}-{current_num:03d}"
+                current_num += increment
+
+            # Update ID in test case
+            old_id = tc.get('id', '')
+            tc['id'] = new_id
+
+            # Update ID in title if present
+            old_title = tc.get('title', '')
+            if old_id and old_id in old_title:
+                tc['title'] = old_title.replace(old_id, new_id, 1)
+            elif old_title and ':' in old_title:
+                # Replace the ID portion before the first colon
+                parts = old_title.split(':', 1)
+                tc['title'] = f"{new_id}:{parts[1]}" if len(parts) > 1 else f"{new_id}: {old_title}"
+
+        return test_cases
+
     def _post_process_corrections(self, test_cases: List[Dict], story_id: str) -> List[Dict]:
         """Post-process LLM corrections to ensure structure compliance."""
+        # First, renumber test IDs to ensure proper sequence (AC1, 005, 010, 015, ...)
+        test_cases = self._renumber_test_ids(test_cases, story_id)
+
         for tc in test_cases:
             steps = tc.get('steps', [])
 

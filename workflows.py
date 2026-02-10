@@ -41,6 +41,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from projects import ProjectConfig, ProjectManager, ApplicationDiscovery, get_project_manager
 from projects.project_config import create_new_project_config, get_env_quickdraw_config
 from projects.test_suite_creator import TestSuiteCreator, QAPrepGenerator
+from core.services.embeddings.test_step_embedder import TestStepEmbedder
 
 
 class WorkflowStatus(Enum):
@@ -238,12 +239,20 @@ class GenerateWorkflow(IWorkflow):
                 model=config.llm_model,
                 project_config=config  # Pass full project config for dynamic prompts
             )
+
+            embedder = TestStepEmbedder()
+            reference_steps = embedder.get_reference_steps(title, n_results=10)
+            if reference_steps:
+                print(f"  Found {len(reference_steps)} reference steps for correction")
+
+
             corrected = corrector.correct_test_cases(
                 test_cases=test_cases,
                 story_id=str(story_id),
                 feature_name=title,
                 acceptance_criteria=acceptance_criteria,
-                qa_prep=qa_prep
+                qa_prep=qa_prep,
+                reference_steps=reference_steps
             )
             print(f"  LLM correction complete: {len(corrected)} test cases")
             return corrected

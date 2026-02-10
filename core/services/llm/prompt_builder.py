@@ -98,6 +98,10 @@ AC_HEADER_PATTERNS = [
     r'^requirements?:?\s*$',
     r'^definition\s+of\s+done:?\s*$',
     r'^dod:?\s*$',
+    r'^when\s+active:?\s*$',  # Context header (e.g., "When active:")
+    r'^when\s+inactive:?\s*$',  # Context header
+    r'^preconditions?:?\s*$',  # Context header
+    r'^notes?:?\s*$',  # Context header
 ]
 
 # Patterns to identify out-of-scope markers
@@ -697,6 +701,7 @@ class PromptContext:
     # Test rules
     forbidden_words: List[str]
     allowed_areas: List[str]
+    forbidden_ui_terms: List[str] = field(default_factory=list)  # UI terms that don't exist in the app
 
     # NEW: Preprocessed fields (populated by PromptBuilder)
     acceptance_criteria_in_scope: List[str] = field(default_factory=list)
@@ -835,6 +840,7 @@ class PromptBuilder:
             close_step=config.application.close_step,
             forbidden_words=config.rules.forbidden_words,
             allowed_areas=config.rules.allowed_areas,
+            forbidden_ui_terms=getattr(config.application, 'forbidden_ui_terms', []),
         )
         return cls(context)
 
@@ -892,17 +898,23 @@ When AC says "follows setting" or "defaults to current setting":
 - Create tests for EACH setting value (inches AND centimeters, etc.)
 - Set the setting FIRST, then verify the dependent behavior
 
-### 6. ADD EDGE CASE TESTS (Expert QA Thinking)
-For EVERY feature, add tests that a senior QA would think of:
-- **No selection state**: When AC says "enabled when selected" → test disabled state when nothing selected
-- **Boundary values**: Test min/max limits, empty states, single vs multiple items
-- **Error recovery**: What happens when an operation fails or is interrupted?
-- **Undo/Redo**: If transformations are applied, can they be undone?
-- **Cross-feature interaction**: Does this feature affect/conflict with related features?
-Example edge cases for "Rotate" feature:
-- Rotate with no object selected → verify command disabled
-- Rotate multiple times → verify cumulative rotation
-- Rotate then Undo → verify object returns to original orientation
+### 6. ADD EDGE CASE TESTS (ONLY if AC-Grounded)
+CRITICAL: Edge case tests MUST be derived from explicit AC text. Do NOT infer or assume requirements.
+
+Add edge case tests ONLY when the AC explicitly mentions:
+- **No selection state**: ONLY when AC says "enabled when selected" → test disabled state
+- **Boundary values**: ONLY when AC mentions limits, min/max, or ranges
+- **Undo/Redo**: ONLY when AC explicitly mentions undo, redo, or state persistence
+- **Error states**: ONLY when AC describes error handling or invalid states
+
+DO NOT add tests for:
+- Features NOT being available in menus not mentioned in AC
+- Behaviors not explicitly stated in AC
+- Hypothetical scenarios or "what if" situations
+
+Example: If AC says "Hand Tool is available from the Left Toolbar":
+- CORRECT: Test that Hand Tool appears in Left Toolbar (grounded in AC)
+- WRONG: Test that Hand Tool is NOT in Help Menu (not mentioned in AC)
 
 ### 7. WRITE SPECIFIC STEPS (Never Generic)
 BAD: "Verify the feature works correctly"
@@ -948,7 +960,7 @@ Every title MUST be:
 - For menu access: "[Command] menu access" or "[Command] appears in [Menu]"
 - For behavior: "[Action] [result/outcome]"
 - For settings: "[Setting] follows [configuration]"
-- For negative: "No [excluded feature] option available"
+- For negative: "No [excluded feature] option available" (ONLY when AC explicitly mentions exclusion)
 - For state: "[State] persists after [action]"
 - For accessibility: "[Accessibility method] on [Platform]"
 
@@ -1112,6 +1124,12 @@ Every title MUST be:
         if self.ctx.unavailable_features:
             lines.append("\n### Unsupported Features (never test)")
             lines.append(json.dumps(self.ctx.unavailable_features[:10]))
+
+        # Forbidden UI terms (incorrect terminology)
+        if self.ctx.forbidden_ui_terms:
+            lines.append("\n### INCORRECT UI TERMS (NEVER use these - they don't exist)")
+            lines.append(json.dumps(self.ctx.forbidden_ui_terms))
+            lines.append("Use correct terms from 'Allowed Areas' instead.")
 
         # Forbidden terms
         if self.ctx.forbidden_words:

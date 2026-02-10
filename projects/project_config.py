@@ -33,6 +33,11 @@ class ApplicationConfig:
     unavailable_features: List[str] = field(default_factory=list)
     # Example: ["multi-object selection", "batch processing", "cloud sync"]
 
+    # INCORRECT UI TERMS - terminology that does NOT exist in the app
+    # LLM should NEVER use these terms in generated tests
+    forbidden_ui_terms: List[str] = field(default_factory=list)
+    # Example: ["Left Toolbar", "Side Panel"] - these UI elements don't exist
+
     # Feature aliases - map AC terminology to actual feature names
     feature_aliases: Dict[str, str] = field(default_factory=dict)
     # Example: {"multi-select": "single object selection only", "GPS": "Set Base Coordinates"}
@@ -100,18 +105,26 @@ class ApplicationConfig:
     def determine_entry_point(self, feature_name: str, hints: List[str] = None) -> str:
         """Determine the most appropriate entry point for a feature.
 
+        Priority order:
+        1. Config mapping match on feature name (most specific)
+        2. Hints passed from QA details
+        3. Default fallback
+
         Uses word boundary matching to avoid false positives like 'cut' in 'executed'.
         """
-        if hints:
-            return hints[0]
-
         feature_lower = feature_name.lower()
+
+        # FIRST: Check config mapping for feature name (highest priority)
         for keyword, entry_point in self.entry_point_mappings.items():
             # Use word boundary regex to avoid substring false matches
             # e.g., 'cut' should not match 'executed'
             pattern = rf'\b{re.escape(keyword)}\b'
             if re.search(pattern, feature_lower):
                 return entry_point
+
+        # SECOND: Use hints if no direct mapping found
+        if hints:
+            return hints[0]
 
         return 'Application Menu'
 
@@ -424,6 +437,7 @@ class ProjectConfig:
             object_interaction_keywords=app_data.get('object_keywords', []),
             # Feature constraints - critical for accurate test generation
             unavailable_features=app_data.get('unavailable_features', []),
+            forbidden_ui_terms=app_data.get('forbidden_ui_terms', []),
             feature_aliases=app_data.get('feature_aliases', {}),
             feature_notes=app_data.get('feature_notes', {}),
         )

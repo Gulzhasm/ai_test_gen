@@ -16,6 +16,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from projects.project_config import ProjectConfig
 from projects.test_suite_creator import QAPrepGenerator
 from core.services.story_type_classifier import StoryType, StoryTypeClassifier
+from core.services.embeddings.test_step_embedder import TestStepEmbedder
+# Note: clean_acceptance_criteria is imported lazily in generate_test_cases to avoid circular import
 
 
 # =============================================================================
@@ -256,6 +258,7 @@ class GenericTestGenerator:
         self.app = config.application
         self.rules = config.rules
         self.test_id_counter = config.rules.test_id_increment
+        self.embedder = TestStepEmbedder()
 
         # Quality enhancement
         self.enable_quality_enhancement = enable_quality_enhancement and QUALITY_SERVICES_AVAILABLE
@@ -298,6 +301,12 @@ class GenericTestGenerator:
         test_cases = []
         story_id = story_data['story_id']
         feature_name = self._extract_feature_name(story_data['title'])
+
+        # Clean acceptance criteria - remove headers like "Acceptance Criteria:", "When active:", etc.
+        # Lazy import to avoid circular dependency
+        from core.services.llm.prompt_builder import clean_acceptance_criteria
+        criteria = clean_acceptance_criteria(criteria)
+        print(f"  Cleaned ACs: {len(criteria)} actionable items")
 
         # Parse story DESCRIPTION to extract context
         description = story_data.get('description', '')
@@ -424,7 +433,6 @@ class GenericTestGenerator:
                 test_id = f"{story_id}-{self.rules.first_test_id}"
             else:
                 test_id = f"{story_id}-{self.test_id_counter:03d}"
-                self.test_id_counter += self.rules.test_id_increment
 
             # Generate test case
             test_case = self._generate_test_for_ac(
@@ -432,16 +440,18 @@ class GenericTestGenerator:
             )
             if test_case:
                 test_cases.append(test_case)
+                # Only increment counter after successful test creation (skip for AC1 which uses special ID)
+                if idx != 0:
+                    self.test_id_counter += self.rules.test_id_increment
 
         # Generate edge case tests
         edge_cases = self._extract_edge_cases(qa_details, feature_name)
         for edge_case in edge_cases:
             test_id = f"{story_id}-{self.test_id_counter:03d}"
-            self.test_id_counter += self.rules.test_id_increment
-
             test_case = self._generate_edge_case_test(test_id, edge_case, feature_name, story_data)
             if test_case:
                 test_cases.append(test_case)
+                self.test_id_counter += self.rules.test_id_increment  # Only increment after successful test creation
 
         # Generate platform-specific tests
         if qa_details.get('platforms'):
@@ -461,7 +471,10 @@ class GenericTestGenerator:
         # Apply quality enhancement if enabled
         if self.enable_quality_enhancement and self._quality_analyzer:
             test_cases = self._enhance_test_quality(test_cases, feature_name)
-
+        
+        step_count = self.embedder.store_steps(test_cases)
+        print(f"  Stored {step_count} steps in vector DB")
+       
         return test_cases
 
     def _enhance_test_quality(
@@ -699,7 +712,15 @@ class GenericTestGenerator:
                  "expected": "Label visibility and repositioning controls are available."},
             ])
             objective = f"Verify that <b>{feature_name}</b> controls are accessible from <b>{entry_point}</b> after selecting an object"
+        elif 'Toolbar' in entry_point:
+            # For toolbars (Left Toolbar, Top Action Toolbar), use "icon" terminology
+            steps.extend([
+                {"action": f"Locate the {feature_name} icon in the {entry_point}.",
+                 "expected": f"{feature_name} icon is visible and enabled."},
+            ])
+            objective = f"Verify that <b>{feature_name}</b> icon is accessible from <b>{entry_point}</b>"
         else:
+            # For menus (File Menu, Edit Menu, Tools Menu, etc.)
             steps.extend([
                 {"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens displaying available commands."},
                 {"action": f"Locate the {feature_name} command in the menu.",
