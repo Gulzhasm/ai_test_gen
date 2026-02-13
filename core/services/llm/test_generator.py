@@ -19,7 +19,7 @@ You MUST follow these constraints:
 
 A) Coverage & Ordering
 - Generate test cases top-to-bottom in the exact order of Acceptance Criteria bullets.
-- AC1 is mandatory and acceptance-level only (availability/entry point only).
+- AC1 is mandatory and must be an OVERALL ACCEPTANCE TEST — an end-to-end test that verifies the core feature works (navigate to entry point, execute the feature, verify primary behavior).
 - After AC1, IDs increment by 5: 005, 010, 015, ...
 - One PRIMARY test case per acceptance bullet covering the main/positive scenario.
 - ADDITIONAL test cases for edge cases, negative scenarios, and boundary conditions derived from AC and QA Prep.
@@ -138,7 +138,7 @@ Return ONLY valid JSON matching the schema. No markdown. No commentary.
 
 I) Final Self-Validation Before Returning JSON (MANDATORY)
 Before returning output, re-check every test case:
-1. AC1 only checks entry-point availability.
+1. AC1 is an overall acceptance test (end-to-end: navigate → execute → verify core behavior).
 2. IDs: AC1 then increment by 5.
 3. Every test begins with PRE-REQ step and ends with Close/Exit (no expected on final step).
 4. No forbidden words appear anywhere in Step Action/Expected.
@@ -260,7 +260,7 @@ Output required - Return JSON only, matching this schema:
 }}
 
 IMPORTANT REMINDERS:
-- AC1 must verify entry point/availability only (View Menu toggle is visible and accessible).
+- AC1 must be an overall acceptance test: navigate to entry point, execute the feature, verify the core behavior works end-to-end.
 - After AC1, id_suffix increments by 5: 005, 010, 015...
 - One PRIMARY test case per acceptance criterion bullet for the main/positive scenario.
 - Create ADDITIONAL SEPARATE test cases for edge cases derived from AC and QA Prep (each with unique ID).
@@ -457,6 +457,34 @@ Return JSON only."""
                     if pattern.lower() in expected.lower():
                         validation_issues.append(f"Forbidden pattern '{pattern.strip()}' in expected: {expected[:50]}")
 
+            # Auto-fix: Steps starting with "If" are conditional — make deterministic
+            fixed_steps = []
+            for step in steps:
+                action = step.get("action", "")
+                if action.startswith("If ") or action.startswith("if "):
+                    validation_issues.append(f"Conditional 'If' step auto-fixed: {action[:60]}")
+                    fixed = self._fix_conditional_step(step)
+                    fixed_steps.extend(fixed)
+                else:
+                    fixed_steps.append(step)
+            steps = fixed_steps
+
+            # Auto-fix: Combined actions with " and " in toggle/menu steps
+            expanded_steps = []
+            for step in steps:
+                action = step.get("action", "")
+                if (" and '" in action or " and '" in action) and ("uncheck" in action.lower() or "check" in action.lower() or "select" in action.lower()):
+                    validation_issues.append(f"Combined action auto-split: {action[:60]}")
+                    split = self._split_combined_step(step)
+                    expanded_steps.extend(split)
+                else:
+                    expanded_steps.append(step)
+            steps = expanded_steps
+
+            # Renumber steps after fixes
+            for i, step in enumerate(steps):
+                step["step"] = i + 1
+
             # Validate accessibility tests
             title_lower = title.lower()
             if "accessibility" in title_lower or "windows 11" in title_lower or "ipad" in title_lower or "android" in title_lower:
@@ -616,6 +644,107 @@ Return JSON only."""
 
         result["test_cases"] = test_cases
         return result
+
+    @staticmethod
+    def _fix_conditional_step(step: dict) -> list:
+        """Convert a conditional 'If X, do Y' step into deterministic steps.
+
+        Example:
+          "If 'Show Design Panel' is unchecked, select it to check it."
+        Becomes:
+          Step 1: "Select 'Show Design Panel' in the Window Menu to uncheck it."
+          Step 2: "Select 'Show Design Panel' in the Window Menu to check it."
+        """
+        import re
+        action = step.get("action", "")
+
+        # Pattern: "If 'Show X' is unchecked, select it to check it."
+        match = re.match(
+            r"If '([^']+)' is unchecked,?\s*select it to check it\.?",
+            action, re.IGNORECASE
+        )
+        if match:
+            item_name = match.group(1)
+            return [
+                {
+                    "step": 0,
+                    "action": f"Select '{item_name}' in the Window Menu to uncheck it.",
+                    "expected": f"The '{item_name}' option is unchecked."
+                },
+                {
+                    "step": 0,
+                    "action": f"Select '{item_name}' in the Window Menu to check it.",
+                    "expected": step.get("expected", f"'{item_name}' is now visible in the UI.")
+                }
+            ]
+
+        # Pattern: "If 'X' is checked, select it to uncheck it."
+        match = re.match(
+            r"If '([^']+)' is checked,?\s*select it to uncheck it\.?",
+            action, re.IGNORECASE
+        )
+        if match:
+            item_name = match.group(1)
+            return [
+                {
+                    "step": 0,
+                    "action": f"Select '{item_name}' in the Window Menu to check it.",
+                    "expected": f"The '{item_name}' option is checked."
+                },
+                {
+                    "step": 0,
+                    "action": f"Select '{item_name}' in the Window Menu to uncheck it.",
+                    "expected": step.get("expected", f"'{item_name}' is no longer visible in the UI.")
+                }
+            ]
+
+        # Generic "If" fallback: strip the "If" condition and make it imperative
+        stripped = re.sub(r'^If\s+[^,]+,\s*', '', action, flags=re.IGNORECASE)
+        if stripped and stripped != action:
+            step["action"] = stripped[0].upper() + stripped[1:]
+            return [step]
+
+        # Can't parse — return as-is
+        return [step]
+
+    @staticmethod
+    def _split_combined_step(step: dict) -> list:
+        """Split a step that combines multiple toggle actions into separate steps.
+
+        Example:
+          "Uncheck 'Show Design Panel' and 'Show Layers Panel' in the Window Menu."
+        Becomes:
+          Step 1: "Select 'Show Design Panel' in the Window Menu to uncheck it."
+          Step 2: "Select 'Show Layers Panel' in the Window Menu to uncheck it."
+        """
+        import re
+        action = step.get("action", "")
+
+        # Find all quoted items: 'Show Design Panel', 'Show Layers Panel', etc.
+        items = re.findall(r"'([^']+)'", action)
+        if len(items) < 2:
+            return [step]
+
+        # Determine the operation (check/uncheck)
+        is_uncheck = "uncheck" in action.lower()
+        verb = "uncheck" if is_uncheck else "check"
+
+        result_steps = []
+        for item in items:
+            # Derive expected from the item name
+            panel_name = item.replace("Show ", "")
+            if is_uncheck:
+                expected = f"The {panel_name} is no longer visible in the UI."
+            else:
+                expected = f"The {panel_name} is now visible in the UI."
+
+            result_steps.append({
+                "step": 0,
+                "action": f"Select '{item}' in the Window Menu to {verb} it.",
+                "expected": expected
+            })
+
+        return result_steps
 
 
 def convert_to_csv_format(test_cases: List[Dict[str, Any]]) -> List[Dict[str, str]]:

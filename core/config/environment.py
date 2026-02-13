@@ -36,6 +36,9 @@ class EnvironmentConfig:
     # OpenAI Configuration
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
 
+    # Gemini Configuration
+    GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY")
+
     # Default Project (for backward compatibility)
     DEFAULT_PROJECT: str = os.getenv("DEFAULT_PROJECT", "env-quickdraw")
 
@@ -48,6 +51,21 @@ class EnvironmentConfig:
         return True
 
     @classmethod
+    def get_llm_api_key(cls, provider_type: Optional[str] = None) -> Optional[str]:
+        """Get the API key for the specified or configured LLM provider.
+
+        Args:
+            provider_type: Override provider type. If None, uses LLM_PROVIDER env var.
+        """
+        provider = (provider_type or cls.LLM_PROVIDER).lower()
+        if provider == "gemini" or provider == "google":
+            return cls.GEMINI_API_KEY
+        elif provider == "anthropic" or provider == "claude":
+            return os.getenv("ANTHROPIC_API_KEY")
+        else:
+            return cls.OPENAI_API_KEY
+
+    @classmethod
     def get_llm_config(cls) -> dict:
         """Get LLM configuration as a dictionary."""
         return {
@@ -58,7 +76,7 @@ class EnvironmentConfig:
             'timeout': cls.LLM_TIMEOUT,
             'max_retries': cls.LLM_MAX_RETRIES,
             'temperature': cls.LLM_TEMPERATURE,
-            'api_key': cls.OPENAI_API_KEY
+            'api_key': cls.get_llm_api_key()
         }
 
 
@@ -72,6 +90,7 @@ LLM_TIMEOUT = EnvironmentConfig.LLM_TIMEOUT
 LLM_MAX_RETRIES = EnvironmentConfig.LLM_MAX_RETRIES
 LLM_TEMPERATURE = EnvironmentConfig.LLM_TEMPERATURE
 OPENAI_API_KEY = EnvironmentConfig.OPENAI_API_KEY
+GEMINI_API_KEY = EnvironmentConfig.GEMINI_API_KEY
 DEFAULT_PROJECT = EnvironmentConfig.DEFAULT_PROJECT
 
 # Output directory (relative to project root)

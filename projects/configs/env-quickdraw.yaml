@@ -40,6 +40,7 @@ application:
     - Insert Menu
     - Tools Menu
     - Help Menu
+    - Window Menu
     - Dimensions Menu
     - Properties Panel
     - Dimensions Panel
@@ -66,14 +67,22 @@ application:
     view: View Menu
     zoom: View Menu
     pan: Left Toolbar
-    hand: Left Toolbar
-    tool: Left Toolbar
+    hand tool: Left Toolbar
+    select tool: Left Toolbar
+    line tool: Left Toolbar
+    eraser tool: Left Toolbar
     draw: Tools Menu
     shape: Tools Menu
     rotate: Tools Menu
     mirror: Tools Menu
     transform: Tools Menu
     flip: Tools Menu
+    window: Window Menu
+    design panel: Window Menu
+    layers panel: Window Menu
+    history panel: Window Menu
+    show panel: Window Menu
+    hide panel: Window Menu
     dimension: Dimensions Menu
     measure: Dimensions Menu
     diameter: Dimensions Menu
@@ -157,7 +166,7 @@ ado:
   project: Env
   area_path: "Env\\ENV Kanda"
   assigned_to: gulzhas.mailybayeva@kandasoft.com
-  default_state: Design
+  default_state: Ready
   test_suite_pattern: "{story_id} : {story_name}"
   qa_prep_pattern: "Story {story_id}: QA Prep"
 
@@ -182,6 +191,7 @@ rules:
     - Insert Menu
     - Tools Menu
     - Help Menu
+    - Window Menu
     - Dimensions Menu
     - Properties Panel
     - Dimensions Panel
@@ -198,8 +208,8 @@ rules:
 
 output_dir: output
 llm_enabled: true
-llm_provider: openai
-llm_model: gpt-4o-mini
+llm_provider: gemini
+llm_model: gemini-2.0-flash
 
 # Patterns for bolding key terms in objectives
 objective_patterns:
@@ -213,7 +223,7 @@ objective_patterns:
   - '\bModal(?:\s+Window)?\b'
   - '\b(?:Undo|Redo|Cut|Copy|Paste|Delete|Duplicate)\b'
   - '\b(?:Rotate|Mirror|Flip|Transform|Scale|Move|Resize)\b'
-  - '\b(?:Windows 11|Windows 10|macOS|iPad|Android Tablet)\b'
+  - '\b(?:Windows 11|Windows 10|iPad|Android Tablet)\b'
   - '\bAccessibility Insights(?:\s+for\s+Windows)?\b'
   - '\bVoiceOver\b'
   - '\bAccessibility Scanner\b'

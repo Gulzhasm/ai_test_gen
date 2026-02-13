@@ -197,6 +197,9 @@ class LLMCorrector:
 
     This class is PROJECT-AGNOSTIC - it uses dynamic prompts built from
     project configuration, making it adaptable to any application.
+
+    Supports multiple LLM providers via the factory pattern:
+    OpenAI, Gemini, Anthropic, Ollama.
     """
 
     def __init__(
@@ -204,11 +207,19 @@ class LLMCorrector:
         api_key: Optional[str] = None,
         model: str = "gpt-4o-mini",
         app_config=None,
-        project_config=None  # Full project config for dynamic prompts
+        project_config=None,  # Full project config for dynamic prompts
+        provider_type: Optional[str] = None  # Override provider type
     ):
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        # Determine provider from project_config, explicit param, or env
+        self._provider_type = (
+            provider_type
+            or (getattr(project_config, 'llm_provider', None) if project_config else None)
+            or os.getenv("LLM_PROVIDER", "openai")
+        ).lower()
+
         self.model = model
-        self._client: Optional[OpenAI] = None
+        self._provider = None
+        self._api_key = api_key
         self._app_config = app_config
         self._project_config = project_config
 
@@ -233,10 +244,28 @@ class LLMCorrector:
                 self._close = app_config.get_close_step()
 
     @property
-    def client(self) -> Optional[OpenAI]:
-        if self._client is None and OPENAI_AVAILABLE and self.api_key:
-            self._client = OpenAI(api_key=self.api_key, timeout=90)
-        return self._client
+    def provider(self):
+        """Lazy initialization of LLM provider via factory."""
+        if self._provider is None:
+            from .factory import create_llm_provider
+            self._provider = create_llm_provider(
+                provider_type=self._provider_type,
+                model=self.model,
+                timeout=90,
+                max_retries=1,
+                api_key=self._api_key
+            )
+            if self._provider:
+                print(f"  LLM provider: {self._provider_type} ({self.model})")
+        return self._provider
+
+    @property
+    def client(self):
+        """Backward compatibility - returns provider for OpenAI or the provider itself."""
+        if self._provider_type == "openai":
+            provider = self.provider
+            return provider.client if provider else None
+        return self.provider
 
     def correct_test_cases(
         self,
@@ -253,13 +282,11 @@ class LLMCorrector:
         Uses dynamic prompts built from project configuration, making this
         method adaptable to any application without hardcoded references.
 
-        This is much cheaper than full generation because:
-        - Smaller input (just test cases, not full rules)
-        - Smaller output (corrections only, not full generation)
-        - Faster response time
+        Supports multiple LLM providers (OpenAI, Gemini, Anthropic, Ollama)
+        via the factory pattern.
         """
-        if not self.client:
-            print("  Warning: OpenAI client not available, skipping LLM correction")
+        if not self.provider:
+            print(f"  Warning: LLM provider ({self._provider_type}) not available, skipping correction")
             return test_cases
 
         # Store for use in _get_minimum_test_count
@@ -311,19 +338,7 @@ class LLMCorrector:
             print(f"  Using fallback prompts for {self._app_name}")
 
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.2,  # Slightly higher for creative edge case generation
-                max_tokens=16000,  # Increased for comprehensive test coverage
-                response_format={"type": "json_object"}
-            )
-
-            content = response.choices[0].message.content
-            result = json.loads(content)
+            result = self._call_llm(system_prompt, user_prompt)
 
             corrected = result.get("test_cases", test_cases)
 
@@ -340,6 +355,55 @@ class LLMCorrector:
         except Exception as e:
             print(f"  Warning: LLM correction failed: {e}")
             return test_cases
+
+    def _call_llm(self, system_prompt: str, user_prompt: str) -> Dict:
+        """Call the LLM provider and return parsed JSON result.
+
+        Works with any provider (OpenAI, Gemini, Anthropic, Ollama).
+        """
+        provider = self.provider
+
+        # For providers with generate_json (Gemini, etc.)
+        if self._provider_type in ("gemini", "google"):
+            combined_prompt = f"{user_prompt}"
+            result = provider.generate_json(
+                prompt=combined_prompt,
+                system_prompt=system_prompt,
+                temperature=0.2,
+                max_tokens=16000
+            )
+            if result is None:
+                raise RuntimeError("Gemini returned no result")
+            return result
+
+        # For OpenAI - use chat completions with JSON mode
+        if self._provider_type == "openai" and hasattr(provider, 'client') and provider.client:
+            response = provider.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.2,
+                max_tokens=16000,
+                response_format={"type": "json_object"}
+            )
+            content = response.choices[0].message.content
+            return json.loads(content)
+
+        # For Anthropic / Ollama - use generate_json
+        if hasattr(provider, 'generate_json'):
+            result = provider.generate_json(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.2,
+                max_tokens=16000
+            )
+            if result is None:
+                raise RuntimeError(f"{self._provider_type} returned no result")
+            return result
+
+        raise RuntimeError(f"Provider {self._provider_type} does not support JSON generation")
 
     def _get_minimum_test_count(self, acceptance_criteria: List[str]) -> int:
         """Calculate the minimum required test count based on story complexity."""
@@ -399,7 +463,7 @@ class LLMCorrector:
         min_tests: int
     ) -> List[Dict]:
         """Retry LLM call with stronger emphasis on meeting minimum count."""
-        if not self.client:
+        if not self.provider:
             return current_tests
 
         shortage = min_tests - len(current_tests)
@@ -426,20 +490,10 @@ Return the COMPLETE list of {min_tests}+ test cases in JSON format.
 DO NOT remove any existing tests. Only ADD new tests.
 '''
 
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a QA test generator. Return JSON only with test_cases array."},
-                    {"role": "user", "content": retry_prompt}
-                ],
-                temperature=0.3,
-                max_tokens=16000,
-                response_format={"type": "json_object"}
-            )
+        system_prompt = "You are a QA test generator. Return JSON only with test_cases array."
 
-            content = response.choices[0].message.content
-            result = json.loads(content)
+        try:
+            result = self._call_llm(system_prompt, retry_prompt)
             new_tests = result.get("test_cases", current_tests)
 
             # Ensure we didn't lose tests
@@ -501,9 +555,17 @@ Format: "<StoryID>-<ID>: <Feature> / <Area> / <Scenario>"
 
 ## FORBIDDEN LANGUAGE
 Remove: "or", "if available", "if supported", "if applicable", "e.g., X or Y"
+NEVER start a step with "If" — steps must be deterministic, not conditional.
+NEVER use "or" in expected results — each expected must describe ONE specific outcome.
+ONE action per step — never combine two toggle operations into a single step.
+BAD: "If 'Show X' is unchecked, select it to check it." → GOOD: First uncheck, then check in separate steps.
+BAD expected: "shown or hidden based on its previous state" → GOOD: "The Design Panel is now visible."
 
-## ID SEQUENCE
-- AC1 for first test
+## ID SEQUENCE & AC1 RULE
+- AC1 must be an OVERALL ACCEPTANCE TEST — NOT just "verify command appears in menu"
+  AC1 must: navigate to entry point → EXECUTE the feature → VERIFY the core behavior works
+  BAD AC1: "Verify command appears in menu" (just availability)
+  GOOD AC1: Open menu → Execute feature → Verify primary behavior → Close
 - Then increment by 5: 005, 010, 015, 020...
 
 ## OBJECTIVE FIELD
@@ -856,15 +918,17 @@ def generate_and_correct(
 
     # Step 3: Correct with LLM (optional)
     if not skip_correction:
-        api_key = os.getenv("OPENAI_API_KEY")
+        provider_type = getattr(project_config, 'llm_provider', None) or config.LLM_PROVIDER
+        api_key = config.EnvironmentConfig.get_llm_api_key() if hasattr(config, 'EnvironmentConfig') else os.getenv("OPENAI_API_KEY")
         if not api_key or api_key == "your-api-key-here":
-            print("\n  Warning: OPENAI_API_KEY not configured, skipping LLM correction")
+            print(f"\n  Warning: API key for {provider_type} not configured, skipping LLM correction")
         else:
-            print("\nStep 3: Correcting test cases with LLM...")
+            print(f"\nStep 3: Correcting test cases with LLM ({provider_type})...")
             corrector = LLMCorrector(
                 api_key=api_key,
                 model=config.LLM_MODEL,
-                project_config=project_config  # Pass full project config for dynamic prompts
+                project_config=project_config,
+                provider_type=provider_type
             )
             test_cases = corrector.correct_test_cases(
                 test_cases=test_cases,

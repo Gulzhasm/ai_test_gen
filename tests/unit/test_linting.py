@@ -29,8 +29,7 @@ Testing will focus on verifying:
 Functional dependencies include menu navigation and object selection, all of which must operate correctly to ensure proper feature behavior.
 
 Accessibility testing will validate compliance with Section 508 / WCAG 2.1 AA standards, including keyboard operability, visible focus indicators, and readable labels and control roles to ensure the feature is usable with assistive technologies.
-
-Tests will be executed on Windows 11 and tablet devices (iOS iPad and Android Tablet) to validate consistent behavior across mouse-based and touch-based interaction models."""
+"""
 
     result = linter.lint(valid_summary)
     assert result.ok is True, f"Expected ok=True but got errors: {result.errors}"
@@ -67,8 +66,7 @@ Testing will focus on verifying:
 Functional dependencies include canvas rendering and toolbar state.
 
 Accessibility testing will validate compliance with Section 508 / WCAG 2.1 AA standards.
-
-Tests will be executed on Windows 11 and tablet devices (iOS iPad and Android Tablet) to validate consistent behavior across mouse-based and touch-based interaction models."""
+"""
     
     result = linter.lint(summary)
     assert result.ok is False
@@ -99,8 +97,7 @@ Testing will focus on verifying:
 Functional dependencies include core components.
 
 Accessibility testing will validate compliance with Section 508 / WCAG 2.1 AA standards.
-
-Tests will be executed on Windows 11 and tablet devices (iOS iPad and Android Tablet) to validate consistent behavior across mouse-based and touch-based interaction models."""
+"""
     
     result = linter.lint(summary)
     assert result.ok is False

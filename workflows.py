@@ -197,7 +197,10 @@ class GenerateWorkflow(IWorkflow):
         # Step 3: Save outputs
         print("\n[3/3] Saving outputs...")
         output_files = self._save_outputs(
-            config, story_id, title, test_cases, output_dir, skip_correction
+            config, story_id, title, description, acceptance_criteria,
+            test_cases, output_dir, skip_correction,
+            story_repo=story_repo,
+            qa_prep_exists=bool(qa_prep)
         )
 
         print(f"\nGeneration complete")
@@ -226,18 +229,21 @@ class GenerateWorkflow(IWorkflow):
         qa_prep: str
     ) -> List[Dict]:
         """Apply LLM correction to generated test cases."""
-        api_key = os.getenv("OPENAI_API_KEY")
+        from core.config.environment import EnvironmentConfig
+        provider_type = getattr(config, 'llm_provider', None) or os.getenv("LLM_PROVIDER", "openai")
+        api_key = EnvironmentConfig.get_llm_api_key(provider_type)
         if not api_key or api_key == "your-api-key-here":
-            print("  OPENAI_API_KEY not configured, skipping LLM correction")
+            print(f"  API key for {provider_type} not configured, skipping LLM correction")
             return test_cases
 
         try:
             from core.services.llm.corrector import LLMCorrector
-            print("  Applying LLM corrections (this may take 30-60 seconds)...")
+            print(f"  Applying LLM corrections via {provider_type} (this may take 30-60 seconds)...")
             corrector = LLMCorrector(
                 api_key=api_key,
                 model=config.llm_model,
-                project_config=config  # Pass full project config for dynamic prompts
+                project_config=config,
+                provider_type=provider_type
             )
 
             embedder = TestStepEmbedder()
@@ -265,14 +271,19 @@ class GenerateWorkflow(IWorkflow):
         config: ProjectConfig,
         story_id: int,
         title: str,
+        description: str,
+        acceptance_criteria: List[str],
         test_cases: List[Dict],
         output_dir: str,
-        skip_correction: bool
+        skip_correction: bool,
+        story_repo=None,
+        qa_prep_exists: bool = False
     ) -> Dict[str, str]:
         """Save generated outputs to files."""
         import json
         from infrastructure.export import CSVGenerator, ObjectiveGenerator
         from infrastructure.export.csv_generator import CSVConfig
+        from infrastructure.export.qa_summary_generator import QASummaryGenerator
 
         os.makedirs(output_dir, exist_ok=True)
 
@@ -283,11 +294,12 @@ class GenerateWorkflow(IWorkflow):
 
         output_files = {}
 
-        # CSV - pass config with area_path and assigned_to
+        # CSV - always "Design" state (ADO requirement for import)
+        # State transitions to "Ready" later via update-objectives workflow
         csv_config = CSVConfig(
             area_path=config.ado.area_path,
             assigned_to=config.ado.assigned_to,
-            default_state=config.ado.default_state
+            default_state="Design"
         )
         csv_path = os.path.join(output_dir, f"{story_id}_{safe_title}_{suffix}_TESTS.csv")
         CSVGenerator(config=csv_config).generate_csv(test_cases=test_cases, output_file=csv_path)
@@ -299,6 +311,36 @@ class GenerateWorkflow(IWorkflow):
         ObjectiveGenerator().generate_objectives_file(test_cases, obj_path)
         output_files['objectives'] = obj_path
         print(f"  Objectives: {obj_path}")
+
+        # QA Planning Summary (skip if QA Prep already exists in ADO)
+        if qa_prep_exists:
+            print("  QA Summary: Skipped (QA Prep already exists in ADO)")
+        else:
+            ac_text = '\n'.join(acceptance_criteria) if isinstance(acceptance_criteria, list) else acceptance_criteria
+            story_data = {
+                'story_id': story_id,
+                'title': title,
+                'description_text': description,
+                'acceptance_criteria_text': ac_text
+            }
+            from core.config.environment import EnvironmentConfig
+            llm_provider = getattr(config, 'llm_provider', None) or os.getenv("LLM_PROVIDER", "openai")
+            llm_api_key = EnvironmentConfig.get_llm_api_key(llm_provider)
+            summary_generator = QASummaryGenerator(
+                api_key=llm_api_key,
+                model=config.llm_model if hasattr(config, 'llm_model') else "gpt-4o-mini",
+                provider_type=llm_provider
+            )
+            summary_text = summary_generator.generate_summary(story_data, test_cases)
+            summary_path = summary_generator.save_summary(
+                summary_text, story_id, output_dir, feature_name_safe=safe_title
+            )
+            output_files['qa_summary'] = summary_path
+            print(f"  QA Summary: {summary_path}")
+
+            # Upload QA summary to ADO QA Prep task
+            if story_repo and hasattr(story_repo, 'update_qa_prep'):
+                story_repo.update_qa_prep(story_id, summary_text)
 
         # Debug JSON
         json_path = os.path.join(output_dir, f"{story_id}_{safe_title}_{suffix}_DEBUG.json")
@@ -1762,15 +1804,24 @@ class UpdateObjectivesWorkflow(IWorkflow):
         success = 0
         failed = 0
 
+        # Determine target state from config (e.g., "Ready")
+        target_state = config.ado.default_state or "Ready"
+        print(f"  Target state: {target_state}")
+
         for m in matches:
             print(f"  [{m['ado_id']}] {m['tc_id']}...", end=" ")
 
             try:
                 patch_doc = [
                     {
-                        "op": "replace",
+                        "op": "add",
                         "path": "/fields/System.Description",
                         "value": m['objective']
+                    },
+                    {
+                        "op": "add",
+                        "path": "/fields/System.State",
+                        "value": target_state
                     }
                 ]
 
@@ -1793,6 +1844,183 @@ class UpdateObjectivesWorkflow(IWorkflow):
         )
 
 
+class CreateBugWorkflow(IWorkflow):
+    """Create a formatted bug report from a structured .txt file.
+
+    Usage:
+        # Local only (save HTML to output/)
+        python3 workflows.py create-bug --file bug.txt
+
+        # Upload to ADO
+        python3 workflows.py create-bug --file bug.txt --upload
+
+        # Upload and link to parent story
+        python3 workflows.py create-bug --file bug.txt --upload --story-id 272261
+    """
+
+    @property
+    def name(self) -> str:
+        return "create-bug"
+
+    @property
+    def description(self) -> str:
+        return "Create a formatted bug report from a .txt file"
+
+    def validate_inputs(self, **kwargs) -> Optional[str]:
+        bug_file = kwargs.get('bug_file')
+        if not bug_file:
+            return "bug_file is required (--file)"
+        if not os.path.exists(bug_file):
+            return f"Bug file not found: {bug_file}"
+        return None
+
+    def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
+        from core.application.use_cases.bug_parser import BugFileParser
+        from core.application.use_cases.bug_formatter import BugHtmlFormatter
+
+        bug_file = kwargs['bug_file']
+        upload = kwargs.get('upload', False)
+        dry_run = kwargs.get('dry_run', False)
+        story_id = kwargs.get('story_id')
+        output_dir = config.output_dir or 'output'
+
+        mode = 'Dry run (preview)' if dry_run else ('Upload to ADO' if upload else 'Local only')
+        print(f"\nWorkflow: Create Bug Report")
+        print(f"Project: {config.project_id} ({config.application.name})")
+        print(f"Input File: {bug_file}")
+        print(f"Mode: {mode}")
+        if story_id:
+            print(f"Link to Story: {story_id}")
+        print()
+
+        # Step 1: Parse the .txt file
+        print("[1/3] Parsing bug file...")
+        parser = BugFileParser()
+        try:
+            bug = parser.parse(bug_file)
+        except (ValueError, FileNotFoundError) as e:
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                message=f"Failed to parse bug file: {e}"
+            )
+
+        # Validate bug report
+        errors = bug.validate()
+        if errors:
+            return WorkflowResult(
+                status=WorkflowStatus.FAILED,
+                message=f"Bug validation errors: {'; '.join(errors)}"
+            )
+
+        print(f"  Title: {bug.title}")
+        print(f"  Issue: {bug.issue[:80]}{'...' if len(bug.issue) > 80 else ''}")
+        print(f"  Steps: {len(bug.steps)}")
+        print(f"  Attachments: {len(bug.attachments)}")
+        if bug.is_wcag:
+            print(f"  Type: WCAG/Accessibility")
+
+        # Override story_id from CLI if provided
+        if story_id:
+            bug.story_id = story_id
+        elif bug.story_id:
+            story_id = bug.story_id
+
+        # Step 2: Format as ADO HTML
+        print("\n[2/3] Formatting bug report...")
+        formatter = BugHtmlFormatter()
+        html_content = formatter.format(bug)
+
+        # Save HTML locally
+        os.makedirs(output_dir, exist_ok=True)
+        safe_title = "".join(c if c.isalnum() or c in ' _-' else '_' for c in bug.title)
+        safe_title = safe_title.replace(' ', '_')[:60]
+        html_path = os.path.join(output_dir, f"BUG_{safe_title}.html")
+        with open(html_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        print(f"  Saved HTML: {html_path}")
+
+        # Step 3: Upload to ADO (if requested and not dry-run)
+        if upload and not dry_run:
+            print("\n[3/3] Uploading to ADO...")
+            self._ensure_credentials(config)
+            if not config.ado or not config.ado.pat:
+                return WorkflowResult(
+                    status=WorkflowStatus.FAILED,
+                    message="ADO_PAT environment variable not set"
+                )
+
+            from infrastructure.ado.ado_bug_repository import ADOBugRepository
+            bug_repo = ADOBugRepository(config.ado)
+
+            bug_id = bug_repo.create_bug(
+                bug=bug,
+                repro_steps_html=html_content,
+                iteration_path=bug.iteration
+            )
+
+            if not bug_id:
+                return WorkflowResult(
+                    status=WorkflowStatus.FAILED,
+                    message="Failed to create bug in ADO"
+                )
+
+            bug_url = bug_repo.get_bug_url(bug_id)
+            print(f"  Created Bug #{bug_id}")
+            print(f"  URL: {bug_url}")
+
+            # Link to parent story if provided
+            if story_id:
+                if bug_repo.link_bug_to_story(bug_id, story_id):
+                    print(f"  Linked to Story #{story_id}")
+                else:
+                    print(f"  WARNING: Failed to link to Story #{story_id}")
+
+            return WorkflowResult(
+                status=WorkflowStatus.SUCCESS,
+                message=f"Bug #{bug_id} created in ADO: {bug_url}",
+                data={
+                    'bug_id': bug_id,
+                    'bug_url': bug_url,
+                    'title': bug.title,
+                    'html_path': html_path,
+                    'story_id': story_id
+                }
+            )
+        elif dry_run:
+            print("\n[3/3] Dry run — skipped ADO upload")
+            print(f"  Would create bug: {bug.title}")
+            print(f"  Would assign to: {config.ado.assigned_to if config.ado else 'N/A'}")
+            print(f"  Would set area: {config.ado.area_path if config.ado else 'N/A'}")
+            if story_id:
+                print(f"  Would link to story: #{story_id}")
+            return WorkflowResult(
+                status=WorkflowStatus.SUCCESS,
+                message=f"Dry run complete. Bug report saved: {html_path}",
+                data={
+                    'title': bug.title,
+                    'html_path': html_path,
+                    'story_id': story_id,
+                    'dry_run': True
+                }
+            )
+        else:
+            print("\n[3/3] Skipped (no --upload flag)")
+            return WorkflowResult(
+                status=WorkflowStatus.SUCCESS,
+                message=f"Bug report saved locally: {html_path}",
+                data={
+                    'title': bug.title,
+                    'html_path': html_path,
+                    'story_id': story_id
+                }
+            )
+
+    def _ensure_credentials(self, config: ProjectConfig):
+        """Ensure ADO credentials are loaded."""
+        if config.ado and not config.ado.pat:
+            config.ado.pat = os.getenv('ADO_PAT')
+
+
 class WorkflowEngine:
     """Orchestrates workflow execution with project configuration."""
 
@@ -1812,6 +2040,7 @@ class WorkflowEngine:
             ListProjectsWorkflow(),
             UpdateFromFeedbackWorkflow(),
             UpdateObjectivesWorkflow(),
+            CreateBugWorkflow(),
         ]
         for workflow in workflows:
             self._workflows[workflow.name] = workflow
@@ -1874,6 +2103,7 @@ Workflows:
   update-from-feedback  Update test cases based on reviewer feedback
   init-project          Initialize a new project configuration
   discover              Discover project config from ADO stories
+  create-bug            Create a formatted bug report from a .txt file
   list-projects         List all available project configurations
 
 Examples:
@@ -1906,6 +2136,15 @@ Examples:
 
   # Discover from stories
   python3 workflows.py discover --story-ids 12345 12346 --project-name my-app
+
+  # Create bug report (local only)
+  python3 workflows.py create-bug --file bugs/sample_bug.txt
+
+  # Create bug report and upload to ADO
+  python3 workflows.py create-bug --file bugs/sample_bug.txt --upload
+
+  # Create bug and link to parent story
+  python3 workflows.py create-bug --file bugs/sample_bug.txt --upload --story-id 272261
 
   # List projects
   python3 workflows.py list-projects
@@ -1983,6 +2222,18 @@ Examples:
                                    help='Directory containing local test files')
     objectives_parser.add_argument('--dry-run', action='store_true',
                                    help='Preview changes without updating ADO')
+
+    # Create bug workflow
+    bug_parser = subparsers.add_parser('create-bug',
+                                        help='Create a formatted bug report from a .txt file')
+    bug_parser.add_argument('--file', dest='bug_file', required=True,
+                             help='Structured .txt file with bug details')
+    bug_parser.add_argument('--upload', action='store_true',
+                             help='Upload bug to ADO (default: local only)')
+    bug_parser.add_argument('--dry-run', action='store_true',
+                             help='Preview formatted bug without uploading (use with --upload)')
+    bug_parser.add_argument('--story-id', type=int, default=None,
+                             help='Link bug to parent story ID')
 
     args = parser.parse_args()
 

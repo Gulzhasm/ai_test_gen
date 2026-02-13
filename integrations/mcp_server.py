@@ -414,6 +414,94 @@ async def get_story_details(story_id: str, project_id: str = "env-quickdraw") ->
         return {"error": str(e), "details": traceback.format_exc()}
 
 
+async def create_bug_from_file(
+    bug_file: str,
+    project_id: str = "env-quickdraw",
+    upload: bool = False,
+    story_id: str = None,
+    dry_run: bool = False
+) -> dict:
+    """
+    WORKFLOW 4: Create a formatted bug report from a structured .txt file.
+
+    Args:
+        bug_file: Path to structured .txt bug file
+        project_id: Project configuration ID
+        upload: Whether to upload to ADO
+        story_id: Optional parent story ID to link to
+        dry_run: Preview without uploading
+
+    Returns:
+        Dict with bug report details and output file path
+    """
+    try:
+        from core.application.use_cases.bug_parser import BugFileParser
+        from core.application.use_cases.bug_formatter import BugHtmlFormatter
+
+        config = load_project_config(project_id)
+        ensure_credentials(config)
+
+        # Parse
+        parser = BugFileParser()
+        bug = parser.parse(bug_file)
+
+        errors = bug.validate()
+        if errors:
+            return {"error": f"Validation errors: {'; '.join(errors)}"}
+
+        if story_id:
+            bug.story_id = int(story_id)
+
+        # Format
+        formatter = BugHtmlFormatter()
+        html_content = formatter.format(bug)
+
+        # Save locally
+        output_dir = PROJECT_ROOT / (config.output_dir or "output")
+        output_dir.mkdir(exist_ok=True)
+        safe_title = "".join(c if c.isalnum() or c in ' _-' else '_' for c in bug.title)
+        safe_title = safe_title.replace(' ', '_')[:60]
+        html_path = output_dir / f"BUG_{safe_title}.html"
+        html_path.write_text(html_content, encoding='utf-8')
+
+        result = {
+            "success": True,
+            "workflow": "create-bug",
+            "title": bug.title,
+            "issue": bug.issue,
+            "steps_count": len(bug.steps),
+            "attachments": bug.attachments,
+            "html_path": str(html_path),
+            "uploaded": False
+        }
+
+        # Upload if requested (skip if dry_run)
+        if upload and not dry_run:
+            from infrastructure.ado.ado_bug_repository import ADOBugRepository
+            bug_repo = ADOBugRepository(config.ado)
+            bug_id = bug_repo.create_bug(
+                bug=bug,
+                repro_steps_html=html_content,
+                iteration_path=bug.iteration
+            )
+            if bug_id:
+                bug_url = bug_repo.get_bug_url(bug_id)
+                result["uploaded"] = True
+                result["bug_id"] = bug_id
+                result["bug_url"] = bug_url
+
+                if bug.story_id:
+                    linked = bug_repo.link_bug_to_story(bug_id, bug.story_id)
+                    result["linked_to_story"] = bug.story_id if linked else None
+            else:
+                result["upload_error"] = "Failed to create bug in ADO"
+
+        return result
+
+    except Exception as e:
+        return {"error": str(e), "details": traceback.format_exc()}
+
+
 def run_cli():
     """Run in CLI mode (when arguments provided).
 
@@ -575,6 +663,39 @@ if MCP_AVAILABLE:
                     "type": "object",
                     "properties": {}
                 }
+            ),
+            Tool(
+                name="create_bug",
+                description="WORKFLOW 4: Create a formatted bug report from a structured .txt file. Formats to ENV Drawing Bug Template and optionally uploads to ADO.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "bug_file": {
+                            "type": "string",
+                            "description": "Path to structured .txt bug file"
+                        },
+                        "project": {
+                            "type": "string",
+                            "description": "Project configuration ID (default: 'env-quickdraw')",
+                            "default": "env-quickdraw"
+                        },
+                        "upload": {
+                            "type": "boolean",
+                            "description": "Upload bug to ADO (default: false)",
+                            "default": False
+                        },
+                        "story_id": {
+                            "type": "string",
+                            "description": "Link bug to parent story ID (optional)"
+                        },
+                        "dry_run": {
+                            "type": "boolean",
+                            "description": "Preview without uploading (default: false)",
+                            "default": False
+                        }
+                    },
+                    "required": ["bug_file"]
+                }
             )
         ]
 
@@ -625,6 +746,16 @@ if MCP_AVAILABLE:
                     "default": "env-quickdraw"
                 }, indent=2)
             )]
+
+        elif name == "create_bug":
+            result = await create_bug_from_file(
+                bug_file=arguments["bug_file"],
+                project_id=arguments.get("project", "env-quickdraw"),
+                upload=arguments.get("upload", False),
+                story_id=arguments.get("story_id"),
+                dry_run=arguments.get("dry_run", False)
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]

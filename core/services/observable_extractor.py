@@ -331,8 +331,6 @@ class ObservableExtractor:
         # Pattern 1: Platform constraints
         if 'windows' in ac_lower:
             constraints.append('on Windows')
-        if 'macos' in ac_lower or 'mac os' in ac_lower:
-            constraints.append('on macOS')
         if 'ipad' in ac_lower:
             constraints.append('on iPad')
         if 'android' in ac_lower:

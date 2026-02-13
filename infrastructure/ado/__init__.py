@@ -11,10 +11,13 @@ from .ado_repository import (
     HtmlParser
 )
 
+from .ado_bug_repository import ADOBugRepository
+
 __all__ = [
     'ADOHttpClient',
     'ADOStoryRepository',
     'ADOTestSuiteRepository',
     'ADOTestCaseRepository',
+    'ADOBugRepository',
     'HtmlParser'
 ]

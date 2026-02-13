@@ -7,6 +7,7 @@ from typing import Optional, Union
 from .ollama import OllamaProvider
 from .openai_provider import OpenAIProvider
 from .anthropic_provider import AnthropicProvider
+from .gemini_provider import GeminiProvider
 
 
 def create_llm_provider(
@@ -14,18 +15,18 @@ def create_llm_provider(
     endpoint: str = "http://localhost:11434",
     model: Optional[str] = None,
     timeout: int = 30,
-    max_retries: int = 2,
+    max_retries: int = 1,
     api_key: Optional[str] = None
-) -> Optional[Union[OllamaProvider, OpenAIProvider, AnthropicProvider]]:
+) -> Optional[Union[OllamaProvider, OpenAIProvider, AnthropicProvider, GeminiProvider]]:
     """Create LLM provider based on configuration.
 
     Args:
-        provider_type: Type of provider ('ollama', 'openai', or 'anthropic')
+        provider_type: Type of provider ('ollama', 'openai', 'anthropic', or 'gemini')
         endpoint: API endpoint (used for Ollama)
         model: Model name (defaults based on provider)
         timeout: Request timeout in seconds
         max_retries: Maximum retries on failure
-        api_key: API key (used for OpenAI/Anthropic, defaults to env var)
+        api_key: API key (used for OpenAI/Anthropic/Gemini, defaults to env var)
 
     Returns:
         LLM provider instance or None if unsupported type
@@ -53,7 +54,14 @@ def create_llm_provider(
             timeout=timeout,
             max_retries=max_retries
         )
+    elif provider == "gemini" or provider == "google":
+        return GeminiProvider(
+            api_key=api_key or os.getenv("GEMINI_API_KEY"),
+            model=model or "gemini-2.0-flash",
+            timeout=timeout,
+            max_retries=max_retries
+        )
     else:
         print(f"Unsupported LLM provider type: {provider_type}")
-        print("Supported providers: 'ollama', 'openai', 'anthropic'")
+        print("Supported providers: 'ollama', 'openai', 'anthropic', 'gemini'")
         return None

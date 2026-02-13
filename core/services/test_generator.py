@@ -320,7 +320,8 @@ class GenericTestGenerator:
         self.story_type = StoryTypeClassifier.classify(
             story_data.get('title', ''),
             criteria,
-            qa_prep_content or ""
+            qa_prep_content or "",
+            description=description
         )
         print(f"  Story type classified as: {self.story_type.value}")
 
@@ -393,6 +394,9 @@ class GenericTestGenerator:
         if re.search(r'\bundo\b.*\bredo\b|\bredo\b.*\bundo\b|\bundo/redo\b', combined_text, re.IGNORECASE):
             if 'undo_redo' not in qa_details.get('edge_cases', []):
                 qa_details.setdefault('undo_redo_actions', []).append('transformation')
+
+        # Store all criteria for AC1 acceptance test generation
+        self._all_criteria = criteria
 
         # Detect and track redundant ACs to avoid duplicate tests
         self._redundant_acs = self._detect_redundant_criteria(criteria)
@@ -648,9 +652,9 @@ class GenericTestGenerator:
         """Generate test case for an acceptance criterion."""
         ac_lower = ac_bullet.lower()
 
-        # AC1 is always availability test
+        # AC1 is always overall acceptance test (end-to-end core feature verification)
         if test_id.endswith(self.rules.first_test_id):
-            return self._generate_availability_test(
+            return self._generate_acceptance_test(
                 test_id, ac_bullet, feature_name, story_data, qa_details
             )
 
@@ -669,7 +673,7 @@ class GenericTestGenerator:
             test_id, ac_bullet, feature_name, story_data, qa_details
         )
 
-    def _generate_availability_test(
+    def _generate_acceptance_test(
         self,
         test_id: str,
         ac_bullet: str,
@@ -677,7 +681,16 @@ class GenericTestGenerator:
         story_data: Dict,
         qa_details: Dict
     ) -> Dict:
-        """Generate availability/access test for AC1."""
+        """Generate overall acceptance test for AC1.
+
+        AC1 is an end-to-end test that verifies the core feature works:
+        1. Navigate to entry point
+        2. Execute the feature's primary action
+        3. Verify the primary behavior (using AC bullets)
+        4. Close
+
+        This goes beyond just checking availability — it proves the feature works.
+        """
         entry_points = qa_details.get('entry_points', [])
 
         # For Help/Documentation stories, always use Help Menu
@@ -689,7 +702,7 @@ class GenericTestGenerator:
         else:
             entry_point = self.app.determine_entry_point(feature_name, entry_points)
 
-        # Generate humanistic title based on feature
+        # Generate title — overall acceptance, not just access
         scenario = self._generate_ac1_title(feature_name, entry_point, ac_bullet)
         title = f"{test_id}: {feature_name} / {entry_point} / {scenario}"
 
@@ -704,36 +717,42 @@ class GenericTestGenerator:
                 steps.extend(self._get_object_setup_steps())
 
         # Generate steps based on entry point type
+        # Unlike the old availability test, AC1 now EXECUTES the feature and VERIFIES behavior
         if entry_point == "Properties Panel":
             steps.extend([
                 {"action": f"Navigate to the {entry_point} on the right side of the screen.",
-                 "expected": f"{entry_point} is displayed showing label options for the selected object."},
-                {"action": f"Verify that label controls are visible and accessible in the {entry_point}.",
-                 "expected": "Label visibility and repositioning controls are available."},
+                 "expected": f"{entry_point} is displayed showing options for the selected object."},
+                {"action": f"Apply the {feature_name} setting in the {entry_point}.",
+                 "expected": f"{feature_name} is applied to the selected object."},
+                {"action": f"Verify: {feature_name} is applied to selected object(s)",
+                 "expected": f"{feature_name} is applied to selected object(s)."},
             ])
-            objective = f"Verify that <b>{feature_name}</b> controls are accessible from <b>{entry_point}</b> after selecting an object"
+            objective = f"Verify that <b>{feature_name}</b> can be applied from <b>{entry_point}</b> and works correctly"
         elif 'Toolbar' in entry_point:
-            # For toolbars (Left Toolbar, Top Action Toolbar), use "icon" terminology
             steps.extend([
-                {"action": f"Locate the {feature_name} icon in the {entry_point}.",
-                 "expected": f"{feature_name} icon is visible and enabled."},
+                {"action": f"Click the {feature_name} icon in the {entry_point}.",
+                 "expected": f"{feature_name} is activated."},
+                {"action": f"Verify: {feature_name} is applied to selected object(s)",
+                 "expected": f"{feature_name} is applied to selected object(s)."},
             ])
-            objective = f"Verify that <b>{feature_name}</b> icon is accessible from <b>{entry_point}</b>"
+            objective = f"Verify that <b>{feature_name}</b> can be activated from <b>{entry_point}</b> and works correctly"
         else:
             # For menus (File Menu, Edit Menu, Tools Menu, etc.)
             steps.extend([
                 {"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens displaying available commands."},
-                {"action": f"Locate the {feature_name} command in the menu.",
-                 "expected": f"{feature_name} command is visible and enabled."},
+                {"action": f"Select the {feature_name} command.",
+                 "expected": f"The {feature_name} feature is activated."},
+                {"action": f"Verify: {feature_name} is applied to selected object(s)",
+                 "expected": f"{feature_name} is applied to selected object(s)."},
             ])
-            objective = f"Verify that <b>{feature_name}</b> command is accessible from <b>{entry_point}</b>"
+            objective = f"Verify that <b>{feature_name}</b> command is accessible from <b>{entry_point}</b> and works correctly"
 
         steps.append(self._get_close_step())
 
         return {'id': test_id, 'title': title, 'steps': steps, 'objective': objective}
 
     def _generate_ac1_title(self, feature_name: str, entry_point: str, ac_bullet: str) -> str:
-        """Generate a humanistic title for AC1 availability test.
+        """Generate a humanistic title for AC1 overall acceptance test.
 
         Uses description context for Help/Documentation features.
         Uses LLM if available, otherwise falls back to intelligent rule-based generation.
@@ -744,10 +763,8 @@ class GenericTestGenerator:
         # For Help/Documentation features, use description-aware titles
         if story_type == StoryType.HELP_DOCUMENTATION:
             if desc_ctx and desc_ctx.menu_path:
-                # Use the menu path to create a meaningful title
-                # e.g., "Help → User Manual" -> "Help: User Manual menu access"
-                return f"{feature_name} menu access"
-            return f"{feature_name} menu access"
+                return f"{feature_name} overall acceptance"
+            return f"{feature_name} overall acceptance"
 
         # Try LLM-based title generation if corrector is available
         if self._test_corrector:
@@ -755,7 +772,7 @@ class GenericTestGenerator:
                 llm_title = self._test_corrector.generate_title(
                     feature_name=feature_name,
                     ac_text=ac_bullet,
-                    test_focus="menu availability and access"
+                    test_focus="overall acceptance - end-to-end core feature verification"
                 )
                 if llm_title:
                     return llm_title
@@ -765,27 +782,29 @@ class GenericTestGenerator:
         # Intelligent rule-based title generation
         feature_lower = feature_name.lower()
 
-        # Extract key action words from feature name
-        if 'rotate' in feature_lower and 'mirror' in feature_lower:
-            return "Rotate and Mirror commands in menu"
+        # Extract key action words from feature name for meaningful titles
+        if 'show' in feature_lower and 'hide' in feature_lower:
+            return "Show and hide panels (complete scenario)"
+        elif 'rotate' in feature_lower and 'mirror' in feature_lower:
+            return "Rotate and Mirror applied to objects"
         elif 'rotate' in feature_lower:
-            return "Rotate command menu access"
+            return "Rotate applied to selected object"
         elif 'mirror' in feature_lower:
-            return "Mirror command menu access"
+            return "Mirror applied to selected object"
         elif 'transform' in feature_lower:
-            return "Transformation tools menu access"
+            return "Transformation applied to selected object"
         elif 'dimension' in feature_lower:
-            return "Dimension tools menu access"
+            return "Dimension placed on drawing"
         elif 'import' in feature_lower or 'export' in feature_lower:
-            return "File import/export menu access"
+            return "File import/export completed"
         elif 'property' in feature_lower or 'properties' in feature_lower:
-            return "Properties panel access"
+            return "Properties applied to selected object"
 
-        # Generic but still better than "Feature availability"
-        short_name = feature_name.split('(')[0].strip()  # Remove parenthetical
+        # Generic but descriptive
+        short_name = feature_name.split('(')[0].strip()
         if len(short_name) > 30:
             short_name = short_name[:27] + "..."
-        return f"{short_name} menu access"
+        return f"{short_name} (complete scenario)"
 
     def _generate_undo_redo_test(
         self,
@@ -1523,33 +1542,6 @@ class GenericTestGenerator:
             objective = f"Verify that <b>{feature_name}</b> controls meet <b>WCAG 2.1 AA</b> standards on <b>{windows_platform}</b>"
             accessibility_tests.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
 
-        # macOS accessibility test
-        if 'macOS' in platforms or 'Mac' in platforms:
-            test_id = f"{story_id}-{self.test_id_counter:03d}"
-            self.test_id_counter += self.rules.test_id_increment
-
-            title = f"{test_id}: {feature_name} / Accessibility / VoiceOver navigation (macOS)"
-
-            steps = [
-                self._get_prereq_step(),
-                {"action": "Pre-req: VoiceOver is enabled (Cmd+F5)", "expected": ""},
-                self._get_launch_step(),
-            ]
-            if include_create_file:
-                steps.append(self._get_create_file_step())
-
-            steps.extend([
-                {"action": f"Navigate to {entry_point} using keyboard (Tab/Arrow keys).", "expected": ""},
-                {"action": f"Verify the {feature_name} controls are announced with meaningful labels.",
-                 "expected": f"VoiceOver announces {feature_name} controls with meaningful labels and roles."},
-                {"action": "Verify keyboard focus indicators are visible.",
-                 "expected": "Focus indicators are clearly visible on all interactive elements."},
-            ])
-            steps.append(self._get_close_step())
-
-            objective = f"Verify that <b>{feature_name}</b> controls are accessible via <b>VoiceOver</b> on <b>macOS</b>"
-            accessibility_tests.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
-
         # iPad/iOS accessibility test - use exact platform name in title
         ios_platform = 'iPad' if 'iPad' in platforms else 'iPhone'
         if 'iPad' in platforms or 'iPhone' in platforms:
@@ -1676,11 +1668,21 @@ class GenericTestGenerator:
 
         # Extract entry points using project config with word boundary matching
         # Avoids false matches like 'cut' in 'executed'
+        # Prioritize: explicit menu mentions first, then other entry points
+        menu_entry_points = []
+        other_entry_points = []
         for keyword, entry_point in self.app.entry_point_mappings.items():
             pattern = rf'\b{re.escape(keyword)}\b'
             if re.search(pattern, qa_lower):
-                if entry_point not in details['entry_points']:
-                    details['entry_points'].append(entry_point)
+                if entry_point not in menu_entry_points and entry_point not in other_entry_points:
+                    # If keyword is a multi-word phrase or matches a "Menu" entry, prioritize it
+                    if 'Menu' in entry_point and re.search(rf'\b{re.escape(keyword)}\s+menu\b', qa_lower, re.IGNORECASE):
+                        menu_entry_points.insert(0, entry_point)  # Highest priority
+                    elif 'Menu' in entry_point:
+                        menu_entry_points.append(entry_point)
+                    else:
+                        other_entry_points.append(entry_point)
+        details['entry_points'] = menu_entry_points + other_entry_points
 
         # ALWAYS use ALL supported platforms for touch/accessibility tests
         # Platform mentions in QA prep are informational only - we test all platforms

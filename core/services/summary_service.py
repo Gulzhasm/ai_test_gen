@@ -396,11 +396,8 @@ class SummaryService:
         )
     
     def _build_platform_clause(self, test_cases: List[TestCase]) -> str:
-        """Build platform clause."""
-        return (
-            "Tests will be executed on Windows 11 and tablet devices (iOS iPad and Android Tablet) "
-            "to validate consistent behavior across mouse-based and touch-based interaction models."
-        )
+        """Build platform clause. Returns empty - no hardcoded platform boilerplate."""
+        return ""
     
     def _render_summary(self, plan: SummaryPlan) -> str:
         """Render summary from plan."""

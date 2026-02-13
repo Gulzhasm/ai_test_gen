@@ -13,9 +13,10 @@ Generate high-quality test cases from Azure DevOps user stories automatically us
 5. [Adding Your Project](#adding-your-project)
 6. [Configuration Reference](#configuration-reference)
 7. [Output Files](#output-files)
-8. [MCP Integration (GitHub Copilot)](#mcp-integration-github-copilot)
-9. [Architecture](#architecture)
-10. [Troubleshooting](#troubleshooting)
+8. [Bug Creation](#bug-creation)
+9. [MCP Integration (GitHub Copilot)](#mcp-integration-github-copilot)
+10. [Architecture](#architecture)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -183,6 +184,7 @@ For detailed CLI documentation, see [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.m
 | `upload-existing` | Upload existing tests to ADO | `python workflows.py upload-existing --story-id 272889` |
 | `init-project` | Create new project config | `python workflows.py init-project --name "MyApp"` |
 | `discover` | Auto-discover project settings | `python workflows.py discover --story-ids 123 456` |
+| `create-bug` | Create formatted ADO bug report | `python workflows.py create-bug --file bugs/my_bug.txt` |
 
 ### Common Examples
 
@@ -210,6 +212,18 @@ python workflows.py upload-existing --story-id 272889
 
 # 8. Initialize a new project
 python workflows.py init-project --name "MyApp" --org myorg --ado-project MyProject
+
+# 9. Create a bug report (local preview)
+python workflows.py create-bug --file bugs/my_bug.txt
+
+# 10. Create a bug report with dry-run (preview ADO fields without uploading)
+python workflows.py create-bug --file bugs/my_bug.txt --upload --dry-run
+
+# 11. Create a bug report and upload to ADO
+python workflows.py create-bug --file bugs/my_bug.txt --upload
+
+# 12. Create a bug and link to parent story
+python workflows.py create-bug --file bugs/my_bug.txt --upload --story-id 272261
 ```
 
 ---
@@ -377,6 +391,78 @@ The CSV follows Azure DevOps import format:
 
 ---
 
+## Bug Creation
+
+Create formatted ADO Bug work items from structured `.txt` files following the **ENV Drawing Bug Template**.
+
+### Input File Format
+
+Create a `.txt` file (see `bugs/sample_bug.txt` for a complete example):
+
+```
+TITLE: DRAW: Feature Name / Brief Description
+SEVERITY: 2 - High
+STORY_ID: 272261
+
+ISSUE: One sentence describing what is wrong.
+
+ADDITIONAL_INFO:
+- Regression from build 3.2.1
+- WCAG 2.1 AA 1.3.1 (for accessibility bugs)
+
+ATTACHMENTS:
+- screenshot.png
+- video.mp4
+
+STEPS:
+1. Launch the ENV QuickDraw application.
+2. Navigate to the affected area.
+3. Perform the action.
+   a. Observation text << NOT EXPECTED (see attached screenshot.png)
+      i. Expected: What should happen instead.
+      ii. Expected: Additional expected behavior.
+
+SYSTEM_INFO:
+- OS: Windows 11 Pro 23H2
+- App Version: ENV QuickDraw 3.2.4
+```
+
+### Bug Title Conventions
+
+| Type | Format |
+|------|--------|
+| Normal bug | `DRAW: Feature / Brief Description` |
+| WCAG/Accessibility | `DRAW: WCAG Accessibility Errors / Feature / Error` |
+
+### CLI Commands
+
+```bash
+# Preview locally (saves HTML to output/)
+python workflows.py create-bug --file bugs/my_bug.txt
+
+# Dry run — preview what would be uploaded without creating in ADO
+python workflows.py create-bug --file bugs/my_bug.txt --upload --dry-run
+
+# Upload to ADO (creates Bug work item, returns URL)
+python workflows.py create-bug --file bugs/my_bug.txt --upload
+
+# Upload and link to parent story
+python workflows.py create-bug --file bugs/my_bug.txt --upload --story-id 272261
+```
+
+### Template Sections (auto-generated)
+
+The formatter produces ADO HTML matching the ENV Drawing Bug Template:
+
+- **ISSUE:** — One sentence, same line as heading
+- **ADDITIONAL INFORMATION:** — WCAG refs, regression notes
+- **SUPPORTING DOCUMENTATION PROVIDED:** — Bulleted attachment filenames
+- **RECREATE STEPS:** — Numbered steps with `<< NOT EXPECTED` marker (yellow highlight)
+- **TRIAGE/CAUSE INFORMATION:** — Empty (for development)
+- **FIX SUMMARY:** — Empty (for development)
+
+---
+
 ## MCP Integration (GitHub Copilot)
 
 Use the framework directly from GitHub Copilot Chat.
@@ -393,6 +479,7 @@ Use the framework directly from GitHub Copilot Chat.
 "generate tests for story 272889"
 "upload tests for story 272889"
 "check story 272889"
+"create bug from bugs/my_bug.txt"
 "list projects"
 ```
 
@@ -432,11 +519,18 @@ test_gen/
 │   ├── project_config.py     # Configuration loader
 │   └── project_manager.py    # Project management
 │
+├── bugs/                     # Bug report input files
+│   └── sample_bug.txt        # Example bug template
+│
 ├── core/                     # ALL business logic (Clean Architecture)
+│   ├── application/use_cases/ # Use case implementations
+│   │   ├── bug_parser.py     # Parse .txt bug files
+│   │   └── bug_formatter.py  # Format bugs to ADO HTML
 │   ├── config/               # App configuration
 │   │   └── environment.py    # Environment variables
 │   ├── domain/               # Domain models
-│   │   └── models.py         # UserStory, TestCase, etc.
+│   │   ├── models.py         # UserStory, TestCase, etc.
+│   │   └── bug_report.py     # BugReport, RecreateStep
 │   └── services/             # ALL services centralized here
 │       ├── test_generator.py # Main test generation
 │       ├── objective_service.py  # Objective generation
@@ -458,7 +552,8 @@ test_gen/
 │
 ├── infrastructure/           # External services (adapters)
 │   ├── ado/                  # Azure DevOps client
-│   │   └── ado_repository.py # ADO API wrapper
+│   │   ├── ado_repository.py # ADO API wrapper (stories, test cases, suites)
+│   │   └── ado_bug_repository.py # ADO Bug creation
 │   └── export/               # Export generators
 │       ├── csv_generator.py
 │       └── objective_generator.py
@@ -565,12 +660,14 @@ For issues or questions:
 
 ## Version
 
-**v5.1** - Docker support + Multi-project AI test generation
+**v5.2** - Bug creation + Multi-provider LLM support
 
 ### Recent Changes
+- **Bug creation command** (`create-bug`) — create ADO Bug work items from structured `.txt` files
+- **Multi-provider LLM** — supports OpenAI, Gemini, and Anthropic providers
+- **Anti-hallucination guardrails** — LLM-generated tests are grounded in acceptance criteria
+- **`--dry-run` flag** for bug creation — preview without uploading to ADO
 - **Docker support** for consistent team environments
 - Project-agnostic framework with YAML configuration
 - Enhanced LLM prompts (expert QA engineer persona)
 - `update-objectives` workflow now fetches directly from ADO (no CSV required)
-- Reorganized codebase structure
-- Comprehensive documentation

@@ -37,6 +37,18 @@ class IStoryRepository(ABC):
         """
         pass
 
+    def update_qa_prep(self, story_id: int, summary_text: str) -> bool:
+        """Update QA Prep child task with QA Planning Summary.
+
+        Args:
+            story_id: The parent story ID
+            summary_text: Markdown-formatted QA Planning Summary
+
+        Returns:
+            True if updated successfully, False otherwise
+        """
+        return False
+
 
 class ITestSuiteRepository(ABC):
     """Interface for test suite data access."""

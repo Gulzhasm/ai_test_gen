@@ -369,6 +369,184 @@ class ADOStoryRepository(IStoryRepository):
             print(f"Error retrieving QA Prep for story {story_id}: {e}")
             return None
 
+    def update_qa_prep(self, story_id: int, summary_text: str) -> bool:
+        """Update QA Prep child task Description with QA Planning Summary.
+
+        Finds the QA Prep child task under the story and updates its
+        Description field with the provided Markdown summary (converted to HTML).
+
+        Args:
+            story_id: Parent story ID
+            summary_text: Markdown-formatted QA Planning Summary
+
+        Returns:
+            True if updated successfully, False otherwise
+        """
+        qa_prep_id = self._find_qa_prep_id(story_id)
+        if not qa_prep_id:
+            print(f"  No QA Prep task found for story {story_id}, skipping ADO update")
+            return False
+
+        # Convert Markdown to HTML for ADO
+        html_content = self._markdown_to_html(summary_text)
+
+        try:
+            patch_doc = [
+                {
+                    "op": "add",
+                    "path": "/fields/System.Description",
+                    "value": html_content
+                }
+            ]
+
+            self._client.patch(
+                f"_apis/wit/workitems/{qa_prep_id}",
+                data=patch_doc
+            )
+            print(f"  QA Summary uploaded to ADO QA Prep task #{qa_prep_id}")
+            return True
+        except Exception as e:
+            print(f"  Failed to update QA Prep task #{qa_prep_id}: {e}")
+            return False
+
+    def _find_qa_prep_id(self, story_id: int) -> Optional[int]:
+        """Find QA Prep child task ID for a story.
+
+        Returns:
+            Work item ID of the QA Prep task, or None if not found
+        """
+        qa_prep_pattern = self._config.qa_prep_pattern
+        if not qa_prep_pattern:
+            return None
+
+        qa_prep_title = qa_prep_pattern.format(story_id=story_id)
+
+        try:
+            # Get story with relations
+            story_data = self._client.get(
+                f"_apis/wit/workitems/{story_id}",
+                params={"$expand": "relations"}
+            )
+
+            relations = story_data.get('relations', [])
+
+            # Look for child links
+            child_ids = []
+            for relation in relations:
+                rel_type = relation.get('rel', '')
+                if 'Hierarchy-Forward' in rel_type or 'Child' in rel_type:
+                    url = relation.get('url', '')
+                    if '/workItems/' in url:
+                        child_id = url.split('/workItems/')[-1]
+                        try:
+                            child_ids.append(int(child_id))
+                        except ValueError:
+                            pass
+
+            # Check each child for QA Prep
+            for child_id in child_ids:
+                try:
+                    child_data = self._client.get(f"_apis/wit/workitems/{child_id}")
+                    child_title = child_data.get('fields', {}).get('System.Title', '')
+                    if 'QA Prep' in child_title or child_title == qa_prep_title:
+                        return child_id
+                except Exception:
+                    continue
+
+            # Fallback: WIQL search
+            query = (
+                f"Select [System.Id], [System.Title] "
+                f"From WorkItems "
+                f"Where [System.Title] Contains 'QA Prep' "
+                f"And [System.Title] Contains '{story_id}'"
+            )
+
+            result = self._client.execute_wiql(query)
+            work_items = result.get('workItems', [])
+            if work_items:
+                return work_items[0]['id']
+
+            return None
+        except Exception as e:
+            print(f"  Error finding QA Prep task for story {story_id}: {e}")
+            return None
+
+    @staticmethod
+    def _bold_to_html(text: str) -> str:
+        """Convert **bold** Markdown to <b>bold</b> HTML."""
+        return re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+
+    @staticmethod
+    def _markdown_to_html(markdown_text: str) -> str:
+        """Convert Markdown QA summary to HTML for ADO Description field.
+
+        Handles: **bold**, - bullets, indented - sub-bullets, paragraphs.
+        """
+        bold = ADOStoryRepository._bold_to_html
+        lines = markdown_text.split('\n')
+        html_parts = []
+        in_list = False
+        in_sublist = False
+
+        for line in lines:
+            stripped = line.strip()
+
+            # Empty line = close lists and add paragraph break
+            if not stripped:
+                if in_sublist:
+                    html_parts.append('</ul></li>')
+                    in_sublist = False
+                if in_list:
+                    html_parts.append('</ul>')
+                    in_list = False
+                continue
+
+            # Sub-bullet (indented with spaces/tab + -)
+            if re.match(r'^(\s{2,}|\t)-\s+', line):
+                content = re.sub(r'^(\s{2,}|\t)-\s+', '', line).strip()
+                content = bold(content)
+                if not in_sublist:
+                    if not in_list:
+                        html_parts.append('<ul>')
+                        in_list = True
+                    html_parts.append('<li><ul>')
+                    in_sublist = True
+                html_parts.append(f'<li>{content}</li>')
+                continue
+
+            # Top-level bullet
+            if stripped.startswith('- '):
+                content = stripped[2:].strip()
+                content = bold(content)
+                if in_sublist:
+                    html_parts.append('</ul></li>')
+                    in_sublist = False
+                if not in_list:
+                    html_parts.append('<ul>')
+                    in_list = True
+                html_parts.append(f'<li>{content}</li>')
+                continue
+
+            # Regular text (close any open lists first)
+            if in_sublist:
+                html_parts.append('</ul></li>')
+                in_sublist = False
+            if in_list:
+                html_parts.append('</ul>')
+                in_list = False
+
+            # Convert bold and wrap in div
+            content = bold(stripped)
+            html_parts.append(f'<div>{content}</div>')
+
+        # Close any remaining open lists
+        if in_sublist:
+            html_parts.append('</ul></li>')
+        if in_list:
+            html_parts.append('</ul>')
+
+        return '\n'.join(html_parts)
+
     def _extract_ac_from_comments(self, story_id: int) -> str:
         """Extract AC from the FIRST work item comment only.
 
@@ -533,7 +711,11 @@ class ADOTestCaseRepository(ITestCaseRepository):
         objective: str,
         **kwargs
     ) -> Optional[int]:
-        """Create a test case work item."""
+        """Create a test case work item in Design state.
+
+        Test cases are always created in 'Design' state.
+        State transition to 'Ready' happens later via update-objectives workflow.
+        """
         try:
             steps_xml = self._build_steps_xml(steps)
 
@@ -555,13 +737,6 @@ class ADOTestCaseRepository(ITestCaseRepository):
                     "op": "add",
                     "path": "/fields/System.AreaPath",
                     "value": kwargs.get('area_path', self._config.area_path)
-                })
-
-            if kwargs.get('state') or self._config.default_state:
-                patch_doc.append({
-                    "op": "add",
-                    "path": "/fields/System.State",
-                    "value": kwargs.get('state', self._config.default_state)
                 })
 
             if objective:

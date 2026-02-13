@@ -10,6 +10,7 @@ ENV/
 db/
 .venv
 .pytest_cache
+.cache
 
 # Output files
 output/*.csv

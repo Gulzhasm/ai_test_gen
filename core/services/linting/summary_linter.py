@@ -72,7 +72,6 @@ class SummaryLinter:
             "Testing will focus on verifying:",
             "Functional dependencies include",
             "Accessibility testing will validate",
-            "Tests will be executed on"
         ]
         
         for section in required_sections:
@@ -134,19 +133,6 @@ class SummaryLinter:
                     result.add_warning(f"Fragmented bullet: '{bullet_text}'")
     
     def _check_platform_sentence(self, summary: str, result: LintResult):
-        """Check platform sentence is correct and fixed."""
-        expected_sentence = (
-            "Tests will be executed on Windows 11 and tablet devices "
-            "(iOS iPad and Android Tablet) to validate consistent behavior "
-            "across mouse-based and touch-based interaction models."
-        )
-        
-        if expected_sentence not in summary:
-            # Check if it starts with the right phrase
-            if "Tests will be executed on" not in summary:
-                result.add_error("Missing platform execution sentence")
-            else:
-                result.add_warning(
-                    "Platform sentence format differs from standard format. "
-                    "Expected format: 'Tests will be executed on Windows 11 and tablet devices...'"
-                )
+        """Check platform sentence — no longer required as hardcoded boilerplate."""
+        # Platform sentence is no longer enforced; summaries end after dependencies/accessibility
+        pass

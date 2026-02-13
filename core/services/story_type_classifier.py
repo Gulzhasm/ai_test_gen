@@ -57,12 +57,13 @@ class StoryTypeClassifier:
     }
 
     MENU_KEYWORDS = {
-        'menu', 'menu item', 'option', 'command'
+        'menu', 'menu item', 'option', 'command', 'subcategories',
+        'view →', 'view menu', 'edit →', 'file →', 'tools →'
     }
 
     PROPERTIES_KEYWORDS = {
         'properties', 'property', 'panel', 'settings', 'configure',
-        'enable', 'disable', 'toggle'
+        'preferences', 'options panel'
     }
 
     HELP_DOCUMENTATION_KEYWORDS = {
@@ -72,20 +73,23 @@ class StoryTypeClassifier:
     }
 
     @classmethod
-    def classify(cls, story_title: str, ac_bullets: List[str], qa_prep: str = "") -> StoryType:
+    def classify(cls, story_title: str, ac_bullets: List[str], qa_prep: str = "", description: str = "") -> StoryType:
         """
-        Classify story based on title, AC, and QA Prep.
+        Classify story based on title, description, AC, and QA Prep.
 
         Args:
             story_title: Story title
             ac_bullets: List of acceptance criteria
             qa_prep: QA prep content
+            description: Story description text
 
         Returns:
             StoryType enum
         """
-        # Combine all text for analysis
+        # Combine all text for analysis (description included for context)
         all_text = story_title.lower()
+        if description:
+            all_text += " " + description.lower()
         for ac in ac_bullets:
             all_text += " " + ac.lower()
         if qa_prep:

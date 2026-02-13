@@ -397,7 +397,7 @@ class ProjectConfig:
         r'\b(?:Undo|Redo|Cut|Copy|Paste|Delete|Duplicate)\b',
         r'\b(?:Rotate|Mirror|Flip|Transform|Scale|Move|Resize)\b',
         # Platforms
-        r'\b(?:Windows 11|Windows 10|macOS|iPad|Android Tablet|iPhone|Android Phone)\b',
+        r'\b(?:Windows 11|Windows 10|iPad|Android Tablet|iPhone|Android Phone)\b',
         # Accessibility
         r'\bAccessibility Insights(?:\s+for\s+Windows)?\b',
         r'\bVoiceOver\b',
@@ -433,7 +433,7 @@ class ProjectConfig:
             close_step=app_data.get('close_step', 'Close the {app_name}.'),
             main_ui_surfaces=app_data.get('ui_surfaces', []),
             entry_point_mappings=app_data.get('entry_point_mappings', {}),
-            supported_platforms=app_data.get('platforms', ['Windows 11', 'macOS']),
+            supported_platforms=app_data.get('platforms', ['Windows 11']),
             object_interaction_keywords=app_data.get('object_keywords', []),
             # Feature constraints - critical for accurate test generation
             unavailable_features=app_data.get('unavailable_features', []),
@@ -461,7 +461,7 @@ class ProjectConfig:
             area_path=ado_data.get('area_path', os.getenv('ADO_AREA_PATH', '')),
             pat=os.getenv('ADO_PAT'),  # Always from env for security
             assigned_to=ado_data.get('assigned_to', os.getenv('ASSIGNED_TO', '')),
-            default_state=ado_data.get('default_state', 'Design'),
+            default_state=ado_data.get('default_state', os.getenv('DEFAULT_STATE', 'Design')),
             test_suite_pattern=ado_data.get('test_suite_pattern', '{story_id} : {story_name}'),
             qa_prep_pattern=ado_data.get('qa_prep_pattern', 'Story {story_id}: QA Prep'),
             integration=integration
@@ -769,7 +769,7 @@ def create_new_project_config(
             close_step=kwargs.get('close_step', f"Close the {app_name}."),
             main_ui_surfaces=kwargs.get('ui_surfaces', []),
             entry_point_mappings=kwargs.get('entry_point_mappings', {}),
-            supported_platforms=kwargs.get('platforms', ['Windows 11', 'macOS']),
+            supported_platforms=kwargs.get('platforms', ['Windows 11']),
         ),
         ado=ADOProjectConfig(
             organization=ado_org,

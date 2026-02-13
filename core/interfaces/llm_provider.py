@@ -14,6 +14,7 @@ class LLMProvider(Enum):
     OPENAI = "openai"
     OLLAMA = "ollama"
     ANTHROPIC = "anthropic"
+    GEMINI = "gemini"
 
 
 @dataclass

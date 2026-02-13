@@ -857,13 +857,21 @@ class PromptBuilder:
         return f'''You are a SENIOR QA ENGINEER who writes expert-level test cases. Output JSON only.
 
 ## YOUR MINDSET
-Think like an expert QA whose goal is to FIND BUGS, not just confirm functionality works.
+Think like an expert QA whose goal is to write GROUNDED, TRACEABLE tests.
 For EVERY acceptance criterion, ask yourself:
-1. What's the POSITIVE case? (verify it works)
-2. What's the NEGATIVE case? (verify incorrect states are handled)
-3. What EDGE CASES exist? (boundaries, empty states, max values)
-4. What WORKFLOW tests verify STATE PERSISTENCE? (create → verify → create again)
-5. What's IMPLIED but not stated? (if "modal dialog", test focus trapping)
+1. What's the POSITIVE case? (verify it works as AC states)
+2. What's the NEGATIVE case? (ONLY if AC explicitly mentions error states or disabled states)
+3. What EDGE CASES exist? (ONLY if AC mentions boundaries, limits, or ranges)
+4. What WORKFLOW tests verify STATE PERSISTENCE? (ONLY if AC mentions state, history, or persistence)
+
+## ANTI-HALLUCINATION RULE (HIGHEST PRIORITY)
+Every test case MUST trace back to SPECIFIC text in the Acceptance Criteria or QA Prep.
+Do NOT invent:
+- Error messages not mentioned in AC
+- Behaviors not described in AC (e.g., "error when no object selected" unless AC says so)
+- UI elements or dialogs not in AC
+- Negative scenarios the AC never describes
+If you cannot quote the AC text that justifies a test, DO NOT create that test.
 
 ## OUTPUT CONTRACT
 Return ONLY valid JSON matching this schema:
@@ -888,10 +896,18 @@ When AC mentions "modal dialog":
 - Test that modal BLOCKS interaction with background
 - Test focus is TRAPPED within modal (Tab cycles within modal)
 
-### 4. TEST DUAL-ACTIONS
+### 4. TEST DUAL-ACTIONS / TOGGLE STATES
 When AC describes two actions (e.g., "Create initializes; Close exits"):
 - Create SEPARATE tests for each action
 - Include a CANCEL test verifying no changes occur
+
+**CRITICAL for enable/disable or show/hide features:**
+When AC says "enables or disables X" or "show/hide X":
+- Create ONE test for ENABLING X (verify X appears/activates)
+- Create a SEPARATE test for DISABLING X (verify X disappears/deactivates)
+- If there are multiple items (e.g., Rulers, Scale, Compass), create separate enable AND disable tests for EACH item
+- Example: "Selecting Rulers enables or disables rulers" → TWO tests: "Enable Rulers" + "Disable Rulers"
+- Example: 3 items × 2 states = 6 tests minimum for the core positive tests
 
 ### 5. TEST SETTING DEPENDENCIES
 When AC says "follows setting" or "defaults to current setting":
@@ -899,22 +915,26 @@ When AC says "follows setting" or "defaults to current setting":
 - Set the setting FIRST, then verify the dependent behavior
 
 ### 6. ADD EDGE CASE TESTS (ONLY if AC-Grounded)
-CRITICAL: Edge case tests MUST be derived from explicit AC text. Do NOT infer or assume requirements.
+CRITICAL: Edge case tests MUST be derived from EXPLICIT AC text. Do NOT infer or assume requirements.
 
-Add edge case tests ONLY when the AC explicitly mentions:
+Add edge case tests ONLY when the AC EXPLICITLY mentions:
 - **No selection state**: ONLY when AC says "enabled when selected" → test disabled state
 - **Boundary values**: ONLY when AC mentions limits, min/max, or ranges
 - **Undo/Redo**: ONLY when AC explicitly mentions undo, redo, or state persistence
 - **Error states**: ONLY when AC describes error handling or invalid states
 
 DO NOT add tests for:
+- "Attempt to use without selection" (UNLESS AC says "requires selection" or "enabled when selected")
+- Error messages that are NOT quoted in the AC
 - Features NOT being available in menus not mentioned in AC
 - Behaviors not explicitly stated in AC
 - Hypothetical scenarios or "what if" situations
+- "What happens when X is not selected" (UNLESS AC mentions selection requirement)
 
 Example: If AC says "Hand Tool is available from the Left Toolbar":
 - CORRECT: Test that Hand Tool appears in Left Toolbar (grounded in AC)
 - WRONG: Test that Hand Tool is NOT in Help Menu (not mentioned in AC)
+- WRONG: Test error message when no object selected (AC never mentions errors or selection requirement)
 
 ### 7. WRITE SPECIFIC STEPS (Never Generic)
 BAD: "Verify the feature works correctly"
@@ -927,6 +947,25 @@ GOOD: "Click the 'Mirror Horizontally' button in the Tools menu"
 When AC lists fields/controls:
 - Create a test that verifies EACH control is displayed
 - Example: "Fields: Width, Height, Units" → Verify Width field displayed, verify Height field displayed, etc.
+
+### 9. DETERMINISTIC STEPS (CRITICAL — Zero Ambiguity)
+**NEVER start a step action with "If"** — every step must be a direct instruction, not a conditional.
+**NEVER use "or" in expected results** — each expected result must describe exactly ONE specific outcome.
+**ONE action per step** — never combine two toggle/menu operations into a single step.
+
+For Show/Enable tests: FIRST set the known opposite state (hide/disable it), THEN perform the show/enable action:
+BAD: "If 'Show Design Panel' is unchecked, select it to check it."
+GOOD (2 steps):
+  Step N: "Select 'Show Design Panel' in the Window Menu to uncheck it." → "The Design Panel is no longer visible."
+  Step N+1: "Select 'Show Design Panel' in the Window Menu to check it." → "The Design Panel is now visible."
+
+BAD expected: "The panel is shown or hidden based on its previous state."
+GOOD expected: "The Design Panel is now visible in the UI."
+
+BAD: "Uncheck 'Show Design Panel' and 'Show Layers Panel' in the Window Menu."
+GOOD (2 steps):
+  Step N: "Select 'Show Design Panel' in the Window Menu to uncheck it." → "The Design Panel is hidden."
+  Step N+1: "Select 'Show Layers Panel' in the Window Menu to uncheck it." → "The Layers Panel is hidden."
 
 ## FORMATTING RULES
 
@@ -965,8 +1004,18 @@ Every title MUST be:
 - For accessibility: "[Accessibility method] on [Platform]"
 
 ### ID Sequence
-- First test: AC1
+- First test: AC1 (overall acceptance test — see AC1 rule below)
 - Subsequent: 005, 010, 015, 020...
+
+### AC1 RULE (CRITICAL)
+AC1 must be an **overall acceptance test** — NOT just "verify command appears in menu".
+AC1 must prove the feature WORKS end-to-end:
+1. Navigate to entry point (menu/toolbar)
+2. **EXECUTE** the feature's primary action
+3. **VERIFY** the core behavior produces the expected result
+Example for "Show / Hide Property Panels":
+- BAD AC1: "Verify 'Show Design Panel' appears in Window Menu" ← this is just availability, NOT acceptance
+- GOOD AC1: Open Window Menu → Select 'Show Design Panel' → Verify Design Panel is visible → Select 'Show Design Panel' again → Verify Design Panel is hidden and does not occupy space
 
 ### Step Structure
 - Step 1: Always PRE-REQ (expected empty)
@@ -1029,6 +1078,26 @@ Every title MUST be:
         for i, ac in enumerate(self.ctx.acceptance_criteria_in_scope, 1):
             lines.append(f"{i}. {ac}")
 
+        # Detect toggle/enable-disable ACs and add explicit instruction
+        toggle_items = []
+        for ac in self.ctx.acceptance_criteria_in_scope:
+            ac_lower = ac.lower()
+            if 'enables or disables' in ac_lower or 'enable or disable' in ac_lower or 'show/hide' in ac_lower or 'show or hide' in ac_lower:
+                # Extract the item name (e.g., "Rulers", "Scale", "Compass")
+                import re
+                match = re.search(r'(?:selecting|toggling)\s+(\w+)', ac_lower)
+                if match:
+                    toggle_items.append(match.group(1).capitalize())
+
+        if toggle_items:
+            lines.append(f"\n### MANDATORY: Separate Enable/Disable Tests")
+            lines.append(f"The following items have toggle (enable/disable) behavior: {', '.join(toggle_items)}")
+            lines.append(f"You MUST create {len(toggle_items) * 2} separate core tests:")
+            for item in toggle_items:
+                lines.append(f"- ONE test: Enable {item} → verify it appears on Canvas")
+                lines.append(f"- ONE test: Disable {item} → verify it disappears from Canvas")
+            lines.append(f"Do NOT combine enable and disable into a single test. Each must be a separate test case.")
+
         # Out-of-scope ACs (explicitly excluded)
         if self.ctx.acceptance_criteria_out_of_scope:
             lines.append("\n### Out-of-Scope (DO NOT cover)")
@@ -1056,6 +1125,17 @@ Every title MUST be:
 
         # Store for potential access by other methods
         self._test_requirements = reqs
+
+        # Detect toggle ACs to boost core count (each toggle = 2 tests: enable + disable)
+        toggle_count = 0
+        for ac in self.ctx.acceptance_criteria_in_scope:
+            ac_lower = ac.lower()
+            if 'enables or disables' in ac_lower or 'enable or disable' in ac_lower or 'show/hide' in ac_lower or 'show or hide' in ac_lower:
+                toggle_count += 1
+        if toggle_count > 0:
+            # Toggle ACs need 2 tests each instead of 1
+            reqs.min_core = max(reqs.min_core, toggle_count * 2 + 1)  # +1 for menu access
+            reqs.min_total = reqs.min_core + reqs.min_accessibility
 
         lines = [
             "## HARD REQUIREMENTS (MUST meet all)",

@@ -60,8 +60,8 @@ class TestAcceptanceChecks:
         builder = PromptBuilder(sample_context)
         system_prompt = builder.build_system_prompt()
 
-        # Should be under 4KB (includes expert QA guidance)
-        assert len(system_prompt) < 4000, f"System prompt too long: {len(system_prompt)} chars"
+        # Should be under 8KB (includes expert QA guidance + anti-hallucination rules)
+        assert len(system_prompt) < 8000, f"System prompt too long: {len(system_prompt)} chars"
 
         # Should NOT contain repeated persona blocks
         assert system_prompt.count("SENIOR QA ENGINEER") == 1  # Exactly once
@@ -960,8 +960,8 @@ class TestBuildPromptsForProject:
 
         assert "Test App" in user_prompt
         assert "99999" in user_prompt
-        # System prompt should be reasonably sized (includes expert QA rules)
-        assert len(system_prompt) < 4000
+        # System prompt should be reasonably sized (includes expert QA + anti-hallucination rules)
+        assert len(system_prompt) < 8000
 
 
 # =============================================================================

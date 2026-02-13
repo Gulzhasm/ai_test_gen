@@ -2,16 +2,48 @@
 QA Planning Summary Generator Module
 Generates QA Planning Summary for user stories following approved format.
 
-Refactored to use SummaryPlan pattern with evidence-based guardrails.
+Uses LLM (via factory pattern) for natural, human-written summaries with deterministic fallback.
+Supports: OpenAI, Gemini, Anthropic, Ollama.
 """
+import os
 import re
 from typing import Dict, List, Tuple, Optional, Set
 from core.domain.models import SummaryPlan, UserStory, TestCase, TestStep
 
 
+# Reference template for LLM prompt — based on reviewer-approved QA Planning Summary
+# This is Markdown that renders in ADO description fields with bold, bullets, and sub-bullets.
+QA_SUMMARY_TEMPLATE = """**QA Planning Summary for this Work Item**
+
+This work item introduces the Basic Shape Tools—Line, Rectangle, and Circle—into ENV QuickDraw across iPadOS, Android tablets, and **Windows 11**. These tools are core drafting features used to create fundamental geometric shapes with CAD-like precision.
+
+Testing will validate tool availability, user interactions, drawing behaviors, editing capabilities, and accessibility compliance. Shape creation must behave consistently across all platforms and input methods, including **mouse** (Windows 11) and **touch/stylus** (iPadOS/Android), with UI responsiveness and coordinate accuracy verified under each.
+
+**Scope includes verifying that:**
+
+- Shape tools (Line, Rectangle, Circle) appear correctly in both the **Left Toolbar** (icon-based) and **Top Menu → Draw** (text-based).
+- Activating any shape tool updates the cursor or touch-indicator to a **crosshair** state.
+- Shape creation using **click/drag (mouse)** and **touch/drag (finger or stylus)** works consistently across platforms.
+- A *live preview* outline renders during drawing and finalizes correctly when the gesture ends.
+- Each tool follows its expected geometric behavior:
+    - Line: straight segment between start/end points.
+    - Rectangle: drawn from corner to corner; **Shift** constrains to square.
+    - Circle: drawn from center outward; **Shift** constrains to perfect circle.
+- All shapes align with the current scale and coordinate system.
+- Post-creation editing supports selection and moving
+- Active tool state persists until another tool is selected.
+- Basic Section 508 / WCAG 2.1 AA requirements are met for:
+    - Focus indicators
+    - Visible feedback on interaction
+    - Labels for toolbar/menu controls
+  (Hotkeys and tooltips remain out of scope for this phase.)
+
+Testing will also ensure that platform-specific behaviors—such as gesture recognition, cursor indicators, and performance on touch-based devices—function accurately and consistently."""
+
+
 class QASummaryGenerator:
     """Generates QA Planning Summary from user story and test cases."""
-    
+
     # Forbidden speculative language (always forbidden)
     FORBIDDEN_SPECULATIVE = [
         'assumingly', 'likely', 'generally', 'presumably', 'should', 'may',
@@ -20,32 +52,212 @@ class QASummaryGenerator:
         'should be correct', 'no issues found', 'works as expected',
         'as expected'
     ]
-    
+
     # Valid UI surfaces (only mention if in evidence)
     VALID_UI_SURFACES = [
         'File Menu', 'Edit Menu', 'Tools Menu', 'Help Menu',
         'Properties Panel', 'Dimensions Panel', 'Canvas',
         'Dialog Window', 'Modal Window', 'Top Action Toolbar'
     ]
-    
-    def __init__(self, debug: bool = False):
+
+    def __init__(self, api_key: str = None, model: str = "gpt-4o-mini", debug: bool = False,
+                 provider_type: str = None):
         """Initialize generator.
-        
+
         Args:
-            debug: Enable debug mode to print extraction details
+            api_key: LLM API key. Defaults to env var based on provider.
+            model: LLM model to use for summary generation.
+            debug: Enable debug mode to print extraction details.
+            provider_type: LLM provider type (openai, gemini, anthropic, ollama).
         """
+        self._provider_type = (provider_type or os.getenv("LLM_PROVIDER", "openai")).lower()
+        self.model = model
         self.debug = debug
-    
+        self._provider = None
+        self._api_key = api_key
+
+    @property
+    def provider(self):
+        """Lazy-init LLM provider via factory."""
+        if self._provider is None:
+            from core.services.llm.factory import create_llm_provider
+            from core.config.environment import EnvironmentConfig
+            api_key = self._api_key or EnvironmentConfig.get_llm_api_key()
+            if api_key and api_key != "your-api-key-here":
+                self._provider = create_llm_provider(
+                    provider_type=self._provider_type,
+                    model=self.model,
+                    timeout=90,
+                    max_retries=2,
+                    api_key=api_key
+                )
+        return self._provider
+
+    @property
+    def client(self):
+        """Backward compatibility - returns OpenAI client or provider."""
+        provider = self.provider
+        if provider and self._provider_type == "openai" and hasattr(provider, 'client'):
+            return provider.client
+        return provider
+
     def generate_summary(self, story_data: Dict, test_cases: List[Dict]) -> str:
         """Generate QA Planning Summary from story data and test cases.
-        
+
+        Uses LLM for natural, human-written output when available.
+        Falls back to deterministic generation otherwise.
+
         Args:
             story_data: Dict with story_id, title, description_text, acceptance_criteria_text
             test_cases: List of test case dicts with id, title, steps, area, is_accessibility, device
-        
+
         Returns:
             Formatted QA Planning Summary text
         """
+        # Try LLM-based generation first
+        if self.provider:
+            llm_summary = self._generate_with_llm(story_data, test_cases)
+            if llm_summary:
+                return llm_summary
+
+        # Fallback: deterministic generation
+        if self.debug:
+            print("[DEBUG] Using deterministic QA summary generation")
+        return self._generate_deterministic(story_data, test_cases)
+
+    def _call_llm_for_text(self, system_prompt: str, user_prompt: str) -> Optional[str]:
+        """Call LLM provider and return text content. Works with any provider."""
+        provider = self.provider
+        if not provider:
+            return None
+
+        # For OpenAI - use chat completions directly
+        if self._provider_type == "openai" and hasattr(provider, 'client') and provider.client:
+            response = provider.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=1500
+            )
+            return response.choices[0].message.content.strip()
+
+        # For Gemini - use generate method
+        if self._provider_type in ("gemini", "google"):
+            result = provider.generate(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.3,
+                max_tokens=1500
+            )
+            if result and result.get("content"):
+                return result["content"].strip()
+            return None
+
+        # For Anthropic/Ollama - use generate method
+        if hasattr(provider, 'generate'):
+            result = provider.generate(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.3,
+                max_tokens=1500
+            )
+            if result and hasattr(result, 'content'):
+                return result.content.strip()
+            return None
+
+        return None
+
+    def _generate_with_llm(self, story_data: Dict, test_cases: List[Dict]) -> Optional[str]:
+        """Generate QA Planning Summary using LLM."""
+        title = story_data.get('title', '')
+        description = story_data.get('description_text', '')
+        ac_text = story_data.get('acceptance_criteria_text', '')
+
+        # Build test case summary for context
+        tc_summary = []
+        for tc in test_cases[:15]:
+            tc_title = tc.get('title', '')
+            tc_summary.append(f"- {tc_title}")
+        tc_block = '\n'.join(tc_summary)
+
+        prompt = f"""Write a QA Planning Summary for the following user story. The output MUST be valid Markdown that renders correctly in Azure DevOps description fields.
+
+Follow the EXACT Markdown format, font styling, bullet structure, and tone of this reference template:
+---
+{QA_SUMMARY_TEMPLATE}
+---
+
+FORMATTING RULES (CRITICAL — match the reference template exactly):
+1. Header: **QA Planning Summary for this Work Item** (bold, using **).
+2. Write 1-2 natural intro paragraphs. Do NOT restate the user story or AC verbatim.
+3. Section header: **Scope includes verifying that:** (bold, using **).
+4. Verification points use Markdown bullet list with `-` markers.
+5. Use **bold** for key UI elements, tool names, menu paths, interaction methods, and important terms within bullets (e.g., **Left Toolbar**, **crosshair**, **click/drag (mouse)**, **Shift**).
+6. Use sub-bullets (indented with 4 spaces + `-`) for nested items under a parent bullet.
+7. Clearly call out functional dependencies in a closing paragraph.
+8. Do NOT add any hardcoded closing sentence about platforms or execution environments. The summary should end naturally after the dependencies paragraph.
+9. Professional, neutral tone. Concise but comprehensive. No ambiguity, no scope creep.
+10. Do NOT reference specific test case IDs or step-level details.
+11. Do NOT use speculative language (assumingly, likely, presumably, should, may).
+12. Do NOT invent features or behaviors not in the story description or acceptance criteria.
+13. Do NOT add "=====" or any decorative separators.
+14. Do NOT use `#` heading syntax. Use **bold** for headers instead.
+15. Do NOT mention macOS. The application is tested on Windows 11, iPad, and Android Tablet ONLY.
+
+USER STORY:
+Title: {title}
+
+Description:
+{description}
+
+Acceptance Criteria:
+{ac_text}
+
+Test Cases Generated:
+{tc_block}
+
+Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
+
+        try:
+            if self.debug:
+                print(f"[DEBUG] Sending QA summary request to LLM ({self._provider_type}/{self.model})...")
+
+            system_prompt = "You are a senior QA engineer writing professional QA Planning Summaries in Markdown format for Azure DevOps. Your output must use **bold** for headers and key terms, `-` for bullet lists, and indented `-` for sub-bullets. Match the exact format, structure, and quality of previously approved summaries."
+
+            summary = self._call_llm_for_text(system_prompt, prompt)
+            if not summary:
+                return None
+
+            # Validate basic structure — ensure bold header is present
+            if '**QA Planning Summary' not in summary:
+                if 'QA Planning Summary' in summary:
+                    # Add bold if header exists but not bolded
+                    summary = summary.replace(
+                        'QA Planning Summary for this Work Item',
+                        '**QA Planning Summary for this Work Item**'
+                    )
+                else:
+                    summary = "**QA Planning Summary for this Work Item**\n\n" + summary
+
+            # Remove any accidental "====" lines or # headings
+            summary = re.sub(r'^=+\s*$', '', summary, flags=re.MULTILINE)
+            summary = re.sub(r'^#+\s+', '**', summary, flags=re.MULTILINE)
+            summary = re.sub(r'\n{3,}', '\n\n', summary)
+
+            if self.debug:
+                print(f"[DEBUG] LLM generated {len(summary)} chars")
+
+            return summary.strip()
+
+        except Exception as e:
+            print(f"  QA Summary LLM generation failed: {e}, falling back to deterministic")
+            return None
+
+    def _generate_deterministic(self, story_data: Dict, test_cases: List[Dict]) -> str:
+        """Deterministic fallback QA summary generation."""
         # Convert to UserStory model
         story = UserStory(
             story_id=story_data.get('story_id', 0),
@@ -53,25 +265,24 @@ class QASummaryGenerator:
             description=story_data.get('description_text', ''),
             acceptance_criteria=story_data.get('acceptance_criteria_text', '') or story_data.get('acceptance_criteria', '')
         )
-        
+
         # Convert test cases to TestCase models
         test_case_models = self._convert_test_cases(test_cases)
-        
+
         # Phase A: Build deterministic SummaryPlan
         plan = self._build_summary_plan(story, test_case_models)
-        
+
         # Phase B: Render summary
         summary_text = self._render_summary(plan)
-        
+
         # Lint and validate
         lint_errors = self._lint_summary(summary_text, story, test_case_models)
         if lint_errors:
             if self.debug:
                 print(f"[DEBUG] Lint errors found: {lint_errors}")
-            # Regenerate plan if lint fails
             plan = self._build_summary_plan(story, test_case_models)
             summary_text = self._render_summary(plan)
-        
+
         return summary_text
     
     def _convert_test_cases(self, test_cases: List[Dict]) -> List[TestCase]:
@@ -124,12 +335,8 @@ class QASummaryGenerator:
         # Build accessibility clause
         accessibility_clause = self._build_accessibility_clause(evidence_text, test_cases)
         
-        # Fixed platform clause
-        platform_clause = (
-            "Tests will be executed on Windows 11 and tablet devices "
-            "(iOS iPad and Android Tablet) to validate consistent behavior "
-            "across mouse-based and touch-based interaction models."
-        )
+        # No hardcoded platform clause - summary ends after dependencies
+        platform_clause = ""
         
         return SummaryPlan(
             intro_facts=intro,
@@ -203,39 +410,31 @@ class QASummaryGenerator:
                 parts = clean_feature_name.split(':', 1)
                 if len(parts) > 1:
                     clean_feature_name = parts[1].strip()
-            
+
+            # Build context-appropriate second sentence
+            second_sentence = self._build_intro_second_sentence(capability_desc, evidence_text)
+
             # Build professional intro based on capability
             if entry_points:
                 if len(entry_points) == 1:
                     entry_text = entry_points[0].lower()
-                    if 'menu' in entry_text:
-                        intro = (
-                            f"This work item introduces {clean_feature_name} that provides users with "
-                            f"{capability_desc} through {entry_text}. "
-                            f"The feature enables precise manipulation and control of selected objects "
-                            f"within the application workspace."
-                        )
-                    else:
-                        intro = (
-                            f"This work item introduces {clean_feature_name} that provides users with "
-                            f"{capability_desc} through {entry_text}. "
-                            f"The feature enables precise manipulation and control of selected objects "
-                            f"within the application workspace."
-                        )
+                    intro = (
+                        f"This work item introduces {clean_feature_name} that provides users with "
+                        f"{capability_desc} through {entry_text}. "
+                        f"{second_sentence}"
+                    )
                 else:
                     entry_text = ', '.join(entry_points[:-1]) + f', and {entry_points[-1]}'
                     intro = (
                         f"This work item introduces {clean_feature_name} that provides users with "
                         f"{capability_desc} through {entry_text}. "
-                        f"The feature enables precise manipulation and control of selected objects "
-                        f"within the application workspace."
+                        f"{second_sentence}"
                     )
             else:
                 intro = (
                     f"This work item introduces {clean_feature_name} that provides users with "
                     f"{capability_desc}. "
-                    f"The feature enables precise manipulation and control of selected objects "
-                    f"within the application workspace."
+                    f"{second_sentence}"
                 )
         
         # Ensure 1-2 sentences max
@@ -269,7 +468,18 @@ class QASummaryGenerator:
         feature_lower = feature_name.lower()
         desc_lower = description.lower()
         evidence_lower = evidence_text.lower()
-        
+
+        # Toggle/visibility features (check before broad "show/display" match)
+        has_enable_disable = ('enable' in evidence_lower and 'disable' in evidence_lower)
+        has_show_hide = ('show' in evidence_lower and 'hide' in evidence_lower)
+        has_toggle = 'toggle' in evidence_lower
+        if has_enable_disable or has_show_hide or has_toggle:
+            # Extract what is being toggled from the feature name or description
+            elements = self._extract_toggle_elements(evidence_lower, feature_lower)
+            if elements:
+                return f"toggling the visibility of {elements}"
+            return "toggling the visibility of visual elements"
+
         # Tool features - check for rotation and movement
         if 'rotate' in evidence_lower and 'move' in evidence_lower:
             return "rotating and moving selected objects"
@@ -277,18 +487,30 @@ class QASummaryGenerator:
             return "rotating selected objects"
         elif 'move' in evidence_lower and 'object' in evidence_lower:
             return "moving selected objects"
-        
+
+        # Informational / about features
+        if 'about' in feature_lower or 'information' in evidence_lower:
+            return "viewing application information"
+
+        # Import / export features
+        if 'import' in feature_lower:
+            return "importing files into the application"
+        elif 'export' in feature_lower:
+            return "exporting content from the application"
+
+        # New document / file creation
+        if 'new' in feature_lower and ('document' in feature_lower or 'file' in feature_lower):
+            return "creating new documents"
+
         # Check for explicit capabilities
-        if 'view' in evidence_lower or 'display' in evidence_lower or 'show' in evidence_lower:
-            if 'about' in feature_lower or 'information' in evidence_lower:
-                return "viewing application information"
-            return "viewing content"
-        elif 'flip' in evidence_lower:
+        if 'flip' in evidence_lower:
             if 'horizontally' in evidence_lower or 'vertically' in evidence_lower:
                 return "flipping objects horizontally or vertically"
             return "flipping objects"
         elif 'mirror' in evidence_lower:
             return "mirroring selected objects"
+        elif 'view' in evidence_lower or 'display' in evidence_lower:
+            return "viewing and managing content"
         elif 'select' in evidence_lower:
             return "selecting options"
         elif 'edit' in evidence_lower or 'modify' in evidence_lower:
@@ -300,17 +522,23 @@ class QASummaryGenerator:
         else:
             # Generic fallback
             if 'tool' in feature_lower:
-                # Try to extract what the tool does from evidence
-                if 'rotate' in evidence_lower:
-                    return "rotating selected objects"
-                elif 'move' in evidence_lower:
-                    return "moving selected objects"
-                else:
-                    return "manipulating selected objects"
+                return "manipulating selected objects"
             elif 'menu' in evidence_lower:
                 return "accessing menu options"
             else:
                 return "interacting with the feature"
+
+    def _extract_toggle_elements(self, evidence_lower: str, feature_lower: str) -> str:
+        """Extract element names being toggled from evidence text."""
+        # Try to find element names from feature title (e.g., "Rulers, Scale, Compass")
+        # Look for comma-separated nouns in the feature name
+        import re as _re
+        # Match patterns like "Rulers, Scale, Compass" or "Show / Hide X, Y, Z"
+        cleaned = _re.sub(r'\bshow\b|\bhide\b|/|\bview\b', '', feature_lower).strip()
+        cleaned = _re.sub(r'\s+', ' ', cleaned).strip(' ,')
+        if cleaned and len(cleaned) > 3:
+            return cleaned
+        return ""
     
     def _extract_entry_points_evidence(self, evidence_text: str, feature_name: str) -> List[str]:
         """Extract UI entry points from evidence only (no invention)."""
@@ -333,7 +561,36 @@ class QASummaryGenerator:
                 result.append(ep)
         
         return result
-    
+
+    def _build_intro_second_sentence(self, capability_desc: str, evidence_text: str) -> str:
+        """Build a context-appropriate second sentence for the intro paragraph."""
+        evidence_lower = evidence_text.lower() if evidence_text else ''
+
+        # Toggle/visibility features
+        if 'toggling' in capability_desc or 'visibility' in capability_desc:
+            if 'canvas' in evidence_lower:
+                return "The feature allows users to customize their workspace by controlling which visual helpers are displayed on the Canvas."
+            return "The feature allows users to customize their workspace by controlling element visibility."
+
+        # Tool/manipulation features
+        if any(word in capability_desc for word in ['rotating', 'moving', 'flipping', 'mirroring', 'manipulating']):
+            return "The feature enables precise manipulation and control of selected objects within the application workspace."
+
+        # Informational features
+        if 'viewing' in capability_desc and 'information' in capability_desc:
+            return "The feature is intended to offer clear, read-only visibility into application details without altering application state or workflow."
+
+        # Import/export features
+        if 'importing' in capability_desc or 'exporting' in capability_desc:
+            return "The feature supports standard file operations to facilitate data exchange with external sources."
+
+        # Document creation
+        if 'creating new' in capability_desc:
+            return "The feature provides a structured workflow for initializing new project files."
+
+        # Generic fallback
+        return "The feature is intended to operate predictably and consistently across all supported platforms."
+
     def _build_bullets(self, story: UserStory, evidence_text: str, test_titles: List[str]) -> List[str]:
         """Build 7-10 professional ChatGPT-style bullet themes from AC.
         
@@ -344,7 +601,69 @@ class QASummaryGenerator:
         
         # Build professional bullets from AC patterns
         professional_bullets = []
-        
+        ac_lower_all = ' '.join(b.lower() for b in ac_bullets)
+
+        # Pattern 0: Enable/disable toggle features
+        has_enable_disable = 'enable' in ac_lower_all and 'disable' in ac_lower_all
+        has_show_hide = 'show' in evidence_text and 'hide' in evidence_text
+        if has_enable_disable or has_show_hide:
+            # Extract individual toggle elements from AC
+            toggle_elements = []
+            for b in ac_bullets:
+                b_lower = b.lower()
+                if ('enable' in b_lower and 'disable' in b_lower) or ('selecting' in b_lower and ('enable' in b_lower or 'disable' in b_lower)):
+                    # Extract the element name (e.g., "Selecting Rulers enables..." -> "Rulers")
+                    match = re.search(r'selecting\s+(\w+)', b_lower)
+                    if match:
+                        toggle_elements.append(match.group(1).title())
+
+            if toggle_elements:
+                # Entry point bullet
+                entry_text = self._extract_entry_points_evidence(evidence_text, story.title)
+                if entry_text:
+                    menu_name = entry_text[0].lower()
+                    professional_bullets.append(
+                        f"Availability of the {', '.join(toggle_elements)} options from the expected menu location and correct invocation behavior"
+                    )
+                else:
+                    professional_bullets.append(
+                        f"Availability of the {', '.join(toggle_elements)} toggle options from the expected menu location and correct invocation behavior"
+                    )
+
+                # Per-element toggle behavior
+                for elem in toggle_elements:
+                    professional_bullets.append(
+                        f"Correct toggle behavior for {elem}, confirming that the option enables or disables the corresponding element on the Canvas"
+                    )
+
+                # Enabled state rendering
+                professional_bullets.append(
+                    "Accurate rendering of each visual element on the Canvas when its corresponding option is enabled"
+                )
+
+                # Disabled state removal
+                professional_bullets.append(
+                    "Complete removal of each visual element from the Canvas when its corresponding option is disabled"
+                )
+
+                # Independent operation
+                if len(toggle_elements) > 1:
+                    professional_bullets.append(
+                        "Independent operation of each toggle, ensuring that enabling or disabling one element does not affect the visibility state of the others"
+                    )
+
+                # Persistence
+                if 'persist' in evidence_text or 'session' in evidence_text:
+                    professional_bullets.append(
+                        "Persistence of visibility settings within a user session, confirming that toggled states are maintained during navigation and other interactions"
+                    )
+
+                # Export inclusion
+                if 'export' in evidence_text or 'included' in evidence_text:
+                    professional_bullets.append(
+                        "Inclusion of visible elements in exported output when they are enabled at the time of export"
+                    )
+
         # Pattern 1: Menu/tool entry availability and activation (generic)
         if any('appears' in b.lower() and 'menu' in b.lower() for b in ac_bullets):
             menu_bullet = self._create_menu_availability_bullet(ac_bullets, evidence_text)
@@ -442,7 +761,8 @@ class QASummaryGenerator:
             covered_patterns = [
                 'appears', 'menu', 'opens', 'window', 'displays', 'name', 'version', 'link', 'close',
                 'no additional', 'activate', 'rotate', 'move', 'select', 'undo', 'redo', 'empty',
-                'switch', 'keyboard', 'shift', 'click', 'drag'
+                'switch', 'keyboard', 'shift', 'click', 'drag',
+                'enable', 'disable', 'enabled', 'disabled', 'selecting'
             ]
             if any(pattern in ac_lower for pattern in covered_patterns):
                 continue
@@ -991,17 +1311,18 @@ class QASummaryGenerator:
         else:
             dependencies_para = "Functional dependencies include core application components that must operate correctly to ensure a stable and predictable user experience."
         
-        # Render full summary with header
-        summary = (
-            f"QA Planning Summary for this Work Item\n"
-            f"{'=' * 80}\n\n"
+        # Render full summary with header (no decorative separators)
+        parts = [
+            f"QA Planning Summary for this Work Item\n\n"
             f"{plan.intro_facts}\n\n"
-            f"Testing will focus on verifying:\n"
+            f"Scope includes verifying that:\n\n"
             f"{bullet_lines}\n\n"
             f"{dependencies_para}\n\n"
-            f"{plan.accessibility_clause}\n\n"
-            f"{plan.platform_clause}"
-        )
+            f"{plan.accessibility_clause}"
+        ]
+        if plan.platform_clause:
+            parts.append(f"\n\n{plan.platform_clause}")
+        summary = ''.join(parts)
         
         return summary
     
@@ -1090,29 +1411,19 @@ class QASummaryGenerator:
 
     def validate_summary(self, summary: str) -> Tuple[bool, List[str]]:
         """Validate summary structure and content.
-        
+
         Returns:
             Tuple of (is_valid, list_of_errors)
         """
         errors = []
-        
+
         # Check required sections
         if 'QA Planning Summary for this Work Item' not in summary:
             errors.append("Missing header")
-        if 'Testing will focus on verifying:' not in summary:
-            errors.append("Missing 'Testing will focus on verifying:' section")
-        if 'Functional dependencies' not in summary:
-            errors.append("Missing dependencies paragraph")
-        if 'Accessibility testing' not in summary:
-            errors.append("Missing accessibility paragraph")
-        if 'Tests will be executed on Windows 11' not in summary:
-            errors.append("Missing platform clause")
-        
-        # Check bullet count
-        bullet_count = summary.count('•')
-        if bullet_count < 7:
-            errors.append(f"Too few bullets: {bullet_count} (minimum 7)")
-        elif bullet_count > 10:
-            errors.append(f"Too many bullets: {bullet_count} (maximum 10)")
-        
+        if 'Scope includes verifying' not in summary and 'Testing will focus on verifying' not in summary and 'Testing will validate' not in summary:
+            errors.append("Missing verification scope section")
+        # Check for forbidden decorative separators
+        if '====' in summary:
+            errors.append("Contains decorative separator (====)")
+
         return len(errors) == 0, errors
