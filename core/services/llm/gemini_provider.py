@@ -21,6 +21,99 @@ FALLBACK_MODELS = {
 }
 
 
+def _repair_truncated_json(text: str) -> Optional[Dict]:
+    """
+    Attempt to repair truncated JSON from a cut-off LLM response.
+
+    When Gemini hits max_output_tokens, JSON gets cut mid-string/object.
+    This tries to recover by closing open strings, arrays, and objects.
+
+    Returns parsed dict or None if repair fails.
+    """
+    if not text or not text.strip():
+        return None
+
+    text = text.strip()
+
+    # Try parsing as-is first
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 1: Find the last complete test case object and close the array
+    # Look for the last complete "}," or "}" that ends a test case
+    last_complete = -1
+    brace_depth = 0
+    in_string = False
+    escape_next = False
+
+    for i, ch in enumerate(text):
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == '\\' and in_string:
+            escape_next = True
+            continue
+        if ch == '"' and not escape_next:
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+
+        if ch == '{':
+            brace_depth += 1
+        elif ch == '}':
+            brace_depth -= 1
+            if brace_depth == 1:
+                # We just closed a top-level object inside the array
+                last_complete = i
+
+    if last_complete > 0:
+        # Truncate to last complete object, close the array and outer object
+        repaired = text[:last_complete + 1]
+        # Count unclosed brackets
+        open_brackets = repaired.count('[') - repaired.count(']')
+        open_braces = repaired.count('{') - repaired.count('}')
+        repaired += ']' * open_brackets + '}' * open_braces
+
+        try:
+            result = json.loads(repaired)
+            if isinstance(result, dict) and 'test_cases' in result:
+                original_hint = text.count('"id"')
+                recovered = len(result['test_cases'])
+                print(f"  JSON repair: recovered {recovered}/{original_hint} test cases from truncated response")
+            return result
+        except json.JSONDecodeError:
+            pass
+
+    # Strategy 2: Brute force - close all open brackets/braces
+    # First, close any open string
+    quote_count = 0
+    esc = False
+    for ch in text:
+        if esc:
+            esc = False
+            continue
+        if ch == '\\':
+            esc = True
+            continue
+        if ch == '"':
+            quote_count += 1
+
+    if quote_count % 2 != 0:
+        text += '"'
+
+    open_brackets = text.count('[') - text.count(']')
+    open_braces = text.count('{') - text.count('}')
+    text += ']' * max(0, open_brackets) + '}' * max(0, open_braces)
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return None
+
+
 class GeminiProvider:
     """LLM provider using Google Gemini API."""
 
@@ -209,7 +302,14 @@ class GeminiProvider:
                     return json.loads(content)
 
                 except json.JSONDecodeError as e:
-                    print(f"Gemini JSON parsing error: {e}")
+                    print(f"  Gemini JSON parsing error: {e}")
+
+                    # Try to repair truncated JSON first
+                    repaired = _repair_truncated_json(content)
+                    if repaired is not None:
+                        print(f"  Repaired truncated JSON successfully")
+                        return repaired
+
                     # Fallback: try non-JSON mode
                     result = self.generate(prompt, system_prompt, temperature, max_tokens)
                     if result and result.get("content"):

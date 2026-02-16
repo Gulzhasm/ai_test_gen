@@ -297,14 +297,17 @@ def calculate_test_requirements(
         complexity_factors['format_variations'] = format_count
 
     # =========================================================================
-    # TOTAL: Just core + accessibility (edge/negative are bonus)
+    # TOTAL: core + accessibility + edge/variation tests
+    # Always require additional tests beyond 1:1 AC mapping to ensure
+    # proper coverage of edge cases, variations, and boundary conditions.
     # =========================================================================
-    min_total = min_core + min_accessibility
+    min_edge_variation = max(2, min_core // 2)  # At least 2, or half the core count
+    min_total = min_core + min_accessibility + min_edge_variation
 
-    # Max allows room for edge/negative/state if LLM adds them
+    # Max allows room for more edge/negative/state if LLM adds them
     max_total = min_total + 10
 
-    complexity_factors['breakdown'] = f"core:{min_core} + a11y:{min_accessibility} = {min_total} (edge/neg/state recommended but optional)"
+    complexity_factors['breakdown'] = f"core:{min_core} + a11y:{min_accessibility} + edge/variation:{min_edge_variation} = {min_total}"
 
     return TestRequirements(
         min_total=min_total,
@@ -948,7 +951,33 @@ When AC lists fields/controls:
 - Create a test that verifies EACH control is displayed
 - Example: "Fields: Width, Height, Units" → Verify Width field displayed, verify Height field displayed, etc.
 
-### 9. DETERMINISTIC STEPS (CRITICAL — Zero Ambiguity)
+### 9. COVER EVERY ITEM IN COMMA-SEPARATED ACs
+When an AC lists multiple items separated by commas (e.g., "Rulers, coordinates, and dimensions instantly reflect the new scale"):
+- Create SEPARATE verification steps for EACH listed item
+- Do NOT combine them or skip any
+- Example: "Rulers, coordinates, and dimensions" → 3 separate verifications:
+  1. Verify rulers update
+  2. Verify coordinates update
+  3. Verify existing dimensions update
+
+### 10. TEST EXPLICITLY STATED CAPABILITIES
+When an AC explicitly calls out a capability, create a dedicated test for it:
+- "decimals allowed" → Test entering a decimal value like 10.5
+- "supports multiple formats" → Test each format
+- "case-insensitive" → Test mixed case input
+Do NOT assume these are covered by other tests — create explicit verification.
+
+### 10b. NUMERIC INPUT FIELD TESTING (CRITICAL)
+When an AC mentions a numeric input field, dialog with numeric value, or entering a number:
+- Create a DEDICATED test for **decimal input** (enter 10.5 or 3.14)
+- Create a DEDICATED test for **whole number input** (enter 100)
+- Create a DEDICATED test for **very large value** (enter 999999)
+- Create a DEDICATED test for **very small decimal** (enter 0.01)
+- Create a DEDICATED test for **overwriting the default/pre-populated value** — click into the field and type a new value directly WITHOUT selecting or deleting the existing text first. Expected: the new value replaces the default.
+These are SEPARATE tests from the error/invalid value tests (zero, negative).
+Numeric input bugs are common — thorough coverage is mandatory.
+
+### 11. DETERMINISTIC STEPS (CRITICAL — Zero Ambiguity)
 **NEVER start a step action with "If"** — every step must be a direct instruction, not a conditional.
 **NEVER use "or" in expected results** — each expected result must describe exactly ONE specific outcome.
 **ONE action per step** — never combine two toggle/menu operations into a single step.
@@ -973,35 +1002,44 @@ GOOD (2 steps):
 `{{story_id}}-{{id}}: {{Feature}} / {{Area}} / {{Scenario}}`
 
 ### TITLE QUALITY RULES (CRITICAL)
-Every title MUST be:
-1. **COMPLETE** - No truncated or incomplete phrases
-2. **MEANINGFUL** - Clearly describes what the test verifies
-3. **SPECIFIC** - Not generic or vague
-4. **GRAMMATICALLY CORRECT** - Reads as a proper sentence fragment
 
-**BAD TITLES (Never use):**
-- "Display content without requiring" ❌ (incomplete - missing what?)
+**Title format is EXACTLY 3 segments:** `{{Feature}} / {{Area}} / {{Scenario}}`
+- NEVER use 4+ segments. NEVER add extra sub-areas.
+- BAD: "Show / Hide Panels / Window Menu / Show Design Panel / Verify visibility" ❌ (4 segments)
+- GOOD: "Show / Hide Panels / Window Menu / Show and hide Design Panel" ✓ (3 segments)
+
+**Scenario (last segment) rules:**
+1. NEVER start with "Verify" — that's the objective's job, not the title's
+2. Describe the **behavior or action**, not the test activity
+3. Keep it concise — max ~8 words
+4. For AC1: describe the end-to-end flow in brief
+5. MUST be in Title Case (capitalize first letter of every word)
+   - BAD: "Zoom in and out via keyboard shortcuts" ❌
+   - GOOD: "Zoom In And Out Via Keyboard Shortcuts" ✓
+
+**BAD SCENARIOS (Never use):**
+- "Verify Design Panel visibility" ❌ (starts with Verify, generic)
+- "Verify Layers Panel visibility" ❌ (same pattern, just swapped name)
+- "Ctrl + '+' increases zoom, Ctrl + '-' decreases zoom, Ctrl + '0' resets zoom" ❌ (too long, lists everything)
 - "Feature availability" ❌ (too generic)
-- "Selection behavior" ❌ (too vague - what behavior?)
-- "Verify functionality" ❌ (meaningless)
 - "Test the feature" ❌ (not descriptive)
-- "User can access" ❌ (not a scenario)
 
-**GOOD TITLES (Use these patterns):**
-- "Display content without internet connection" ✓ (complete)
-- "Default preset shows Letter 8×11 Portrait" ✓ (specific)
-- "Selecting User Manual opens in-app viewer" ✓ (describes action & result)
-- "Recent items populated after document creation" ✓ (describes workflow)
-- "No external browser launched when viewing manual" ✓ (describes negative test)
-- "Touch interaction on iPad and Android Tablet" ✓ (describes platform scope)
+**GOOD SCENARIOS (Use these patterns — ALL in Title Case):**
+- "Show And Hide Design Panel" ✓ (action + object)
+- "Hidden Panel Does Not Occupy Space" ✓ (specific behavior)
+- "Zoom In And Out Via Keyboard Shortcuts" ✓ (concise AC1)
+- "Ctrl + '+' Increases Zoom By +10%" ✓ (specific single behavior)
+- "Zoom Level Respects Maximum Limit" ✓ (boundary test)
+- "Panel State Persists After Restart" ✓ (state test)
+- "Keyboard Navigation (Windows 11)" ✓ (accessibility)
 
-**Scenario Patterns:**
-- For menu access: "[Command] menu access" or "[Command] appears in [Menu]"
-- For behavior: "[Action] [result/outcome]"
-- For settings: "[Setting] follows [configuration]"
-- For negative: "No [excluded feature] option available" (ONLY when AC explicitly mentions exclusion)
-- For state: "[State] persists after [action]"
-- For accessibility: "[Accessibility method] on [Platform]"
+**Scenario Patterns (ALL Title Case):**
+- For toggle: "[Action] [Object]" — e.g., "Show And Hide Design Panel"
+- For behavior: "[Action] [Result/Outcome]" — e.g., "Ctrl+0 Resets Zoom To 100%"
+- For boundary: "[Entity] Respects [Limit]" — e.g., "Zoom Respects Minimum Limit"
+- For state: "[State] Persists After [Trigger]" — e.g., "Panel State Persists After Restart"
+- For negative: "No [Excluded Feature] Available" (ONLY when AC explicitly mentions exclusion)
+- For accessibility: "[Accessibility Method] ([Platform])"
 
 ### ID Sequence
 - First test: AC1 (overall acceptance test — see AC1 rule below)
@@ -1349,6 +1387,46 @@ Structure: prereq → launch → create_file (if menu access needed) → feature
                     'title': "Required sections and controls display",
                     'description': "Open dialog → verify ALL listed fields/sections are displayed"
                 })
+
+            # 9. Detect numeric input / decimal allowed → boundary tests
+            if 'numeric' in ac_lower or 'decimal' in ac_lower or ('enter' in ac_lower and 'value' in ac_lower):
+                derived_scenarios.append({
+                    'type': 'positive',
+                    'source_ac': idx + 1,
+                    'title': "Decimal value accepted in numeric input",
+                    'description': "Enter a decimal value (like 10.5) → confirm → verify value is accepted and applied correctly"
+                })
+                derived_scenarios.append({
+                    'type': 'edge',
+                    'source_ac': idx + 1,
+                    'title': "Very large value in numeric input",
+                    'description': "Enter a very large value (like 999999) → confirm → verify system handles it gracefully"
+                })
+                derived_scenarios.append({
+                    'type': 'edge',
+                    'source_ac': idx + 1,
+                    'title': "Very small decimal in numeric input",
+                    'description': "Enter a very small decimal (like 0.01) → confirm → verify value is accepted and applied correctly"
+                })
+                # Default value overwrite — common usability bug for pre-populated fields
+                derived_scenarios.append({
+                    'type': 'positive',
+                    'source_ac': idx + 1,
+                    'title': "Overwrite default value in numeric input without deleting first",
+                    'description': "When the numeric field shows a default/pre-populated value → click into the field → type a new value directly without selecting or deleting the existing text → verify the new value replaces the default and is applied correctly"
+                })
+
+            # 10. Detect comma-separated items that need individual coverage
+            comma_match = re.search(r'(\w[\w\s]+),\s+(\w[\w\s]+),?\s+and\s+(\w[\w\s]+)', ac)
+            if comma_match:
+                items = [comma_match.group(1).strip(), comma_match.group(2).strip(), comma_match.group(3).strip()]
+                for item in items:
+                    derived_scenarios.append({
+                        'type': 'positive',
+                        'source_ac': idx + 1,
+                        'title': f"{item} reflects updated state",
+                        'description': f"After action → verify {item} updates correctly (separate verification from other items)"
+                    })
 
         if not derived_scenarios:
             return ""

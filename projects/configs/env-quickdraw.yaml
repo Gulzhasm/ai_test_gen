@@ -86,12 +86,16 @@ application:
     dimension: Dimensions Menu
     measure: Dimensions Menu
     diameter: Dimensions Menu
+    typography: Properties Panel
+    text formatting: Properties Panel
+    font: Properties Panel
     propert: Properties Panel
     setting: Settings
     preference: Settings
     help: Help Menu
     about: Help Menu
-    manual: Help Menu
+    # NOTE: "manual" removed — ambiguous with "Manual via Reference Line" (method, not documentation)
+    # "help" and "documentation" already cover Help Menu
     documentation: Help Menu
     insert: Insert Menu
     image: Insert Menu

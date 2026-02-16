@@ -287,6 +287,9 @@ class LLMCorrector:
         """
         if not self.provider:
             print(f"  Warning: LLM provider ({self._provider_type}) not available, skipping correction")
+            # Still apply post-processing even without LLM
+            test_cases = self._post_process_corrections(test_cases, story_id)
+            test_cases = self._ensure_accessibility_tests(test_cases, story_id, feature_name)
             return test_cases
 
         # Store for use in _get_minimum_test_count
@@ -348,12 +351,26 @@ class LLMCorrector:
             # Ensure all required accessibility tests are present
             corrected = self._ensure_accessibility_tests(corrected, story_id, feature_name)
 
+            # Enforce minimum test count — retry if under minimum
+            min_tests = self._get_minimum_test_count(acceptance_criteria)
+            if len(corrected) < min_tests:
+                print(f"  Warning: {len(corrected)} tests < minimum {min_tests}, retrying for more coverage...")
+                corrected = self._retry_for_minimum_count(
+                    corrected, story_id, feature_name,
+                    acceptance_criteria, qa_prep, min_tests
+                )
+                corrected = self._ensure_accessibility_tests(corrected, story_id, feature_name)
+
             print(f"  OK: LLM corrected {len(test_cases)} → {len(corrected)} test cases")
 
             return corrected
 
         except Exception as e:
             print(f"  Warning: LLM correction failed: {e}")
+            # Still apply post-processing and accessibility checks even without LLM
+            test_cases = self._post_process_corrections(test_cases, story_id)
+            test_cases = self._ensure_accessibility_tests(test_cases, story_id, feature_name)
+            print(f"  Applied post-processing to {len(test_cases)} uncorrected test cases")
             return test_cases
 
     def _call_llm(self, system_prompt: str, user_prompt: str) -> Dict:
@@ -475,19 +492,25 @@ Current test cases (DO NOT reduce these):
 {json.dumps({"test_cases": current_tests}, indent=2)}
 
 ## MANDATORY ADDITIONS (add {shortage}+ more tests):
-IMPORTANT: Only add tests that are DIRECTLY GROUNDED in the Acceptance Criteria or QA Prep.
-Do NOT infer or assume requirements. Every test must trace back to specific AC text.
+Think like a senior QA engineer. For each AC, consider:
+- **Variations**: Can the same AC be tested in a different state or context?
+  (e.g., "zoom in" → test from default zoom, test from already zoomed state)
+- **Boundary conditions**: What are the natural limits of this feature?
+  (e.g., maximum zoom, minimum zoom, rapid repeated actions)
+- **Combined workflows**: How do multiple ACs interact together?
+  (e.g., zoom in multiple times → reset → verify back to 100%)
+- **Different input methods**: Does the feature work via multiple controls?
+  (e.g., keyboard shortcut + menu command + mouse action)
 
-1. Add edge case tests ONLY if the AC mentions boundary conditions (e.g., "minimum", "maximum", "empty")
-2. Add negative tests ONLY if the AC explicitly mentions excluded features or "not" behaviors
-3. Add state/undo tests ONLY if the AC mentions undo, redo, or state persistence
-4. Ensure all {len(acceptance_criteria)} ACs have dedicated tests
+Every test must still relate to the feature described in the ACs.
+Do NOT invent features or UI elements not mentioned in the ACs.
 
 Story: {story_id} - {feature_name}
 ACs: {json.dumps(acceptance_criteria)}
 
 Return the COMPLETE list of {min_tests}+ test cases in JSON format.
 DO NOT remove any existing tests. Only ADD new tests.
+Continue the ID sequence from the last non-accessibility test ID.
 '''
 
         system_prompt = "You are a QA test generator. Return JSON only with test_cases array."
@@ -545,6 +568,12 @@ Think like a human QA expert reviewing test cases:
 
 ## TITLE RULES
 Format: "<StoryID>-<ID>: <Feature> / <Area> / <Scenario>"
+- EXACTLY 3 segments after the ID prefix. NEVER use 4+ segments.
+- Scenario (last segment) must describe behavior, NOT start with "Verify"
+- Scenario MUST be in Title Case (capitalize first letter of every word)
+- BAD: "Show Design Panel / Verify Design Panel visibility" (4 segments, starts with Verify)
+- BAD: "Show and hide Design Panel" (not Title Case)
+- GOOD: "Show And Hide Design Panel" (3 segments, Title Case, describes action)
 
 ## STEP STRUCTURE
 1. First step: Pre-requisite step (empty expected)
@@ -646,12 +675,50 @@ Expected total: 15-25 comprehensive test cases.'''
 
         return test_cases
 
+    @staticmethod
+    def _title_case_scenario(title: str) -> str:
+        """Convert the scenario (last segment after '/') in a title to Title Case."""
+        # Title format: "{story_id}-{id}: {Feature} / {Area} / {Scenario}"
+        if '/' not in title:
+            return title
+
+        # Split on '/' keeping all parts
+        parts = title.split('/')
+        # Title Case the last segment (scenario)
+        scenario = parts[-1].strip()
+        scenario_title_cased = scenario.title()
+        parts[-1] = f" {scenario_title_cased}"
+
+        return '/'.join(parts)
+
+    @staticmethod
+    def _clean_forbidden_language(text: str) -> str:
+        """Remove forbidden language patterns from step text.
+
+        Cleans: 'e.g.', 'i.e.', 'if available', 'if supported', 'if applicable'
+        """
+        import re
+        if not text:
+            return text
+        # Remove "e.g., ..." patterns (e.g., '1" = 10 ft') -> ('1" = 10 ft')
+        text = re.sub(r'\be\.?g\.?,?\s*', '', text)
+        # Remove "i.e., ..." patterns
+        text = re.sub(r'\bi\.?e\.?,?\s*', '', text)
+        # Remove "if available/supported/applicable"
+        text = re.sub(r'\bif\s+(?:available|supported|applicable)\b,?\s*', '', text, flags=re.IGNORECASE)
+        # Clean up double spaces left behind
+        text = re.sub(r'  +', ' ', text).strip()
+        return text
+
     def _post_process_corrections(self, test_cases: List[Dict], story_id: str) -> List[Dict]:
         """Post-process LLM corrections to ensure structure compliance."""
         # First, renumber test IDs to ensure proper sequence (AC1, 005, 010, 015, ...)
         test_cases = self._renumber_test_ids(test_cases, story_id)
 
         for tc in test_cases:
+            # Enforce Title Case on the scenario part of titles
+            if 'title' in tc:
+                tc['title'] = self._title_case_scenario(tc['title'])
             steps = tc.get('steps', [])
 
             # Ensure first step is PRE-REQ (using configured template)
@@ -695,6 +762,11 @@ Expected total: 15-25 comprehensive test cases.'''
                     step['expected'] = ''
                 elif 'close' in action_lower or 'exit' in action_lower or 'log out' in action_lower:
                     step['expected'] = ''
+
+            # Clean forbidden language from all steps
+            for step in steps:
+                step['action'] = self._clean_forbidden_language(step.get('action', ''))
+                step['expected'] = self._clean_forbidden_language(step.get('expected', ''))
 
             # Renumber steps
             for i, step in enumerate(steps, 1):
@@ -764,6 +836,29 @@ Expected total: 15-25 comprehensive test cases.'''
 
         return test_cases
 
+    def _resolve_entry_point(self, feature_name: str) -> str:
+        """Resolve the entry point menu for a feature using project config mappings.
+
+        Uses prefix-stem matching (leading \\b only) so that stems like
+        'dimension' also match 'dimensions', 'propert' matches 'properties', etc.
+        Keywords are tried longest-first to prefer specific matches over short ones.
+        """
+        if not self._project_config:
+            return "the application menu"
+
+        import re
+        entry_points = getattr(self._project_config.application, 'entry_point_mappings', {})
+        feature_lower = feature_name.lower()
+
+        # Sort by keyword length descending — longer (more specific) keywords first
+        for keyword, menu in sorted(entry_points.items(), key=lambda kv: len(kv[0]), reverse=True):
+            # Leading \b prevents substring false positives (e.g. 'cut' in 'executed')
+            # No trailing \b so stems match plurals ('dimension' → 'dimensions')
+            if re.search(rf'\b{re.escape(keyword)}', feature_lower):
+                return menu
+
+        return "the application menu"
+
     def _generate_accessibility_test(
         self,
         story_id: str,
@@ -773,11 +868,12 @@ Expected total: 15-25 comprehensive test cases.'''
     ) -> Dict:
         """Generate an accessibility test for a specific platform."""
         platform_lower = platform.lower()
+        entry_menu = self._resolve_entry_point(feature_name)
 
         # Determine test specifics based on platform
         if 'windows' in platform_lower:
             prereq_tool = "Pre-req: Accessibility Insights for Windows is installed"
-            nav_action = "Navigate to View Menu using keyboard."
+            nav_action = f"Navigate to {entry_menu} using keyboard."
             verify_action = f"Verify the {feature_name} controls are keyboard accessible."
             verify_expected = f"Keyboard focus moves to {feature_name} controls with visible focus indicator."
             tool_action = f"Verify {feature_name} controls expose meaningful labels in Accessibility Insights."
@@ -785,7 +881,7 @@ Expected total: 15-25 comprehensive test cases.'''
             test_type = "Keyboard navigation and labels"
         elif 'ipad' in platform_lower or 'ios' in platform_lower:
             prereq_tool = "Pre-req: VoiceOver is enabled"
-            nav_action = "Navigate to View Menu using VoiceOver swipe gestures."
+            nav_action = f"Navigate to {entry_menu} using VoiceOver swipe gestures."
             verify_action = f"Verify the {feature_name} controls are announced with meaningful labels."
             verify_expected = f"VoiceOver announces {feature_name} controls with meaningful labels and roles."
             tool_action = "Verify reading order is logical."
@@ -793,7 +889,7 @@ Expected total: 15-25 comprehensive test cases.'''
             test_type = "VoiceOver navigation"
         elif 'android' in platform_lower:
             prereq_tool = "Pre-req: Accessibility Scanner for Android is installed"
-            nav_action = "Navigate to View Menu using touch gestures."
+            nav_action = f"Navigate to {entry_menu} using touch gestures."
             verify_action = f"Verify the {feature_name} controls are accessible via touch."
             verify_expected = f"{feature_name} controls respond correctly to touch gestures."
             tool_action = f"Run Accessibility Scanner on the {feature_name} screen."
@@ -801,7 +897,7 @@ Expected total: 15-25 comprehensive test cases.'''
             test_type = "TalkBack and Accessibility Scanner"
         else:
             prereq_tool = f"Pre-req: Accessibility tools for {platform} are available"
-            nav_action = "Navigate to View Menu."
+            nav_action = f"Navigate to {entry_menu}."
             verify_action = f"Verify the {feature_name} controls are accessible."
             verify_expected = f"{feature_name} controls are accessible."
             tool_action = "Verify accessibility compliance."

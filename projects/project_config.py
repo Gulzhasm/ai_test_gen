@@ -110,15 +110,18 @@ class ApplicationConfig:
         2. Hints passed from QA details
         3. Default fallback
 
-        Uses word boundary matching to avoid false positives like 'cut' in 'executed'.
+        Uses prefix-stem matching (leading \\b only) so stems like
+        'dimension' also match 'dimensions', 'propert' matches 'properties', etc.
+        Keywords are tried longest-first to prefer specific matches.
         """
         feature_lower = feature_name.lower()
 
         # FIRST: Check config mapping for feature name (highest priority)
-        for keyword, entry_point in self.entry_point_mappings.items():
-            # Use word boundary regex to avoid substring false matches
-            # e.g., 'cut' should not match 'executed'
-            pattern = rf'\b{re.escape(keyword)}\b'
+        # Sort by keyword length descending — longer (more specific) keywords first
+        for keyword, entry_point in sorted(self.entry_point_mappings.items(), key=lambda kv: len(kv[0]), reverse=True):
+            # Leading \b prevents substring false positives ('cut' won't match 'executed')
+            # No trailing \b so stems match plurals ('dimension' → 'dimensions')
+            pattern = rf'\b{re.escape(keyword)}'
             if re.search(pattern, feature_lower):
                 return entry_point
 

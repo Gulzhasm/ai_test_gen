@@ -62,7 +62,7 @@ class StoryTypeClassifier:
     }
 
     PROPERTIES_KEYWORDS = {
-        'properties', 'property', 'panel', 'settings', 'configure',
+        'properties panel', 'properties', 'settings panel', 'configure',
         'preferences', 'options panel'
     }
 
@@ -123,10 +123,14 @@ class StoryTypeClassifier:
 
     @staticmethod
     def _count_keywords(text: str, keywords: Set[str]) -> int:
-        """Count how many keywords appear in text."""
+        """Count how many keywords appear in text using word-boundary matching."""
+        import re
         count = 0
         for keyword in keywords:
-            if keyword in text:
+            # Use word boundaries to avoid false matches
+            # e.g., "property" should not match "property corners" for PROPERTIES type
+            pattern = rf'\b{re.escape(keyword)}\b'
+            if re.search(pattern, text):
                 count += 1
         return count
 
