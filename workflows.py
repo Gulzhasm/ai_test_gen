@@ -1804,8 +1804,9 @@ class UpdateObjectivesWorkflow(IWorkflow):
         success = 0
         failed = 0
 
-        # Determine target state from config (e.g., "Ready")
-        target_state = config.ado.default_state or "Ready"
+        # Always transition to "Ready" — tests are created in "Design" state,
+        # update-objectives promotes them to "Ready" after objectives are set
+        target_state = "Ready"
         print(f"  Target state: {target_state}")
 
         for m in matches:

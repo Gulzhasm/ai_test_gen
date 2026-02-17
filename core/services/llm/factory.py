@@ -15,7 +15,7 @@ def create_llm_provider(
     endpoint: str = "http://localhost:11434",
     model: Optional[str] = None,
     timeout: int = 30,
-    max_retries: int = 1,
+    max_retries: int = 3,
     api_key: Optional[str] = None
 ) -> Optional[Union[OllamaProvider, OpenAIProvider, AnthropicProvider, GeminiProvider]]:
     """Create LLM provider based on configuration.
@@ -57,7 +57,7 @@ def create_llm_provider(
     elif provider == "gemini" or provider == "google":
         return GeminiProvider(
             api_key=api_key or os.getenv("GEMINI_API_KEY"),
-            model=model or "gemini-2.0-flash",
+            model=model or "gemini-2.5-flash",
             timeout=timeout,
             max_retries=max_retries
         )

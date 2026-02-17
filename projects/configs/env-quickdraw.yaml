@@ -170,7 +170,7 @@ ado:
   project: Env
   area_path: "Env\\ENV Kanda"
   assigned_to: gulzhas.mailybayeva@kandasoft.com
-  default_state: Ready
+  default_state: Design
   test_suite_pattern: "{story_id} : {story_name}"
   qa_prep_pattern: "Story {story_id}: QA Prep"
 
@@ -213,7 +213,7 @@ rules:
 output_dir: output
 llm_enabled: true
 llm_provider: gemini
-llm_model: gemini-2.0-flash
+llm_model: gemini-2.5-flash
 
 # Patterns for bolding key terms in objectives
 objective_patterns:

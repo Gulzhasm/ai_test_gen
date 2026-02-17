@@ -305,7 +305,7 @@ def calculate_test_requirements(
     min_total = min_core + min_accessibility + min_edge_variation
 
     # Max allows room for more edge/negative/state if LLM adds them
-    max_total = min_total + 10
+    max_total = min_total + 20
 
     complexity_factors['breakdown'] = f"core:{min_core} + a11y:{min_accessibility} + edge/variation:{min_edge_variation} = {min_total}"
 

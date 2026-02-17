@@ -1,6 +1,6 @@
 """
 Gemini Provider
-LLM provider using Google Gemini API (gemini-2.0-flash, gemini-2.0-flash-lite, etc.)
+LLM provider using Google Gemini API (gemini-2.5-flash, gemini-2.5-flash-lite, etc.)
 """
 import json
 import os
@@ -15,9 +15,13 @@ except ImportError:
     GEMINI_AVAILABLE = False
 
 # Fallback chain: if primary model is rate-limited, try these in order
+# NOTE: gemini-1.5-* retired (404), gemini-2.0-* deprecated March 31, 2026
 FALLBACK_MODELS = {
-    "gemini-2.0-flash": ["gemini-2.0-flash-lite"],
-    "gemini-2.0-flash-lite": [],
+    "gemini-2.5-flash": ["gemini-2.5-flash-lite"],
+    "gemini-2.5-flash-lite": [],
+    # Legacy: if someone still has 2.0 in YAML, fall forward to 2.5
+    "gemini-2.0-flash": ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
+    "gemini-2.0-flash-lite": ["gemini-2.5-flash-lite"],
 }
 
 
@@ -122,7 +126,7 @@ class GeminiProvider:
         api_key: Optional[str] = None,
         model: str = "gemini-2.0-flash",
         timeout: int = 90,
-        max_retries: int = 1
+        max_retries: int = 3
     ):
         """Initialize Gemini provider.
 
@@ -130,7 +134,7 @@ class GeminiProvider:
             api_key: Gemini API key (defaults to GEMINI_API_KEY env var)
             model: Model name (gemini-2.0-flash, gemini-2.0-flash-lite, etc.)
             timeout: Request timeout in seconds
-            max_retries: Maximum retries per model before trying fallback (default: 1)
+            max_retries: Maximum retries per model before trying fallback (default: 3)
         """
         self._api_key = api_key or os.getenv("GEMINI_API_KEY")
         self._model = model
@@ -159,12 +163,21 @@ class GeminiProvider:
         error_str = str(error)
         return '429' in error_str or 'RESOURCE_EXHAUSTED' in error_str
 
-    def _get_retry_delay(self, error: Exception) -> float:
-        """Extract retry delay from error message, or return default."""
+    def _get_retry_delay(self, error: Exception, attempt: int = 0) -> float:
+        """Calculate retry delay with exponential backoff.
+
+        Uses the API-suggested delay if available, otherwise applies
+        exponential backoff: 5s, 15s, 30s, 60s...
+        """
+        # Check if the API suggests a specific retry delay
         match = re.search(r'retry in (\d+\.?\d*)s', str(error))
         if match:
-            return float(match.group(1))
-        return 5.0
+            api_delay = float(match.group(1))
+            # Use at least the API delay, but apply backoff multiplier
+            return max(api_delay, 5.0) * (2 ** attempt)
+        # Exponential backoff: 5s, 15s, 30s, 60s
+        base_delays = [5, 15, 30, 60]
+        return base_delays[min(attempt, len(base_delays) - 1)]
 
     def generate(
         self,
@@ -228,7 +241,7 @@ class GeminiProvider:
 
                 except Exception as e:
                     if self._is_rate_limit_error(e) and attempt < self._max_retries:
-                        delay = self._get_retry_delay(e)
+                        delay = self._get_retry_delay(e, attempt)
                         print(f"  Gemini rate limited ({model_name}), retrying in {delay:.0f}s (attempt {attempt + 1}/{self._max_retries})...")
                         time.sleep(delay)
                         continue
@@ -327,7 +340,7 @@ class GeminiProvider:
                     return None
                 except Exception as e:
                     if self._is_rate_limit_error(e) and attempt < self._max_retries:
-                        delay = self._get_retry_delay(e)
+                        delay = self._get_retry_delay(e, attempt)
                         print(f"  Gemini rate limited ({model_name}), retrying in {delay:.0f}s (attempt {attempt + 1}/{self._max_retries})...")
                         time.sleep(delay)
                         continue
