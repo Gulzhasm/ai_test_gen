@@ -387,6 +387,10 @@ class ProjectConfig:
     llm_provider: str = "openai"
     llm_model: str = "gpt-4o-mini"
 
+    # Automation script generation (opt-in)
+    playwright_enabled: bool = False
+    postman_enabled: bool = False
+
     # Objective formatting - key terms to bold
     objective_key_term_patterns: List[str] = field(default_factory=lambda: [
         # UI Surfaces
@@ -569,6 +573,8 @@ class ProjectConfig:
             llm_enabled=data.get('llm_enabled', True),
             llm_provider=data.get('llm_provider', 'openai'),
             llm_model=data.get('llm_model', 'gpt-4o-mini'),
+            playwright_enabled=data.get('playwright_enabled', False),
+            postman_enabled=data.get('postman_enabled', False),
             objective_key_term_patterns=data.get('objective_patterns', [])
         )
 

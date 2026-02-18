@@ -1,0 +1,162 @@
+# Gap Trader - US stock market gap trading scanner and journal
+# Serves as dissertation test bed for AI-generated test automation (Playwright + Postman)
+
+project_id: gap-trader
+
+# Platform selection
+source_platform: ado
+target_platform: ado
+
+application:
+  name: Gap Trader
+  description: US stock market gap trading scanner and journal web application
+  type: web
+
+  # Step templates (web app pattern)
+  prereq_template: "Pre-req: User has a web browser open and navigated to {app_name}"
+  launch_step: "Navigate to the {app_name} application at http://localhost:5000."
+  launch_expected: "The Dashboard page loads with the gap scanner form visible."
+  close_step: "Close the browser tab for {app_name}."
+
+  # UI surfaces
+  ui_surfaces:
+    - Dashboard
+    - Watchlist Page
+    - Trade Journal Page
+    - Performance Page
+    - Navigation Bar
+    - Trade Form Modal
+    - Close Trade Modal
+    - Edit Watchlist Modal
+    - Scanner Results Table
+    - Watchlist Table
+    - Trades Table
+    - Summary Cards
+    - Charts
+
+  # Entry point mappings
+  entry_point_mappings:
+    scan: Dashboard
+    gap: Dashboard
+    filter: Dashboard
+    search: Dashboard
+    watchlist: Watchlist Page
+    watch: Watchlist Page
+    symbol: Watchlist Page
+    add stock: Watchlist Page
+    trade: Trade Journal Page
+    journal: Trade Journal Page
+    entry: Trade Journal Page
+    open trade: Trade Journal Page
+    close trade: Trade Journal Page
+    pnl: Performance Page
+    performance: Performance Page
+    win rate: Performance Page
+    chart: Performance Page
+    stats: Performance Page
+    navigate: Navigation Bar
+    nav: Navigation Bar
+
+  # Supported platforms (browsers for web app)
+  platforms:
+    - Chrome
+    - Firefox
+    - Safari
+    - Edge
+
+  # Features NOT available in MVP
+  unavailable_features:
+    - real-time streaming
+    - push notifications
+    - user authentication
+    - multi-user
+    - options trading
+    - paper trading simulation
+    - mobile app
+    - dark mode
+    - offline mode
+
+  # Incorrect UI terms
+  forbidden_ui_terms:
+    - Side Panel
+    - Left Menu
+    - Sidebar
+    - Toolbar
+
+  # Feature notes
+  feature_notes:
+    scanner: "Gap scanner uses Yahoo Finance data which may have a 15-minute delay"
+    yfinance: "Rate limited; batch downloads preferred over individual lookups"
+    pnl: "P&L is calculated automatically when a trade is closed (exit_price provided)"
+
+# Integration platform configuration
+integration:
+  platform: ado
+  base_url_template: "https://dev.azure.com/{organization}/{project}"
+  api_version: "7.1"
+
+ado:
+  organization: cdpinc
+  project: Env
+  area_path: "Env\\ENV Kanda"
+  assigned_to: gulzhas.mailybayeva@kandasoft.com
+  default_state: Design
+  test_suite_pattern: "{story_id} : {story_name}"
+  qa_prep_pattern: "Story {story_id}: QA Prep"
+
+rules:
+  forbidden_words:
+    - "or / OR"
+    - "if available"
+    - "if supported"
+    - "ambiguous"
+
+  forbidden_area_terms:
+    - Functionality
+    - Behavior
+    - Validation
+    - General
+    - System
+
+  allowed_areas:
+    - Dashboard
+    - Watchlist Page
+    - Trade Journal Page
+    - Performance Page
+    - Navigation Bar
+    - Trade Form Modal
+    - Close Trade Modal
+    - Edit Watchlist Modal
+    - Scanner Results Table
+    - Watchlist Table
+    - Trades Table
+    - Summary Cards
+    - Charts
+    - Accessibility
+
+  first_test_id: AC1
+  test_id_increment: 5
+
+output_dir: output
+llm_enabled: true
+llm_provider: gemini
+llm_model: gemini-2.5-flash
+
+# Automation script generation — ENABLED for this project
+playwright_enabled: true
+postman_enabled: true
+
+# Objective formatting patterns
+objective_patterns:
+  - '\bDashboard\b'
+  - '\bWatchlist(?:\s+Page)?\b'
+  - '\bTrade Journal(?:\s+Page)?\b'
+  - '\bPerformance(?:\s+Page)?\b'
+  - '\bNavigation Bar\b'
+  - '\bScanner\b'
+  - '\bTrade Form\b'
+  - '\b(?:gap up|gap down|gap fill)\b'
+  - '\b(?:P&L|PnL|profit|loss)\b'
+  - '\b(?:Chrome|Firefox|Safari|Edge)\b'
+  - '\b(?:enabled|disabled|visible|hidden)\b'
+  - '\b(?:open|closed|cancelled)\b'

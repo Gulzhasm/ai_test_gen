@@ -14,9 +14,12 @@ Generate high-quality test cases from Azure DevOps user stories automatically us
 6. [Configuration Reference](#configuration-reference)
 7. [Output Files](#output-files)
 8. [Bug Creation](#bug-creation)
-9. [MCP Integration (GitHub Copilot)](#mcp-integration-github-copilot)
-10. [Architecture](#architecture)
-11. [Troubleshooting](#troubleshooting)
+9. [Board Story Report](#board-story-report)
+10. [AC Coverage Validation](#ac-coverage-validation)
+11. [ChromaDB Semantic Matching](#chromadb-semantic-matching)
+12. [MCP Integration (GitHub Copilot)](#mcp-integration-github-copilot)
+13. [Architecture](#architecture)
+14. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -24,19 +27,23 @@ Generate high-quality test cases from Azure DevOps user stories automatically us
 
 This framework automatically generates comprehensive test cases by:
 
-1. **Reading** user stories and acceptance criteria from Azure DevOps
+1. **Reading** user stories and acceptance criteria from Azure DevOps (or Jira)
 2. **Understanding** your application context from project configuration (YAML)
 3. **Generating** test cases using AI (acts as an expert QA engineer with 10+ years experience)
-4. **Correcting** test quality with LLM enhancement
-5. **Exporting** to ADO-compatible CSV format or uploading directly
+4. **Matching** against previously generated steps via ChromaDB for consistent wording
+5. **Correcting** test quality with LLM enhancement (structural fixes, forbidden language, accessibility)
+6. **Validating** AC coverage — auto-detects gaps and generates missing tests
+7. **Exporting** to ADO-compatible CSV format or uploading directly
 
 ### Key Features
 
 - **Project-agnostic**: Works with any application (desktop, web, mobile, hybrid)
-- **AI-powered**: Uses GPT-4 to generate human-quality test cases
+- **Multi-provider AI**: Supports OpenAI, Gemini, Anthropic, and Ollama for test generation
 - **Context-aware**: Generates relevant tests based on feature type (no input tests for menus!)
-- **Multi-platform**: Generates accessibility tests for all supported platforms
-- **ADO Integration**: Direct upload to Azure DevOps test suites
+- **ChromaDB semantic matching**: Reference steps from previous generations ensure consistent wording
+- **AC coverage validation**: Automatically detects missing acceptance criteria coverage and generates gap-filling tests
+- **Multi-platform**: Generates accessibility tests for all supported platforms (Windows 11, iPad, Android Tablet)
+- **ADO Integration**: Direct upload to Azure DevOps test suites + bug creation + board reporting
 
 ---
 
@@ -72,8 +79,10 @@ cp .env.example .env
 # Azure DevOps (Required)
 ADO_PAT=your_personal_access_token_here
 
-# OpenAI API (Required for LLM correction)
-OPENAI_API_KEY=sk-your-api-key-here
+# LLM Provider (at least one required for LLM correction)
+OPENAI_API_KEY=sk-your-api-key-here       # OpenAI
+GEMINI_API_KEY=your-gemini-key-here        # Google Gemini (alternative)
+ANTHROPIC_API_KEY=your-anthropic-key-here  # Anthropic (alternative)
 ```
 
 ### Step 3: Generate Your First Tests
@@ -302,9 +311,10 @@ rules:
     - Navigation Menu
     - Settings Page
 
-# LLM settings
+# LLM settings (provider options: openai, gemini, anthropic, ollama)
 llm_enabled: true
-llm_model: gpt-4o-mini
+llm_provider: gemini           # or openai, anthropic, ollama
+llm_model: gemini-2.0-flash    # model name for chosen provider
 ```
 
 ### Step 3: Set as Default (Optional)
@@ -349,6 +359,19 @@ The framework generates platform-specific accessibility tests:
 | iPad/iOS | VoiceOver | Swipe gestures |
 | Android | Accessibility Scanner | Touch + TalkBack |
 | Chrome/Web | Screen reader (NVDA/JAWS) | ARIA, keyboard |
+
+### LLM Providers
+
+The framework supports multiple LLM providers via a factory pattern. Set `llm_provider` in your YAML config or `.env`:
+
+| Provider | Config Value | Env Variable | Models |
+|----------|-------------|--------------|--------|
+| OpenAI | `openai` | `OPENAI_API_KEY` | `gpt-4o-mini`, `gpt-4o` |
+| Google Gemini | `gemini` | `GEMINI_API_KEY` | `gemini-2.0-flash`, `gemini-1.5-pro` |
+| Anthropic | `anthropic` | `ANTHROPIC_API_KEY` | `claude-sonnet-4-5-20250929` |
+| Ollama (local) | `ollama` | N/A | Any local model |
+
+YAML config `llm_provider` takes precedence over `.env` defaults. API keys are always resolved from environment variables.
 
 ### Feature Type Detection
 
@@ -463,6 +486,68 @@ The formatter produces ADO HTML matching the ENV Drawing Bug Template:
 
 ---
 
+## Board Story Report
+
+Generate a CSV summary of all user stories from specific ADO board columns, with test case counts.
+
+```bash
+python scripts/fetch_board_stories.py
+```
+
+**Output:** `output/board_stories_summary.csv` with columns:
+
+| Column | Description |
+|--------|-------------|
+| User Story Title | Story ID and title |
+| # Test Cases | Count of linked test cases (via TestedBy relations + test suites) |
+| Tablet Testing Needed | Left empty for dev team to fill in |
+
+The script queries stories from **Most Wanted**, **Development**, and **Quality Assurance** board columns, filtered by area path. Excludes `[Out of Scope]` stories.
+
+---
+
+## AC Coverage Validation
+
+The LLM correction pipeline automatically validates that every acceptance criterion (AC) has at least one test case covering it. If gaps are detected, it generates targeted gap-filling tests.
+
+### How It Works
+
+1. **Keyword extraction** from each AC (strips stop words, punctuation)
+2. **Keyword matching** against test case text (title + objective + steps) at 40% threshold with minimum 2 keyword hits
+3. **Gap detection** — ACs with zero matching test cases are flagged
+4. **Targeted LLM call** — generates 1-2 tests per uncovered AC
+5. **Structural fixes** — ensures generated tests have PRE-REQ, launch, close steps
+
+### Console Output
+
+```
+  AC coverage: All 12 ACs covered by existing tests
+```
+
+Or when gaps are found:
+
+```
+  Warning: 1 AC(s) have no test coverage:
+    AC 11: Undo/Redo applies to rename, visibility, lock, order, delete (limit 50)
+  → Generating tests for 1 uncovered AC(s)...
+  → Added 3 gap-filling test(s)
+```
+
+This runs automatically during `generate` and `upload` workflows. No extra flags needed.
+
+---
+
+## ChromaDB Semantic Matching
+
+Previously generated test steps are stored in ChromaDB (vector database) and used as reference during LLM correction. This ensures consistent wording across test generations for the same story.
+
+- **Auto-embeds** using `all-MiniLM-L6-v2` sentence transformer
+- **Distance metric**: lower = more similar (0.2 very similar, 1.5+ less similar)
+- **Persistent storage** in `./db/` folder
+- To **regenerate cleanly**, delete the story's steps from ChromaDB before re-running
+
+---
+
 ## MCP Integration (GitHub Copilot)
 
 Use the framework directly from GitHub Copilot Chat.
@@ -514,8 +599,7 @@ test_gen/
 ├── projects/                 # Multi-project support
 │   ├── configs/              # YAML project configurations
 │   │   ├── env-quickdraw.yaml
-│   │   ├── example-web-app.yaml
-│   │   └── my-project.yaml
+│   │   └── example-web-app.yaml
 │   ├── project_config.py     # Configuration loader
 │   └── project_manager.py    # Project management
 │
@@ -531,10 +615,17 @@ test_gen/
 │   ├── domain/               # Domain models
 │   │   ├── models.py         # UserStory, TestCase, etc.
 │   │   └── bug_report.py     # BugReport, RecreateStep
+│   ├── interfaces/           # Contracts (protocols)
+│   │   ├── llm_provider.py   # ILLMProvider interface
+│   │   ├── repository.py     # IStoryRepository, ITestSuiteRepository, etc.
+│   │   └── vector_store.py   # IVectorStore interface
 │   └── services/             # ALL services centralized here
 │       ├── test_generator.py # Main test generation
 │       ├── objective_service.py  # Objective generation
 │       ├── summary_service.py    # QA summary generation
+│       ├── test_validator.py     # QualityGate validation
+│       ├── embeddings/       # Vector embeddings
+│       │   └── test_step_embedder.py  # ChromaDB step embedding
 │       ├── nlp/              # NLP parsing (spaCy)
 │       │   ├── spacy_parser.py
 │       │   └── hybrid_parser.py
@@ -545,15 +636,20 @@ test_gen/
 │       │   ├── summary_linter.py
 │       │   └── objective_linter.py
 │       └── llm/              # LLM providers & prompts
-│           ├── corrector.py      # Test case correction
+│           ├── corrector.py      # LLM correction + AC coverage validation
 │           ├── prompt_builder.py # Dynamic prompt generation
+│           ├── factory.py        # LLM provider factory
 │           ├── openai_provider.py
+│           ├── gemini_provider.py
 │           └── anthropic_provider.py
 │
 ├── infrastructure/           # External services (adapters)
 │   ├── ado/                  # Azure DevOps client
+│   │   ├── http_client.py    # Low-level ADO HTTP client
 │   │   ├── ado_repository.py # ADO API wrapper (stories, test cases, suites)
 │   │   └── ado_bug_repository.py # ADO Bug creation
+│   ├── vector_db/            # Vector database
+│   │   └── chroma_repository.py  # ChromaDB implementation
 │   └── export/               # Export generators
 │       ├── csv_generator.py
 │       └── objective_generator.py
@@ -562,9 +658,11 @@ test_gen/
 │   └── mcp_server.py         # GitHub Copilot MCP server
 │
 ├── scripts/                  # Utility scripts
-│   └── setup_project.py      # Project setup tool
+│   └── fetch_board_stories.py # ADO board story report
 │
-├── tests/                    # Unit tests
+├── tests/                    # Unit & integration tests
+│   ├── unit/
+│   └── integration/
 │
 └── output/                   # Generated files
     └── *.csv, *.json, *.txt
@@ -595,6 +693,18 @@ test_gen/
 
 - Use `--skip-correction` flag for faster generation (lower quality)
 - Consider using `gpt-4o-mini` instead of `gpt-4o` in config
+- Gemini `gemini-2.0-flash` is a fast, cost-effective alternative
+
+### Gemini rate limit errors
+
+- Gemini free tier has strict daily rate limits
+- Upgrade to a paid API key or switch to `openai` in your YAML config
+
+### ChromaDB polluted reference steps
+
+- Bad reference steps from previous generations can affect new outputs
+- Delete the `./db/` folder to clear all stored embeddings, or
+- Re-generate the story to overwrite stale references
 
 ### MCP not working in Copilot
 
@@ -660,14 +770,25 @@ For issues or questions:
 
 ## Version
 
-**v5.2** - Bug creation + Multi-provider LLM support
+**v6.0** — Phase 2: Intelligent Coverage & Semantic Matching
 
-### Recent Changes
+### Phase 2 (v6.0) — Current
+
+- **AC coverage validation** — automatically detects missing acceptance criteria coverage and generates gap-filling tests via targeted LLM call
+- **ChromaDB semantic matching** — stores previously generated test steps as reference embeddings for consistent wording across generations
+- **Gemini provider** — Google Gemini (Flash + Pro) support via `google-genai` SDK with JSON response mode
+- **LLM factory pattern** — provider-agnostic architecture (OpenAI, Gemini, Anthropic, Ollama) with YAML config override
+- **Board story report** (`scripts/fetch_board_stories.py`) — fetches user stories from ADO board columns with test case counts
+- **Enhanced LLM corrector** — structural fixes (PRE-REQ, launch, close steps), forbidden language cleanup, accessibility test auto-generation
+
+### Phase 1 (v5.2)
+
 - **Bug creation command** (`create-bug`) — create ADO Bug work items from structured `.txt` files
-- **Multi-provider LLM** — supports OpenAI, Gemini, and Anthropic providers
+- **Multi-provider LLM** — initial OpenAI and Anthropic support
 - **Anti-hallucination guardrails** — LLM-generated tests are grounded in acceptance criteria
 - **`--dry-run` flag** for bug creation — preview without uploading to ADO
 - **Docker support** for consistent team environments
+- **MCP integration** — use from GitHub Copilot Chat
 - Project-agnostic framework with YAML configuration
 - Enhanced LLM prompts (expert QA engineer persona)
 - `update-objectives` workflow now fetches directly from ADO (no CSV required)

@@ -61,6 +61,22 @@ try:
 except ImportError:
     PROMPT_BUILDER_AVAILABLE = False
 
+# Stop words excluded from AC keyword matching (common words with no signal)
+AC_STOP_WORDS = {
+    'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+    'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+    'should', 'may', 'might', 'shall', 'can', 'need', 'must',
+    'that', 'this', 'these', 'those', 'it', 'its',
+    'and', 'but', 'or', 'nor', 'not', 'no', 'so', 'if', 'then',
+    'of', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'from',
+    'up', 'out', 'off', 'over', 'under', 'again', 'further',
+    'when', 'where', 'how', 'what', 'which', 'who', 'whom',
+    'all', 'each', 'every', 'both', 'few', 'more', 'most', 'other',
+    'some', 'such', 'only', 'own', 'same', 'than', 'too', 'very',
+    'user', 'able', 'also', 'new', 'any', 'into', 'about', 'after',
+    'before', 'between', 'during', 'through', 'above', 'below',
+}
+
 
 def find_existing_test_files(story_id: int, output_dir: str = "output") -> Dict[str, str]:
     """
@@ -351,6 +367,11 @@ class LLMCorrector:
             # Ensure all required accessibility tests are present
             corrected = self._ensure_accessibility_tests(corrected, story_id, feature_name)
 
+            # Ensure every AC has at least one test covering it
+            corrected = self._ensure_ac_coverage(
+                corrected, story_id, feature_name, acceptance_criteria
+            )
+
             # Enforce minimum test count — retry if under minimum
             min_tests = self._get_minimum_test_count(acceptance_criteria)
             if len(corrected) < min_tests:
@@ -370,6 +391,10 @@ class LLMCorrector:
             # Still apply post-processing and accessibility checks even without LLM
             test_cases = self._post_process_corrections(test_cases, story_id)
             test_cases = self._ensure_accessibility_tests(test_cases, story_id, feature_name)
+            # Still check AC coverage (will attempt LLM gap-fill if provider available)
+            test_cases = self._ensure_ac_coverage(
+                test_cases, story_id, feature_name, acceptance_criteria
+            )
             print(f"  Applied post-processing to {len(test_cases)} uncorrected test cases")
             return test_cases
 
@@ -833,6 +858,277 @@ Expected total: 15-25 comprehensive test cases.'''
             )
             test_cases.append(new_test)
             print(f"    + Added: {new_test['title'][:70]}...")
+
+        return test_cases
+
+    # =========================================================================
+    # AC COVERAGE VALIDATION — detect uncovered ACs and generate gap-filling tests
+    # =========================================================================
+
+    def _extract_ac_keywords(self, ac_text: str) -> set:
+        """Extract meaningful keywords from an AC bullet for coverage matching."""
+        import re as _re
+        # Lowercase and remove punctuation (keep alphanumeric and spaces)
+        text = _re.sub(r'[^a-z0-9\s]', ' ', ac_text.lower())
+        words = text.split()
+        # Filter: remove stop words and short words
+        return {w for w in words if w not in AC_STOP_WORDS and len(w) >= 3}
+
+    def _map_acs_to_tests(
+        self,
+        test_cases: List[Dict],
+        acceptance_criteria: List[str]
+    ) -> Dict[int, List[str]]:
+        """
+        Map each in-scope AC to test case IDs that cover it.
+        Returns {ac_index (1-based): [test_ids]}. Empty list = uncovered.
+        """
+        import re as _re
+
+        try:
+            from .prompt_builder import clean_acceptance_criteria, split_scope
+            cleaned = clean_acceptance_criteria(acceptance_criteria)
+            in_scope, _ = split_scope(cleaned)
+        except ImportError:
+            in_scope = acceptance_criteria
+
+        # Pre-build searchable text blob for each test case (once, reused per AC)
+        tc_blobs = []
+        for tc in test_cases:
+            title = tc.get('title', '').lower()
+            objective = tc.get('objective', '').lower()
+            step_actions = ' '.join(
+                s.get('action', '').lower() for s in tc.get('steps', [])
+            )
+            step_expected = ' '.join(
+                s.get('expected', '').lower() for s in tc.get('steps', [])
+            )
+            tc_blobs.append(f"{title} {objective} {step_actions} {step_expected}")
+
+        coverage_map = {}
+
+        for ac_idx, ac in enumerate(in_scope, 1):
+            keywords = self._extract_ac_keywords(ac)
+            if not keywords:
+                # Can't extract meaningful keywords — treat as covered
+                coverage_map[ac_idx] = ['(no keywords)']
+                continue
+
+            matching_tests = []
+            min_hits = max(2, int(len(keywords) * 0.4))
+
+            for tc_i, blob in enumerate(tc_blobs):
+                hits = sum(
+                    1 for kw in keywords
+                    if _re.search(rf'\b{_re.escape(kw)}\b', blob)
+                )
+                if hits >= min_hits:
+                    matching_tests.append(test_cases[tc_i].get('id', f'TC-{tc_i}'))
+
+            coverage_map[ac_idx] = matching_tests
+
+        return coverage_map
+
+    def _get_max_test_num(self, test_cases: List[Dict]) -> int:
+        """Get the highest numeric test ID from existing test cases."""
+        max_id = 0
+        for tc in test_cases:
+            tc_id = tc.get('id', '')
+            if '-' in tc_id:
+                try:
+                    num_part = tc_id.split('-')[-1]
+                    if num_part.isdigit():
+                        max_id = max(max_id, int(num_part))
+                except (ValueError, IndexError):
+                    pass
+        return max_id
+
+    def _apply_structural_fixes(self, tc: Dict):
+        """Apply structural fixes to a single test case (PRE-REQ, launch, close, cleanup)."""
+        if 'title' in tc:
+            tc['title'] = self._title_case_scenario(tc['title'])
+
+        steps = tc.get('steps', [])
+
+        # Ensure first step is PRE-REQ
+        if steps and 'pre-req' not in steps[0].get('action', '').lower():
+            steps.insert(0, {'step': 1, 'action': self._prereq, 'expected': ''})
+        elif steps:
+            steps[0]['action'] = self._prereq
+            steps[0]['expected'] = ''
+
+        # Ensure launch expected
+        if len(steps) >= 2:
+            action_lower = steps[1].get('action', '').lower()
+            if ('launch' in action_lower or 'navigate' in action_lower) and self._launch_expected:
+                steps[1]['expected'] = self._launch_expected
+
+        # Ensure last step is close
+        if steps:
+            last = steps[-1]
+            if 'close' not in last.get('action', '').lower() and 'exit' not in last.get('action', '').lower():
+                steps.append({'step': len(steps) + 1, 'action': self._close, 'expected': ''})
+            else:
+                last['action'] = self._close
+                last['expected'] = ''
+
+        # Clean forbidden language + renumber steps
+        for step in steps:
+            step['action'] = self._clean_forbidden_language(step.get('action', ''))
+            step['expected'] = self._clean_forbidden_language(step.get('expected', ''))
+        for i, step in enumerate(steps, 1):
+            step['step'] = i
+
+        tc['steps'] = steps
+
+    def _generate_missing_ac_tests(
+        self,
+        story_id: str,
+        feature_name: str,
+        uncovered_acs: List[tuple],
+        max_existing_id: int
+    ) -> List[Dict]:
+        """Generate test cases for uncovered ACs via a targeted LLM call."""
+        # Get increment from config
+        increment = 5
+        if self._project_config:
+            increment = getattr(self._project_config.rules, 'test_id_increment', 5)
+
+        # Build the uncovered AC list for the prompt
+        ac_list_text = ""
+        for ac_idx, ac_text in uncovered_acs:
+            ac_list_text += f"  AC {ac_idx}: {ac_text}\n"
+
+        # Calculate starting ID
+        next_id = max_existing_id + increment
+
+        system_prompt = f"""You are a senior QA test engineer writing test cases for {self._app_name}.
+Return ONLY a JSON object: {{"test_cases": [...]}}
+
+Each test case must have:
+- "id": "{story_id}-XXX" (3-digit number)
+- "title": "{story_id}-XXX: {feature_name} / <Area> / <Scenario In Title Case>"
+- "objective": "Verify that <specific behavior>"
+- "steps": [{{"step": 1, "action": "...", "expected": "..."}}]
+
+Step structure:
+- Step 1: "{self._prereq}" (empty expected)
+- Step 2: Launch/Navigate step
+- Middle steps: Feature-specific actions with deterministic expected results
+- Last step: "{self._close}" (empty expected)
+
+Rules:
+- NO forbidden language: "or", "if available", "if supported", "if applicable"
+- ONE action per step
+- Expected results must be specific and deterministic
+- Title format: EXACTLY 3 segments after ID (Feature / Area / Scenario)"""
+
+        user_prompt = f"""The following Acceptance Criteria have ZERO test coverage.
+Generate 1-2 focused test cases for EACH uncovered AC.
+
+Story: {story_id} - {feature_name}
+
+## UNCOVERED ACCEPTANCE CRITERIA:
+{ac_list_text}
+## ID SEQUENCE:
+Start test IDs from {story_id}-{next_id:03d}, incrementing by {increment}.
+
+## REQUIREMENTS:
+- Generate 1-2 test cases per uncovered AC
+- Each test must directly exercise the behavior described in its AC
+- Total new tests: {len(uncovered_acs)} to {len(uncovered_acs) * 2}
+
+Return JSON: {{"test_cases": [...]}}"""
+
+        try:
+            result = self._call_llm(system_prompt, user_prompt)
+            new_tests = result.get("test_cases", [])
+
+            # Renumber to avoid ID collisions
+            current_num = next_id
+            for tc in new_tests:
+                tc_id = f"{story_id}-{current_num:03d}"
+                tc['id'] = tc_id
+                # Fix title prefix
+                old_title = tc.get('title', '')
+                if ':' in old_title:
+                    parts = old_title.split(':', 1)
+                    tc['title'] = f"{tc_id}:{parts[1]}"
+                else:
+                    tc['title'] = f"{tc_id}: {feature_name} / General / {old_title}"
+                current_num += increment
+
+            return new_tests
+
+        except Exception as e:
+            print(f"  → AC gap-fill LLM call failed: {e}")
+            return []
+
+    def _ensure_ac_coverage(
+        self,
+        test_cases: List[Dict],
+        story_id: str,
+        feature_name: str,
+        acceptance_criteria: List[str]
+    ) -> List[Dict]:
+        """
+        Ensure every in-scope AC has at least one test case covering it.
+        If uncovered ACs are found, make a targeted LLM call to generate
+        gap-filling tests.
+        """
+        try:
+            from .prompt_builder import clean_acceptance_criteria, split_scope
+            cleaned = clean_acceptance_criteria(acceptance_criteria)
+            in_scope, _ = split_scope(cleaned)
+        except ImportError:
+            in_scope = acceptance_criteria
+
+        if not in_scope:
+            return test_cases
+
+        # Map ACs to existing tests
+        coverage_map = self._map_acs_to_tests(test_cases, acceptance_criteria)
+
+        # Identify uncovered ACs
+        uncovered = []
+        for ac_idx, test_ids in coverage_map.items():
+            if not test_ids:
+                uncovered.append((ac_idx, in_scope[ac_idx - 1]))
+
+        if not uncovered:
+            print(f"  AC coverage: All {len(in_scope)} ACs covered by existing tests")
+            return test_cases
+
+        # Print warnings
+        print(f"  Warning: {len(uncovered)} AC(s) have no test coverage:")
+        for ac_idx, ac_text in uncovered:
+            print(f"    AC {ac_idx}: {ac_text[:80]}...")
+
+        # If no LLM provider, skip remediation
+        if not self.provider:
+            print(f"  → Cannot generate gap-filling tests (no LLM provider)")
+            return test_cases
+
+        # Get highest test ID for numbering
+        max_id = self._get_max_test_num(test_cases)
+
+        # Generate tests for missing ACs
+        print(f"  → Generating tests for {len(uncovered)} uncovered AC(s)...")
+        new_tests = self._generate_missing_ac_tests(
+            story_id, feature_name, uncovered, max_id
+        )
+
+        if new_tests:
+            # Apply structural fixes to each new test
+            for tc in new_tests:
+                self._apply_structural_fixes(tc)
+
+            test_cases.extend(new_tests)
+            print(f"  → Added {len(new_tests)} gap-filling test(s)")
+            for tc in new_tests:
+                print(f"    + {tc.get('title', '')[:70]}...")
+        else:
+            print(f"  → LLM gap-fill returned no tests, skipping")
 
         return test_cases
 

@@ -312,6 +312,11 @@ class GenerateWorkflow(IWorkflow):
         output_files['objectives'] = obj_path
         print(f"  Objectives: {obj_path}")
 
+        # Resolve LLM provider/key (used by QA Summary, Playwright, Postman)
+        from core.config.environment import EnvironmentConfig
+        llm_provider = getattr(config, 'llm_provider', None) or os.getenv("LLM_PROVIDER", "openai")
+        llm_api_key = EnvironmentConfig.get_llm_api_key(llm_provider)
+
         # QA Planning Summary (skip if QA Prep already exists in ADO)
         if qa_prep_exists:
             print("  QA Summary: Skipped (QA Prep already exists in ADO)")
@@ -323,9 +328,6 @@ class GenerateWorkflow(IWorkflow):
                 'description_text': description,
                 'acceptance_criteria_text': ac_text
             }
-            from core.config.environment import EnvironmentConfig
-            llm_provider = getattr(config, 'llm_provider', None) or os.getenv("LLM_PROVIDER", "openai")
-            llm_api_key = EnvironmentConfig.get_llm_api_key(llm_provider)
             summary_generator = QASummaryGenerator(
                 api_key=llm_api_key,
                 model=config.llm_model if hasattr(config, 'llm_model') else "gpt-4o-mini",
@@ -355,6 +357,78 @@ class GenerateWorkflow(IWorkflow):
             }, f, indent=2)
         output_files['debug_json'] = json_path
         print(f"  Debug JSON: {json_path}")
+
+        # --- Automation Script Generation (opt-in) ---
+        playwright_content = None
+        postman_collection = None
+
+        # Playwright script generation
+        if getattr(config, 'playwright_enabled', False) and config.llm_enabled:
+            print("  Generating Playwright script...")
+            try:
+                from infrastructure.export.playwright_generator import PlaywrightGenerator
+                pw_gen = PlaywrightGenerator(
+                    app_name=config.application.name,
+                    app_type=config.application.app_type,
+                    provider_type=llm_provider,
+                    model=config.llm_model if hasattr(config, 'llm_model') else "gpt-4o-mini",
+                    api_key=llm_api_key
+                )
+                pw_path = os.path.join(output_dir, f"{story_id}_{safe_title}_PLAYWRIGHT.spec.ts")
+                playwright_content = pw_gen.generate_script(
+                    test_cases=test_cases,
+                    story_id=str(story_id),
+                    feature_name=title,
+                    output_file=pw_path
+                )
+                output_files['playwright'] = pw_path
+                print(f"  Playwright: {pw_path}")
+            except Exception as e:
+                print(f"  Warning: Playwright generation failed: {e}")
+
+        # Postman collection generation
+        if getattr(config, 'postman_enabled', False) and config.llm_enabled:
+            print("  Generating Postman collection...")
+            try:
+                from infrastructure.export.postman_generator import PostmanGenerator
+                pm_gen = PostmanGenerator(
+                    app_name=config.application.name,
+                    provider_type=llm_provider,
+                    model=config.llm_model if hasattr(config, 'llm_model') else "gpt-4o-mini",
+                    api_key=llm_api_key
+                )
+                pm_path = os.path.join(output_dir, f"{story_id}_{safe_title}_POSTMAN.json")
+                postman_collection = pm_gen.generate_collection(
+                    story_id=str(story_id),
+                    feature_name=title,
+                    description=description,
+                    acceptance_criteria=acceptance_criteria,
+                    output_file=pm_path
+                )
+                output_files['postman'] = pm_path
+                print(f"  Postman: {pm_path}")
+            except Exception as e:
+                print(f"  Warning: Postman generation failed: {e}")
+
+        # Traceability matrix (auto-generated if any automation artifacts exist)
+        if 'playwright' in output_files or 'postman' in output_files:
+            try:
+                from infrastructure.export.traceability_generator import TraceabilityGenerator
+                trace_gen = TraceabilityGenerator()
+                trace_path = os.path.join(output_dir, f"{story_id}_{safe_title}_TRACEABILITY.json")
+                trace_gen.generate_traceability(
+                    story_id=str(story_id),
+                    story_title=title,
+                    test_cases=test_cases,
+                    output_files=output_files,
+                    playwright_script=playwright_content,
+                    postman_collection=postman_collection,
+                    output_file=trace_path
+                )
+                output_files['traceability'] = trace_path
+                print(f"  Traceability: {trace_path}")
+            except Exception as e:
+                print(f"  Warning: Traceability generation failed: {e}")
 
         return output_files
 
