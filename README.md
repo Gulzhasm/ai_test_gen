@@ -1,35 +1,185 @@
-# AI-Powered Test Case Generation Framework
+# Test-Gen: Multi-Agent LLM Orchestration for Structured Test Generation
 
-Generate high-quality test cases from Azure DevOps user stories automatically using AI.
+A **multi-agent LLM orchestration system** that reads structured requirements from project management platforms, generates validated structured outputs through a hybrid rule-engine + LLM pipeline, enforces coverage via automated feedback loops, and self-corrects using RAG-powered semantic matching.
+
+Built with **Clean Architecture**, multi-provider LLM support (OpenAI, Gemini, Anthropic, Ollama), ChromaDB vector search, and a Model Context Protocol (MCP) server for IDE integration.
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [Quick Start (5 minutes)](#quick-start-5-minutes)
-3. [Docker Setup (Recommended)](#docker-setup-recommended)
-4. [CLI Commands](#cli-commands)
-5. [Adding Your Project](#adding-your-project)
-6. [Configuration Reference](#configuration-reference)
-7. [Output Files](#output-files)
-8. [Bug Creation](#bug-creation)
-9. [Board Story Report](#board-story-report)
-10. [AC Coverage Validation](#ac-coverage-validation)
-11. [ChromaDB Semantic Matching](#chromadb-semantic-matching)
-12. [MCP Integration (GitHub Copilot)](#mcp-integration-github-copilot)
-13. [Architecture](#architecture)
-14. [Troubleshooting](#troubleshooting)
+1. [AI Engineering Overview](#ai-engineering-overview)
+2. [System Architecture](#system-architecture)
+3. [Technical Highlights](#technical-highlights)
+4. [Quick Start (5 minutes)](#quick-start-5-minutes)
+5. [Docker Setup (Recommended)](#docker-setup-recommended)
+6. [CLI Commands](#cli-commands)
+7. [Adding Your Project](#adding-your-project)
+8. [Configuration Reference](#configuration-reference)
+9. [Output Files](#output-files)
+10. [Bug Creation](#bug-creation)
+11. [Board Story Report](#board-story-report)
+12. [AC Coverage Validation](#ac-coverage-validation)
+13. [ChromaDB Semantic Matching](#chromadb-semantic-matching)
+14. [MCP Integration (GitHub Copilot)](#mcp-integration-github-copilot)
+15. [Architecture](#architecture)
+16. [Troubleshooting](#troubleshooting)
 
 ---
 
-## Overview
+## AI Engineering Overview
+
+This system solves a real-world problem — generating comprehensive, validated test cases from natural-language requirements — using a **multi-stage AI pipeline** rather than a single LLM call.
+
+### The Problem
+
+Manually writing test cases from user stories is slow, inconsistent, and prone to coverage gaps. A single LLM prompt produces hallucinated steps, inconsistent wording, and misses edge cases.
+
+### The Solution: Hybrid AI Pipeline
+
+Instead of relying on a single LLM call, the system orchestrates **multiple specialized stages** — each with its own responsibility — combining deterministic rule engines with LLM intelligence:
+
+```
+Structured Input (ADO/Jira)
+        │
+        ▼
+┌─────────────────────────────┐
+│   1. INGESTION & PARSING    │  Platform adapters (ADO, Jira) → domain models
+│      NLP analysis (spaCy)   │  Story type classification, feature detection
+└─────────────┬───────────────┘
+              ▼
+┌─────────────────────────────┐
+│  2. DETERMINISTIC GENERATION│  Rule engine: 70+ QA rules, scenario expansion,
+│     (No LLM — pure logic)   │  edge case generation, platform-specific tests
+└─────────────┬───────────────┘
+              ▼
+┌─────────────────────────────┐
+│  3. RAG: SEMANTIC MATCHING  │  ChromaDB vector search (all-MiniLM-L6-v2)
+│     Reference step retrieval│  Retrieve similar steps → enforce consistency
+└─────────────┬───────────────┘
+              ▼
+┌─────────────────────────────┐
+│  4. LLM CORRECTION          │  Multi-provider (OpenAI/Gemini/Anthropic/Ollama)
+│     Structured JSON output  │  Dynamic prompt construction, JSON schema enforcement
+└─────────────┬───────────────┘
+              ▼
+┌─────────────────────────────┐
+│  5. VALIDATION & FEEDBACK   │  AC coverage gap detection → targeted re-generation
+│     Self-correction loop    │  Quality gates, forbidden language, structural fixes
+└─────────────┬───────────────┘
+              ▼
+┌─────────────────────────────┐
+│  6. MULTI-FORMAT EXPORT     │  CSV (ADO), Playwright scripts, JSON, QA summaries
+│     Platform upload         │  ADO test suites, TestRail, MCP server
+└─────────────────────────────┘
+```
+
+### Why This Architecture?
+
+| Decision | Rationale |
+|----------|-----------|
+| **Hybrid (rules + LLM)** instead of pure LLM | Rule engine handles 70% deterministically — LLM refines the remaining 30%. Reduces hallucination, cuts token cost, ensures structural correctness |
+| **RAG for consistency** instead of stateless prompts | ChromaDB stores previously generated steps. New generations retrieve similar steps as few-shot context, producing consistent wording across runs |
+| **Coverage validation loop** instead of single-pass | After generation, the system extracts keywords from each acceptance criterion and checks coverage. Uncovered ACs trigger a targeted LLM call to fill gaps |
+| **Multi-provider factory** instead of hardcoded provider | Factory pattern + YAML config = swap between OpenAI, Gemini, Anthropic, or local Ollama without code changes |
+| **Structured output enforcement** instead of free-text | JSON schema in prompts, `response_mime_type` for Gemini, truncated JSON repair for robustness |
+
+---
+
+## System Architecture
+
+```
+                        ┌──────────────────────────┐
+                        │    CLI / MCP Server       │  Entry points
+                        │   (workflows.py)          │  (Typer CLI + MCP)
+                        └────────────┬─────────────┘
+                                     │
+                    ┌────────────────┼────────────────┐
+                    ▼                ▼                ▼
+           ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+           │  Generate    │ │   Upload     │ │  Bug Report  │  Workflow
+           │  Workflow    │ │   Workflow   │ │  Workflow    │  Layer
+           └──────┬───────┘ └──────┬───────┘ └──────────────┘
+                  │                │
+                  ▼                ▼
+    ┌─────────────────────────────────────────────┐
+    │              CORE SERVICES                   │
+    │                                              │
+    │  ┌─────────────┐  ┌──────────────────────┐  │
+    │  │ Test        │  │ LLM Orchestration    │  │
+    │  │ Generator   │  │                      │  │
+    │  │ (rules +    │  │  PromptBuilder       │  │
+    │  │  NLP +      │──│  LLMCorrector        │  │
+    │  │  scenarios) │  │  Provider Factory     │  │
+    │  └─────────────┘  │  ┌────┬────┬────┐   │  │
+    │                    │  │GPT │Gem │Anth│   │  │
+    │  ┌─────────────┐  │  │    │ini │ropi│   │  │
+    │  │ Embeddings  │  │  │    │    │c   │   │  │
+    │  │ (ChromaDB   │──│  └────┴────┴────┘   │  │
+    │  │  RAG)       │  └──────────────────────┘  │
+    │  └─────────────┘                             │
+    │                    ┌──────────────────────┐  │
+    │  ┌─────────────┐  │ Quality Gates        │  │
+    │  │ AC Coverage │──│  Validator           │  │
+    │  │ Validator   │  │  Linters             │  │
+    │  └─────────────┘  └──────────────────────┘  │
+    └─────────────────────────────────────────────┘
+                          │
+           ┌──────────────┼──────────────┐
+           ▼              ▼              ▼
+    ┌────────────┐ ┌────────────┐ ┌────────────┐
+    │ ADO        │ │ Jira       │ │ TestRail   │  Infrastructure
+    │ Adapter    │ │ Adapter    │ │ Adapter    │  Layer
+    └────────────┘ └────────────┘ └────────────┘
+```
+
+---
+
+## Technical Highlights
+
+**LLM Orchestration**
+- Multi-provider factory pattern: OpenAI, Google Gemini, Anthropic, Ollama — swappable via YAML config
+- Dynamic prompt construction: context-aware prompts built from project config, feature type, and RAG results
+- Structured JSON output with schema enforcement and truncated JSON repair
+- Response caching (`MemoryCache`, `FileCache`) to minimize redundant API calls
+- Cost tracking via `MetricsCollector` and `CostCalculator`
+
+**RAG Pipeline (ChromaDB)**
+- Sentence embeddings via `all-MiniLM-L6-v2` (384-dim) for semantic step matching
+- Persistent vector store with distance-based similarity threshold (< 1.5)
+- Retrieved reference steps injected as few-shot context into LLM correction prompts
+- Feedback loop: each generation embeds new steps → future queries return richer context
+
+**Self-Correction & Validation**
+- AC coverage validation: keyword extraction from acceptance criteria → coverage check → targeted gap-filling LLM call for uncovered ACs
+- Quality gates: 70+ rules (forbidden language, structural integrity, ID sequencing, accessibility compliance)
+- Iterative correction: rule-based pre-pass → LLM refinement → post-validation
+
+**NLP & Feature Intelligence**
+- spaCy-based semantic parsing for acceptance criteria analysis
+- Multi-label feature type classification (input, navigation, display, object manipulation, calculation)
+- Story type classification (Tool, Dialog, Menu, File Operations) for context-aware generation
+- Entry point auto-detection: maps features to correct UI locations
+
+**Software Engineering**
+- Clean Architecture: interfaces (`core/interfaces/`), domain models, use cases, infrastructure adapters
+- Repository pattern with platform-agnostic factories (ADO, Jira, TestRail)
+- Dependency injection via project configuration (YAML → dataclasses)
+- MCP server exposing all workflows to GitHub Copilot / Claude Code
+- Docker support for reproducible environments
+- Playwright test script generation (LLM-based with deterministic fallback)
+
+---
+
+## Domain Context
+
+> *The sections below describe the QA domain this system operates in — how it's used, configured, and integrated with Azure DevOps.*
 
 This framework automatically generates comprehensive test cases by:
 
 1. **Reading** user stories and acceptance criteria from Azure DevOps (or Jira)
 2. **Understanding** your application context from project configuration (YAML)
-3. **Generating** test cases using AI (acts as an expert QA engineer with 10+ years experience)
+3. **Generating** test cases using a hybrid rule-engine + LLM pipeline
 4. **Matching** against previously generated steps via ChromaDB for consistent wording
 5. **Correcting** test quality with LLM enhancement (structural fixes, forbidden language, accessibility)
 6. **Validating** AC coverage — auto-detects gaps and generates missing tests
