@@ -173,6 +173,11 @@ ado:
   default_state: Design
   test_suite_pattern: "{story_id} : {story_name}"
   qa_prep_pattern: "Story {story_id}: QA Prep"
+  team: ENV Kanda
+  board_columns:
+    - Most Wanted
+    - Development
+    - Quality Assurance
 
 rules:
   forbidden_words:

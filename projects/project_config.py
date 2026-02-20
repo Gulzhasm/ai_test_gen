@@ -255,6 +255,14 @@ class ADOProjectConfig:
     # QA Prep task naming pattern (None means no QA Prep exists)
     qa_prep_pattern: Optional[str] = "Story {story_id}: QA Prep"
 
+    # Team name for board column queries (e.g., "ENV Kanda")
+    team: str = ""
+
+    # Board columns to include in fetch_board_stories queries
+    board_columns: List[str] = field(default_factory=lambda: [
+        'Most Wanted', 'Development', 'Quality Assurance'
+    ])
+
     # Integration platform config (for URL customization)
     integration: Optional[IntegrationConfig] = None
 
@@ -471,6 +479,8 @@ class ProjectConfig:
             default_state=ado_data.get('default_state', os.getenv('DEFAULT_STATE', 'Design')),
             test_suite_pattern=ado_data.get('test_suite_pattern', '{story_id} : {story_name}'),
             qa_prep_pattern=ado_data.get('qa_prep_pattern', 'Story {story_id}: QA Prep'),
+            team=ado_data.get('team', ''),
+            board_columns=ado_data.get('board_columns', ['Most Wanted', 'Development', 'Quality Assurance']),
             integration=integration
         )
 
@@ -603,6 +613,8 @@ class ProjectConfig:
                 'default_state': self.ado.default_state,
                 'test_suite_pattern': self.ado.test_suite_pattern,
                 'qa_prep_pattern': self.ado.qa_prep_pattern,
+                'team': self.ado.team,
+                'board_columns': self.ado.board_columns,
             },
             'rules': {
                 'forbidden_words': self.rules.forbidden_words,

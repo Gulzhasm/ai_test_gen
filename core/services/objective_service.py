@@ -116,10 +116,12 @@ class ObjectiveService:
         rewritten = rewritten.strip()
         
         # Ensure it starts with "Verify that"
+        if rewritten.lower().startswith('objective:'):
+            rewritten = rewritten[10:].strip()
         if not rewritten.lower().startswith('verify that'):
-            if rewritten.lower().startswith('objective:'):
-                rewritten = rewritten[10:].strip()
-            if not rewritten.lower().startswith('verify that'):
+            if rewritten.lower().startswith('verify '):
+                rewritten = f"Verify that {rewritten[7:]}"
+            else:
                 rewritten = f"Verify that {rewritten}"
         
         return rewritten

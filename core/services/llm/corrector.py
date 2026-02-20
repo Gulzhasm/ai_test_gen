@@ -77,6 +77,26 @@ AC_STOP_WORDS = {
     'before', 'between', 'during', 'through', 'above', 'below',
 }
 
+# Patterns that indicate a "meta-AC" — vague catch-all acceptance criteria
+# that should NOT trigger gap-fill test generation. These ACs are
+# compliance-level statements, not testable behaviors.
+META_AC_PATTERNS = [
+    r'comply with.*specifications',
+    r'comply with.*details described',
+    r'as per the requirements',
+    r'as described in the user story',
+    r'described in the user story',
+    r'according to.*specifications',
+    r'all behavior.*must.*comply',
+    r'all functionality.*must.*comply',
+    r'meets? the requirements',
+    r'adhere to.*specifications',
+    r'consistent with.*design',
+    r'per the design spec',
+    r'as specified in the',
+    r'follow.*specifications',
+]
+
 
 def find_existing_test_files(story_id: int, output_dir: str = "output") -> Dict[str, str]:
     """
@@ -369,7 +389,7 @@ class LLMCorrector:
 
             # Ensure every AC has at least one test covering it
             corrected = self._ensure_ac_coverage(
-                corrected, story_id, feature_name, acceptance_criteria
+                corrected, story_id, feature_name, acceptance_criteria, qa_prep
             )
 
             # Enforce minimum test count — retry if under minimum
@@ -393,7 +413,7 @@ class LLMCorrector:
             test_cases = self._ensure_accessibility_tests(test_cases, story_id, feature_name)
             # Still check AC coverage (will attempt LLM gap-fill if provider available)
             test_cases = self._ensure_ac_coverage(
-                test_cases, story_id, feature_name, acceptance_criteria
+                test_cases, story_id, feature_name, acceptance_criteria, qa_prep
             )
             print(f"  Applied post-processing to {len(test_cases)} uncorrected test cases")
             return test_cases
@@ -874,6 +894,12 @@ Expected total: 15-25 comprehensive test cases.'''
         # Filter: remove stop words and short words
         return {w for w in words if w not in AC_STOP_WORDS and len(w) >= 3}
 
+    def _is_meta_ac(self, ac_text: str) -> bool:
+        """Check if an AC is a vague meta/catch-all statement (not testable)."""
+        import re as _re
+        ac_lower = ac_text.lower()
+        return any(_re.search(p, ac_lower) for p in META_AC_PATTERNS)
+
     def _map_acs_to_tests(
         self,
         test_cases: List[Dict],
@@ -986,7 +1012,8 @@ Expected total: 15-25 comprehensive test cases.'''
         story_id: str,
         feature_name: str,
         uncovered_acs: List[tuple],
-        max_existing_id: int
+        max_existing_id: int,
+        story_description: str = ""
     ) -> List[Dict]:
         """Generate test cases for uncovered ACs via a targeted LLM call."""
         # Get increment from config
@@ -1021,13 +1048,28 @@ Rules:
 - NO forbidden language: "or", "if available", "if supported", "if applicable"
 - ONE action per step
 - Expected results must be specific and deterministic
-- Title format: EXACTLY 3 segments after ID (Feature / Area / Scenario)"""
+- Title format: EXACTLY 3 segments after ID (Feature / Area / Scenario)
+
+CRITICAL GROUNDING RULE:
+- ONLY use UI elements, controls, menus, and mechanisms that are EXPLICITLY described in the story description below.
+- Do NOT invent, assume, or hallucinate UI elements that are not mentioned in the story.
+- If the story says a feature is accessed via a specific menu, use THAT menu — do not create buttons or panels that don't exist."""
+
+        # Build story context for grounding
+        story_context = ""
+        if story_description:
+            # Truncate very long descriptions to avoid token waste
+            desc_truncated = story_description[:2000]
+            story_context = f"""
+## STORY DESCRIPTION (use ONLY UI elements mentioned here):
+{desc_truncated}
+"""
 
         user_prompt = f"""The following Acceptance Criteria have ZERO test coverage.
 Generate 1-2 focused test cases for EACH uncovered AC.
 
 Story: {story_id} - {feature_name}
-
+{story_context}
 ## UNCOVERED ACCEPTANCE CRITERIA:
 {ac_list_text}
 ## ID SEQUENCE:
@@ -1036,6 +1078,7 @@ Start test IDs from {story_id}-{next_id:03d}, incrementing by {increment}.
 ## REQUIREMENTS:
 - Generate 1-2 test cases per uncovered AC
 - Each test must directly exercise the behavior described in its AC
+- ONLY reference UI elements (menus, panels, buttons, tools) that appear in the story description above
 - Total new tests: {len(uncovered_acs)} to {len(uncovered_acs) * 2}
 
 Return JSON: {{"test_cases": [...]}}"""
@@ -1069,7 +1112,8 @@ Return JSON: {{"test_cases": [...]}}"""
         test_cases: List[Dict],
         story_id: str,
         feature_name: str,
-        acceptance_criteria: List[str]
+        acceptance_criteria: List[str],
+        story_description: str = ""
     ) -> List[Dict]:
         """
         Ensure every in-scope AC has at least one test case covering it.
@@ -1089,11 +1133,21 @@ Return JSON: {{"test_cases": [...]}}"""
         # Map ACs to existing tests
         coverage_map = self._map_acs_to_tests(test_cases, acceptance_criteria)
 
-        # Identify uncovered ACs
+        # Identify uncovered ACs (skip meta-ACs that are vague catch-all statements)
         uncovered = []
+        skipped_meta = []
         for ac_idx, test_ids in coverage_map.items():
             if not test_ids:
-                uncovered.append((ac_idx, in_scope[ac_idx - 1]))
+                ac_text = in_scope[ac_idx - 1]
+                if self._is_meta_ac(ac_text):
+                    skipped_meta.append((ac_idx, ac_text))
+                else:
+                    uncovered.append((ac_idx, ac_text))
+
+        if skipped_meta:
+            print(f"  Skipped {len(skipped_meta)} meta-AC(s) (not testable):")
+            for ac_idx, ac_text in skipped_meta:
+                print(f"    AC {ac_idx}: {ac_text[:80]}...")
 
         if not uncovered:
             print(f"  AC coverage: All {len(in_scope)} ACs covered by existing tests")
@@ -1115,7 +1169,7 @@ Return JSON: {{"test_cases": [...]}}"""
         # Generate tests for missing ACs
         print(f"  → Generating tests for {len(uncovered)} uncovered AC(s)...")
         new_tests = self._generate_missing_ac_tests(
-            story_id, feature_name, uncovered, max_id
+            story_id, feature_name, uncovered, max_id, story_description
         )
 
         if new_tests:

@@ -2,14 +2,13 @@
 """
 Fetch user stories from ADO board columns and create a CSV summary.
 
-Queries specific board columns (Most Wanted, Development, Quality Assurance),
-counts linked test cases per story, and outputs a CSV report.
+Queries board columns configured in the project YAML, counts linked
+test cases per story, and outputs a CSV report.
 
 Usage:
-    python scripts/fetch_board_stories.py
+    python scripts/fetch_board_stories.py --project env-quickdraw
 """
 import csv
-import os
 import sys
 from pathlib import Path
 from urllib.parse import quote
@@ -18,9 +17,7 @@ from urllib.parse import quote
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from dotenv import load_dotenv
-load_dotenv()
-
+from scripts._shared import create_base_parser, load_project_config, create_ado_client
 from infrastructure.ado.http_client import ADOHttpClient
 
 
@@ -140,22 +137,23 @@ def count_test_cases_from_suite(client: ADOHttpClient, story_id: int) -> int:
 
 
 def main():
-    # ADO configuration
-    org = os.getenv('ADO_ORG', 'cdpinc')
-    project = os.getenv('ADO_PROJECT', 'Env')
-    pat = os.getenv('ADO_PAT')
-    area_path = os.getenv('ADO_AREA_PATH', 'Env\\ENV Kanda')
-    team = 'ENV Kanda'
+    parser = create_base_parser("Fetch user stories from ADO board and create CSV summary")
+    args = parser.parse_args()
 
-    if not pat:
-        print("Error: ADO_PAT not set in environment")
+    # Load project config
+    config = load_project_config(args.project)
+    client = create_ado_client(config)
+
+    # Read settings from config
+    area_path = config.ado.area_path
+    team = config.ado.team
+    target_columns = config.ado.board_columns
+
+    if not team:
+        print("Error: 'team' not set in project config (ado.team)")
         sys.exit(1)
 
-    client = ADOHttpClient(organization=org, project=project, pat=pat)
-
-    # Board columns to include
-    target_columns = ['Most Wanted', 'Development', 'Quality Assurance']
-
+    print(f"Project: {config.project_id}")
     print(f"Fetching user stories from board columns: {', '.join(target_columns)}")
     print(f"Team: {team} | Area Path: {area_path}\n")
 
@@ -173,9 +171,6 @@ def main():
 
     # Step 3: Build story data and count test cases
     stories = []
-
-    # Cache test plans for suite-based counting (fetched once)
-    test_plans_cache = None
 
     for item in items:
         fields = item.get('fields', {})
@@ -216,7 +211,7 @@ def main():
         print(f"{story['id']:<10} {story['board_column']:<22} {story['test_case_count']:<10} {story['title'][:55]}")
 
     # Write CSV
-    output_path = project_root / 'output' / 'board_stories_summary.csv'
+    output_path = project_root / config.output_dir / 'board_stories_summary.csv'
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(output_path, 'w', newline='', encoding='utf-8') as f:

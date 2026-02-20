@@ -67,10 +67,12 @@ class ObjectiveGenerator:
         Returns:
             Formatted HTML string for ADO
         """
-        # Remove "Verify that" if already at start (avoid duplication)
+        # Remove any leading "Verify that" / "Verify" prefix (avoid duplication)
         objective_text = objective_text.strip()
         if objective_text.lower().startswith('verify that '):
             objective_text = objective_text[12:]
+        elif objective_text.lower().startswith('verify '):
+            objective_text = objective_text[7:]
 
         # Format: <b>Objective:</b> Verify that [rest of text]
         formatted = f"<b>Objective:</b> Verify that {objective_text}"
@@ -175,7 +177,7 @@ class ObjectiveGenerator:
             feature = title_without_id.split('/')[0].strip() if '/' in title_without_id else title_without_id
             objective = f"the {feature} works as expected"
 
-        if not objective.lower().startswith('verify that'):
+        if not objective.lower().startswith('verify'):
             objective = f"Verify that {objective}"
 
         # Format objective with bold tags
