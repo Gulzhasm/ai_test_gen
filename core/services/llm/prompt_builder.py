@@ -809,9 +809,36 @@ class PromptBuilder:
             in_scope
         )
 
+        # Filter platforms to only those relevant to this story's scope
+        self._filter_platforms_by_scope(in_scope)
+
         # Truncate QA prep
         if self.ctx.qa_prep:
             self.ctx.qa_prep = safe_truncate(self.ctx.qa_prep, 2000)
+
+    def _filter_platforms_by_scope(self, in_scope_acs: list):
+        """Filter platforms to only those relevant to this story's scope.
+
+        Primary platform (first in config) is always included since it's the
+        default testing environment. Additional platforms (e.g., tablets) are
+        only included if explicitly mentioned in the in-scope acceptance criteria.
+        This prevents generating tablet tests for stories that don't support tablets.
+        """
+        if len(self.ctx.platforms) <= 1:
+            return
+
+        primary = self.ctx.platforms[0]
+        ac_text = ' '.join(in_scope_acs).lower()
+
+        filtered = [primary]
+        for platform in self.ctx.platforms[1:]:
+            if platform.lower() in ac_text:
+                filtered.append(platform)
+
+        if len(filtered) < len(self.ctx.platforms):
+            excluded = [p for p in self.ctx.platforms if p not in filtered]
+            print(f"  Platform filter: excluded {excluded} (not mentioned in ACs)")
+            self.ctx.platforms = filtered
 
     @classmethod
     def from_project_config(
@@ -977,7 +1004,21 @@ When an AC mentions a numeric input field, dialog with numeric value, or enterin
 These are SEPARATE tests from the error/invalid value tests (zero, negative).
 Numeric input bugs are common — thorough coverage is mandatory.
 
-### 11. DETERMINISTIC STEPS (CRITICAL — Zero Ambiguity)
+### 11. NO DUPLICATE OR OVERLAPPING TEST CASES
+Do NOT create multiple tests that verify the same behavior through similar interactions.
+If two acceptance criteria overlap significantly, consolidate into ONE test that covers both.
+Each test must have a UNIQUE verification goal. Before creating a test, check: does another
+test already cover this same scenario? If yes, do not create the duplicate.
+
+### 12. CONSISTENT SETUP STEPS IN ALL TESTS
+ALL test cases MUST include the full standard setup sequence:
+- Step 1: PRE-REQ (expected empty)
+- Step 2: Launch (with expected result)
+- Step 3: Create File (if the feature requires a canvas/document)
+NEVER skip any setup step. Every test must be independently executable.
+Do not omit the "Create File" step from some tests while including it in others.
+
+### 13. DETERMINISTIC STEPS (CRITICAL — Zero Ambiguity)
 **NEVER start a step action with "If"** — every step must be a direct instruction, not a conditional.
 **NEVER use "or" in expected results** — each expected result must describe exactly ONE specific outcome.
 **ONE action per step** — never combine two toggle/menu operations into a single step.
@@ -995,6 +1036,19 @@ BAD: "Uncheck 'Show Design Panel' and 'Show Layers Panel' in the Window Menu."
 GOOD (2 steps):
   Step N: "Select 'Show Design Panel' in the Window Menu to uncheck it." → "The Design Panel is hidden."
   Step N+1: "Select 'Show Layers Panel' in the Window Menu to uncheck it." → "The Layers Panel is hidden."
+
+**ERROR/EDGE CASE TESTS — most common source of "or"/"if" violations:**
+When testing error conditions (invalid input, not found, permission denied):
+- Add a SETUP pre-req that creates the exact error state (e.g., "Pre-req: No printers configured")
+- Describe ONE specific expected outcome, never alternatives
+- BAD expected: "The field either prevents input or reverts to default" ❌
+- GOOD expected: "The field rejects the input. The value reverts to '1'." ✓
+- BAD action: "Click 'OK' or 'Close' on the error" ❌
+- GOOD action: "Dismiss the error message by clicking 'OK'." ✓
+- BAD expected: "An error saying 'Not found' or similar is displayed" ❌
+- GOOD expected: "An error message indicating the printer was not found is displayed." ✓
+- NEVER use "either", "alternatively", or "if entered" in expected results
+- NEVER invent specific names for dynamic items (printers, files) not mentioned in AC
 
 ## FORMATTING RULES
 

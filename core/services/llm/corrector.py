@@ -328,8 +328,9 @@ class LLMCorrector:
             test_cases = self._ensure_accessibility_tests(test_cases, story_id, feature_name)
             return test_cases
 
-        # Store for use in _get_minimum_test_count
+        # Store for use in _get_minimum_test_count and _ensure_accessibility_tests
         self._current_feature_name = feature_name
+        self._current_acceptance_criteria = acceptance_criteria
 
         # Format test cases for LLM
         tc_json = json.dumps({"test_cases": test_cases}, indent=2)
@@ -821,6 +822,26 @@ Expected total: 15-25 comprehensive test cases.'''
 
         return test_cases
 
+    def _get_story_platforms(self, acceptance_criteria: List[str]) -> List[str]:
+        """Filter global platforms to only those relevant to this story's ACs.
+
+        Primary platform (first in config) is always included.
+        Additional platforms only included if explicitly mentioned in AC text.
+        """
+        all_platforms = getattr(self._project_config.application, 'supported_platforms', [])
+        if not all_platforms or len(all_platforms) <= 1:
+            return all_platforms
+
+        primary = all_platforms[0]
+        ac_text = ' '.join(acceptance_criteria).lower()
+
+        filtered = [primary]
+        for platform in all_platforms[1:]:
+            if platform.lower() in ac_text:
+                filtered.append(platform)
+
+        return filtered
+
     def _ensure_accessibility_tests(
         self,
         test_cases: List[Dict],
@@ -830,12 +851,17 @@ Expected total: 15-25 comprehensive test cases.'''
         """
         Ensure all required platform accessibility tests are present.
         If missing, add them programmatically.
+
+        Only generates tests for platforms relevant to this story's ACs
+        (primary platform always included, others only if mentioned in ACs).
         """
         if not self._project_config:
             return test_cases
 
-        # Get required platforms from config (attribute is 'supported_platforms')
-        platforms = getattr(self._project_config.application, 'supported_platforms', [])
+        # Get story-scoped platforms (filtered by AC mentions)
+        ac_list = getattr(self, '_current_acceptance_criteria', [])
+        platforms = self._get_story_platforms(ac_list) if ac_list else \
+            getattr(self._project_config.application, 'supported_platforms', [])
         if not platforms:
             return test_cases
 
