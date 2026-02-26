@@ -388,10 +388,16 @@ class LLMCorrector:
             # Ensure all required accessibility tests are present
             corrected = self._ensure_accessibility_tests(corrected, story_id, feature_name)
 
+            # Remove duplicate/overlapping test cases
+            corrected = self._remove_duplicate_tests(corrected, story_id)
+
             # Ensure every AC has at least one test covering it
             corrected = self._ensure_ac_coverage(
                 corrected, story_id, feature_name, acceptance_criteria, qa_prep
             )
+
+            # Second dedup pass — gap-filling and retry may introduce duplicates
+            corrected = self._remove_duplicate_tests(corrected, story_id)
 
             # Enforce minimum test count — retry if under minimum
             min_tests = self._get_minimum_test_count(acceptance_criteria)
@@ -402,6 +408,7 @@ class LLMCorrector:
                     acceptance_criteria, qa_prep, min_tests
                 )
                 corrected = self._ensure_accessibility_tests(corrected, story_id, feature_name)
+                corrected = self._remove_duplicate_tests(corrected, story_id)
 
             print(f"  OK: LLM corrected {len(test_cases)} → {len(corrected)} test cases")
 
@@ -821,6 +828,53 @@ Expected total: 15-25 comprehensive test cases.'''
             tc['steps'] = steps
 
         return test_cases
+
+    def _remove_duplicate_tests(self, test_cases: List[Dict], story_id: str) -> List[Dict]:
+        """Remove test cases whose objectives overlap heavily with an earlier test.
+
+        Uses word-overlap on the objective field. AC1 and accessibility tests are
+        always kept. When a duplicate is detected, the earlier (lower-index) test
+        wins and the later one is dropped.
+        """
+        if len(test_cases) <= 1:
+            return test_cases
+
+        def _objective_words(tc: Dict) -> set:
+            obj = tc.get('objective', tc.get('title', '')).lower()
+            # Strip common filler words for better comparison
+            stop = {'a', 'an', 'the', 'is', 'are', 'of', 'to', 'and', 'or', 'in',
+                    'on', 'that', 'for', 'by', 'it', 'its', 'with', 'can', 'be', 'not'}
+            return set(obj.split()) - stop
+
+        keep: list[Dict] = []
+        removed = 0
+        for tc in test_cases:
+            tc_id = tc.get('id', '')
+            # Always keep AC1 and accessibility tests
+            if tc_id.endswith('-AC1') or 'accessibility' in tc.get('title', '').lower():
+                keep.append(tc)
+                continue
+
+            tc_words = _objective_words(tc)
+            is_dup = False
+            for existing in keep:
+                existing_words = _objective_words(existing)
+                if not tc_words or not existing_words:
+                    continue
+                overlap = len(tc_words & existing_words) / len(tc_words | existing_words)
+                if overlap > 0.75:
+                    is_dup = True
+                    break
+            if is_dup:
+                removed += 1
+            else:
+                keep.append(tc)
+
+        if removed:
+            print(f"  Removed {removed} duplicate test(s)")
+            # Renumber IDs after removal
+            keep = self._renumber_test_ids(keep, story_id)
+        return keep
 
     def _get_story_platforms(self, acceptance_criteria: List[str]) -> List[str]:
         """Filter global platforms to only those relevant to this story's ACs.
