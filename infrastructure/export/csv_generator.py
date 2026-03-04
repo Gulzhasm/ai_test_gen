@@ -201,6 +201,6 @@ class CSVGenerator:
             return ''
         # Use csv module to properly escape quotes and commas
         output = io.StringIO()
-        csv.writer(output, quoting=csv.QUOTE_MINIMAL).writerow([str(value)])
+        csv.writer(output, quoting=csv.QUOTE_ALL).writerow([str(value)])
         formatted = output.getvalue().rstrip('\n\r')
         return formatted

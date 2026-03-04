@@ -158,6 +158,114 @@ def save_outputs(
     return output_files
 
 
+def _apply_llm_correction(
+    config: 'ProjectConfig',
+    test_cases: list,
+    story_id: str,
+    title: str,
+    acceptance_criteria: list,
+) -> list:
+    """Apply LLM correction to generated test cases."""
+    from core.config.environment import EnvironmentConfig
+    from core.services.embeddings.test_step_embedder import TestStepEmbedder
+
+    provider_type = config.llm_provider
+    api_key = EnvironmentConfig.get_llm_api_key(provider_type)
+    if not api_key or api_key == "your-api-key-here":
+        print(f"  API key for {provider_type} not configured, skipping LLM correction")
+        return test_cases
+
+    try:
+        from core.services.llm.corrector import LLMCorrector
+        print(f"  Applying LLM corrections via {provider_type} (this may take 30-60 seconds)...")
+        corrector = LLMCorrector(
+            api_key=api_key,
+            model=config.llm_model,
+            project_config=config,
+            provider_type=provider_type,
+        )
+
+        embedder = TestStepEmbedder()
+        reference_steps = embedder.get_reference_steps(title, n_results=10)
+        if reference_steps:
+            print(f"  Found {len(reference_steps)} reference steps for correction")
+
+        corrected = corrector.correct_test_cases(
+            test_cases=test_cases,
+            story_id=str(story_id),
+            feature_name=title,
+            acceptance_criteria=acceptance_criteria,
+            reference_steps=reference_steps,
+        )
+        print(f"  LLM correction complete: {len(corrected)} test cases")
+        return corrected
+    except Exception as e:
+        print(f"  LLM correction failed: {e}, using rule-based output")
+        return test_cases
+
+
+def _apply_judge_validation(
+    config: 'ProjectConfig',
+    test_cases: list,
+    story_data: dict,
+    acceptance_criteria: list,
+) -> list:
+    """Apply Judge LLM validation after LLM correction, before CSV generation."""
+    from core.config.environment import EnvironmentConfig
+    from core.services.llm.factory import create_llm_provider
+    from core.services.quality.judge import LLMJudge
+
+    try:
+        judge_api_key = EnvironmentConfig.get_llm_api_key(config.judge_provider)
+        if not judge_api_key or judge_api_key == "your-api-key-here":
+            print(f"  Judge: API key for {config.judge_provider} not configured, skipping")
+            return test_cases
+
+        judge_provider = create_llm_provider(
+            provider_type=config.judge_provider,
+            model=config.judge_model,
+            timeout=config.judge_timeout,
+            max_retries=2,
+            api_key=judge_api_key,
+        )
+
+        if not judge_provider:
+            print("  Judge: LLM provider unavailable, skipping validation")
+            return test_cases
+
+        judge = LLMJudge(
+            llm_provider=judge_provider,
+            max_rounds=config.judge_max_rounds,
+            auto_fix=config.judge_auto_fix,
+        )
+
+        print(f"\n  Judge: Validating {len(test_cases)} test cases with {config.judge_provider}/{config.judge_model}")
+
+        verdict = judge.evaluate_and_fix(
+            test_cases=test_cases,
+            story_data=story_data,
+            acceptance_criteria=acceptance_criteria,
+            app_config=config.application,
+            rules=config.rules,
+        )
+
+        status = "PASSED" if verdict.passed else "ISSUES REMAIN"
+        print(
+            f"  Judge: {status} after {verdict.rounds_used} round(s) "
+            f"— {verdict.total_issues} issues "
+            f"({verdict.critical_count} critical, {verdict.major_count} major, "
+            f"{verdict.minor_count} minor)"
+        )
+
+        if verdict.corrected_test_cases:
+            return verdict.corrected_test_cases
+        return test_cases
+
+    except Exception as e:
+        print(f"  Judge: Validation failed ({e}), using uncorrected tests")
+        return test_cases
+
+
 async def generate_tests_for_story(
     story_id: str,
     project_id: str = "env-quickdraw"
@@ -195,6 +303,18 @@ async def generate_tests_for_story(
             'description': story.description or ""
         }
         test_cases = generator.generate_test_cases(story_data, criteria)
+
+        # Optional LLM correction
+        if config.llm_enabled:
+            test_cases = _apply_llm_correction(
+                config, test_cases, story_id, story.title, criteria
+            )
+
+        # Judge validation (after LLM correction, before CSV generation)
+        if config.judge_enabled:
+            test_cases = _apply_judge_validation(
+                config, test_cases, story_data, criteria
+            )
 
         # Save outputs to files
         output_files = save_outputs(

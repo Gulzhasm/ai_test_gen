@@ -194,6 +194,14 @@ class GenerateWorkflow(IWorkflow):
                 config, test_cases, story_id, title, acceptance_criteria, qa_prep
             )
 
+        # Judge validation (after LLM correction, before CSV generation)
+        if config.judge_enabled:
+            test_cases = self._apply_judge_validation(
+                config, test_cases,
+                story_data={'story_id': story_id, 'title': title, 'description': description},
+                acceptance_criteria=acceptance_criteria
+            )
+
         # Step 3: Save outputs
         print("\n[3/3] Saving outputs...")
         output_files = self._save_outputs(
@@ -264,6 +272,68 @@ class GenerateWorkflow(IWorkflow):
             return corrected
         except Exception as e:
             print(f"  LLM correction failed: {e}, using rule-based output")
+            return test_cases
+
+    def _apply_judge_validation(
+        self,
+        config: ProjectConfig,
+        test_cases: List[Dict],
+        story_data: Dict,
+        acceptance_criteria: List[str],
+    ) -> List[Dict]:
+        """Apply Judge LLM validation after LLM correction, before CSV generation."""
+        from core.config.environment import EnvironmentConfig
+        from core.services.llm.factory import create_llm_provider
+        from core.services.quality.judge import LLMJudge
+
+        try:
+            judge_api_key = EnvironmentConfig.get_llm_api_key(config.judge_provider)
+            if not judge_api_key or judge_api_key == "your-api-key-here":
+                print(f"  Judge: API key for {config.judge_provider} not configured, skipping")
+                return test_cases
+
+            judge_provider = create_llm_provider(
+                provider_type=config.judge_provider,
+                model=config.judge_model,
+                timeout=config.judge_timeout,
+                max_retries=2,
+                api_key=judge_api_key,
+            )
+
+            if not judge_provider:
+                print("  Judge: LLM provider unavailable, skipping validation")
+                return test_cases
+
+            judge = LLMJudge(
+                llm_provider=judge_provider,
+                max_rounds=config.judge_max_rounds,
+                auto_fix=config.judge_auto_fix,
+            )
+
+            print(f"\n  Judge: Validating {len(test_cases)} test cases with {config.judge_provider}/{config.judge_model}")
+
+            verdict = judge.evaluate_and_fix(
+                test_cases=test_cases,
+                story_data=story_data,
+                acceptance_criteria=acceptance_criteria,
+                app_config=config.application,
+                rules=config.rules,
+            )
+
+            status = "PASSED" if verdict.passed else "ISSUES REMAIN"
+            print(
+                f"  Judge: {status} after {verdict.rounds_used} round(s) "
+                f"— {verdict.total_issues} issues "
+                f"({verdict.critical_count} critical, {verdict.major_count} major, "
+                f"{verdict.minor_count} minor)"
+            )
+
+            if verdict.corrected_test_cases:
+                return verdict.corrected_test_cases
+            return test_cases
+
+        except Exception as e:
+            print(f"  Judge: Validation failed ({e}), using uncorrected tests")
             return test_cases
 
     def _save_outputs(

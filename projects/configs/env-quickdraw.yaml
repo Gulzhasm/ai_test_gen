@@ -216,9 +216,9 @@ rules:
   test_id_increment: 5
 
 output_dir: output
-llm_enabled: true
-llm_provider: gemini
-llm_model: gemini-2.5-flash
+
+# LLM and Judge configuration is managed via .env file
+# See: LLM_ENABLED, LLM_PROVIDER, LLM_MODEL, JUDGE_ENABLED, JUDGE_PROVIDER, etc.
 
 # Patterns for bolding key terms in objectives
 objective_patterns:

@@ -326,7 +326,7 @@ class GenericTestGenerator:
         print(f"  Story type classified as: {self.story_type.value}")
 
         # Parse QA Prep or generate equivalent
-        qa_details = self._parse_qa_prep(qa_prep_content) if qa_prep_content else {}
+        qa_details = self._parse_qa_prep(qa_prep_content, acceptance_criteria=criteria) if qa_prep_content else {}
 
         # If no QA Prep and no details, generate them
         if not qa_details:
@@ -475,10 +475,10 @@ class GenericTestGenerator:
         # Apply quality enhancement if enabled
         if self.enable_quality_enhancement and self._quality_analyzer:
             test_cases = self._enhance_test_quality(test_cases, feature_name)
-        
+
         step_count = self.embedder.store_steps(test_cases)
         print(f"  Stored {step_count} steps in vector DB")
-       
+
         return test_cases
 
     def _enhance_test_quality(
@@ -1650,7 +1650,31 @@ class GenericTestGenerator:
 
     # Helper Methods
 
-    def _parse_qa_prep(self, qa_prep: str) -> Dict:
+    def _filter_platforms_by_ac(self, acceptance_criteria: List[str]) -> List[str]:
+        """Filter platforms to only those relevant to this story's ACs.
+
+        Primary platform (first in config) is always included.
+        Additional platforms (iPad, Android Tablet) only if explicitly mentioned in ACs.
+        """
+        all_platforms = list(self.app.supported_platforms)
+        if not all_platforms or len(all_platforms) <= 1:
+            return all_platforms
+
+        primary = all_platforms[0]
+        ac_text = ' '.join(acceptance_criteria).lower()
+
+        filtered = [primary]
+        for platform in all_platforms[1:]:
+            if platform.lower() in ac_text:
+                filtered.append(platform)
+
+        if len(filtered) < len(all_platforms):
+            excluded = [p for p in all_platforms if p not in filtered]
+            print(f"  Platform filter: excluded {excluded} (not mentioned in ACs)")
+
+        return filtered
+
+    def _parse_qa_prep(self, qa_prep: str, acceptance_criteria: Optional[List[str]] = None) -> Dict:
         """Parse QA Prep content to extract testing details."""
         if not qa_prep:
             return {}
@@ -1684,10 +1708,10 @@ class GenericTestGenerator:
                         other_entry_points.append(entry_point)
         details['entry_points'] = menu_entry_points + other_entry_points
 
-        # ALWAYS use ALL supported platforms for touch/accessibility tests
-        # Platform mentions in QA prep are informational only - we test all platforms
-        # to ensure comprehensive coverage across all supported devices
-        details['platforms'] = list(self.app.supported_platforms)
+        # Filter platforms by AC scope: primary platform always included,
+        # additional platforms (iPad, Android Tablet) only if mentioned in ACs.
+        # BA does not always include platforms in ACs — don't assume all platforms.
+        details['platforms'] = self._filter_platforms_by_ac(acceptance_criteria or [])
 
         # Detect unit system tests
         if 'imperial' in qa_lower and 'metric' in qa_lower:

@@ -262,7 +262,10 @@ class LLMCorrector:
         # Default step templates (can be overridden by app_config or project_config)
         self._app_name = "Application"
         self._prereq = "Pre-req: The application is installed"
+        self._launch_step = "Launch the application."
         self._launch_expected = ""
+        self._create_file_step = "Create a new file/document."
+        self._create_file_expected = "A new blank file is created."
         self._close = "Close the application"
 
         # Use project_config if available, otherwise fall back to app_config
@@ -274,8 +277,14 @@ class LLMCorrector:
             self._app_name = getattr(app_config, 'name', self._app_name)
             if hasattr(app_config, 'get_prereq_step'):
                 self._prereq = app_config.get_prereq_step()
+            if hasattr(app_config, 'get_launch_step'):
+                self._launch_step = app_config.get_launch_step()
             if hasattr(app_config, 'launch_expected'):
                 self._launch_expected = app_config.launch_expected or ""
+            if hasattr(app_config, 'get_create_file_step'):
+                self._create_file_step = app_config.get_create_file_step()
+            if hasattr(app_config, 'create_file_expected'):
+                self._create_file_expected = getattr(app_config, 'create_file_expected', '') or ""
             if hasattr(app_config, 'get_close_step'):
                 self._close = app_config.get_close_step()
 
@@ -1063,11 +1072,25 @@ Expected total: 15-25 comprehensive test cases.'''
             steps[0]['action'] = self._prereq
             steps[0]['expected'] = ''
 
-        # Ensure launch expected
+        # Ensure step 2 is the launch step (not a navigation step)
         if len(steps) >= 2:
             action_lower = steps[1].get('action', '').lower()
-            if ('launch' in action_lower or 'navigate' in action_lower) and self._launch_expected:
-                steps[1]['expected'] = self._launch_expected
+            if 'launch' in action_lower:
+                # Step 2 is already a launch step — just ensure correct wording
+                steps[1]['action'] = self._launch_step
+                if self._launch_expected:
+                    steps[1]['expected'] = self._launch_expected
+            elif 'navigate' not in action_lower and 'open' not in action_lower:
+                # Step 2 is something else — set expected if it looks like launch
+                if self._launch_expected:
+                    steps[1]['expected'] = self._launch_expected
+            else:
+                # Step 2 is a navigation step (e.g., "Open the File Menu") — insert launch before it
+                steps.insert(1, {
+                    'step': 2,
+                    'action': self._launch_step,
+                    'expected': self._launch_expected
+                })
 
         # Ensure last step is close
         if steps:
@@ -1093,7 +1116,8 @@ Expected total: 15-25 comprehensive test cases.'''
         feature_name: str,
         uncovered_acs: List[tuple],
         max_existing_id: int,
-        story_description: str = ""
+        story_description: str = "",
+        existing_tests: List[Dict] = None
     ) -> List[Dict]:
         """Generate test cases for uncovered ACs via a targeted LLM call."""
         # Get increment from config
@@ -1118,16 +1142,19 @@ Each test case must have:
 - "objective": "Verify that <specific behavior>"
 - "steps": [{{"step": 1, "action": "...", "expected": "..."}}]
 
-Step structure:
+MANDATORY step structure (follow this EXACT pattern):
 - Step 1: "{self._prereq}" (empty expected)
-- Step 2: Launch/Navigate step
-- Middle steps: Feature-specific actions with deterministic expected results
+- Step 2: "{self._launch_step}" (expected: "{self._launch_expected}")
+- Step 3+: Navigate to the feature (e.g., "Open the File Menu." then "Select the command.")
+- Middle steps: Feature-specific actions — ONE action per step, deterministic expected results
 - Last step: "{self._close}" (empty expected)
+
+IMPORTANT: Do NOT combine launch + navigation into a single step. Each action must be a separate step.
 
 Rules:
 - NO forbidden language: "or", "if available", "if supported", "if applicable"
-- ONE action per step
-- Expected results must be specific and deterministic
+- ONE action per step — never combine two actions
+- Expected results must be specific and deterministic (never empty for middle steps)
 - Title format: EXACTLY 3 segments after ID (Feature / Area / Scenario)
 
 CRITICAL GROUNDING RULE:
@@ -1145,11 +1172,31 @@ CRITICAL GROUNDING RULE:
 {desc_truncated}
 """
 
+        # Extract example steps from existing tests to enforce consistent wording
+        example_section = ""
+        if existing_tests:
+            # Take first test that has 5+ steps as the wording reference
+            reference = next((tc for tc in existing_tests if len(tc.get('steps', [])) >= 5), None)
+            if reference:
+                ref_steps = reference.get('steps', [])
+                example_lines = []
+                for s in ref_steps[:5]:  # Show first 5 steps
+                    example_lines.append(f'    {{"step": {s.get("step", "")}, "action": "{s.get("action", "")}", "expected": "{s.get("expected", "")}"}}')
+                example_section = f"""
+## EXAMPLE STEPS (use this EXACT wording style for navigation):
+```json
+[
+{chr(10).join(example_lines)}
+]
+```
+IMPORTANT: Match the navigation wording exactly — e.g., if existing tests say "Open the File Menu." and "Select the File – New Document Dialog command.", use those EXACT phrases, not paraphrases like "Navigate to File → New" or "Select the New command."
+"""
+
         user_prompt = f"""The following Acceptance Criteria have ZERO test coverage.
 Generate 1-2 focused test cases for EACH uncovered AC.
 
 Story: {story_id} - {feature_name}
-{story_context}
+{story_context}{example_section}
 ## UNCOVERED ACCEPTANCE CRITERIA:
 {ac_list_text}
 ## ID SEQUENCE:
@@ -1159,6 +1206,7 @@ Start test IDs from {story_id}-{next_id:03d}, incrementing by {increment}.
 - Generate 1-2 test cases per uncovered AC
 - Each test must directly exercise the behavior described in its AC
 - ONLY reference UI elements (menus, panels, buttons, tools) that appear in the story description above
+- Match the exact navigation step wording from the example steps above
 - Total new tests: {len(uncovered_acs)} to {len(uncovered_acs) * 2}
 
 Return JSON: {{"test_cases": [...]}}"""
@@ -1249,7 +1297,8 @@ Return JSON: {{"test_cases": [...]}}"""
         # Generate tests for missing ACs
         print(f"  → Generating tests for {len(uncovered)} uncovered AC(s)...")
         new_tests = self._generate_missing_ac_tests(
-            story_id, feature_name, uncovered, max_id, story_description
+            story_id, feature_name, uncovered, max_id, story_description,
+            existing_tests=test_cases
         )
 
         if new_tests:

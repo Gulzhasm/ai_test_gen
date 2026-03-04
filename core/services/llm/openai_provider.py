@@ -165,10 +165,14 @@ Be deterministic - the same input should always produce the same high-quality ou
         # Add JSON instruction to system prompt
         json_system = (system_prompt or self.DEFAULT_SYSTEM_PROMPT) + "\n\nReturn ONLY valid JSON, no explanation."
 
+        # Use provided max_tokens or default to 4096 for JSON responses
+        max_tokens = kwargs.pop('max_tokens', 4096)
+
         response = self.generate(
             prompt=prompt,
             system_prompt=json_system,
             temperature=temperature,
+            max_tokens=max_tokens,
             **kwargs
         )
 

@@ -395,6 +395,14 @@ class ProjectConfig:
     llm_provider: str = "openai"
     llm_model: str = "gpt-4o-mini"
 
+    # Judge LLM configuration (cross-validation layer)
+    judge_enabled: bool = False
+    judge_provider: str = "openai"
+    judge_model: str = "gpt-4o-mini"
+    judge_max_rounds: int = 2
+    judge_auto_fix: bool = True
+    judge_timeout: int = 120
+
     # Automation script generation (opt-in)
     playwright_enabled: bool = False
     postman_enabled: bool = False
@@ -580,9 +588,17 @@ class ProjectConfig:
             source_platform=source_platform,
             target_platform=target_platform,
             output_dir=data.get('output_dir', 'output'),
-            llm_enabled=data.get('llm_enabled', True),
-            llm_provider=data.get('llm_provider', 'openai'),
-            llm_model=data.get('llm_model', 'gpt-4o-mini'),
+            # LLM config: .env takes priority, YAML as fallback
+            llm_enabled=os.getenv('LLM_ENABLED', str(data.get('llm_enabled', True))).lower() in ('true', '1'),
+            llm_provider=os.getenv('LLM_PROVIDER') or data.get('llm_provider', 'openai'),
+            llm_model=os.getenv('LLM_MODEL') or data.get('llm_model', 'gpt-4o-mini'),
+            # Judge config: .env takes priority, YAML as fallback
+            judge_enabled=os.getenv('JUDGE_ENABLED', str(data.get('judge_enabled', False))).lower() in ('true', '1'),
+            judge_provider=os.getenv('JUDGE_PROVIDER') or data.get('judge_provider', 'openai'),
+            judge_model=os.getenv('JUDGE_MODEL') or data.get('judge_model', 'gpt-4o-mini'),
+            judge_max_rounds=int(os.getenv('JUDGE_MAX_ROUNDS', str(data.get('judge_max_rounds', 2)))),
+            judge_auto_fix=os.getenv('JUDGE_AUTO_FIX', str(data.get('judge_auto_fix', True))).lower() in ('true', '1'),
+            judge_timeout=int(os.getenv('JUDGE_TIMEOUT', str(data.get('judge_timeout', 120)))),
             playwright_enabled=data.get('playwright_enabled', False),
             postman_enabled=data.get('postman_enabled', False),
             objective_key_term_patterns=data.get('objective_patterns', [])

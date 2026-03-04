@@ -33,6 +33,14 @@ class EnvironmentConfig:
     LLM_MAX_RETRIES: int = int(os.getenv("LLM_MAX_RETRIES", "2"))
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.3"))
 
+    # Judge LLM Configuration
+    JUDGE_ENABLED: bool = os.getenv("JUDGE_ENABLED", "false").lower() == "true"
+    JUDGE_PROVIDER: str = os.getenv("JUDGE_PROVIDER", "openai")
+    JUDGE_MODEL: str = os.getenv("JUDGE_MODEL", "gpt-4o-mini")
+    JUDGE_MAX_ROUNDS: int = int(os.getenv("JUDGE_MAX_ROUNDS", "2"))
+    JUDGE_AUTO_FIX: bool = os.getenv("JUDGE_AUTO_FIX", "true").lower() == "true"
+    JUDGE_TIMEOUT: int = int(os.getenv("JUDGE_TIMEOUT", "120"))
+
     # OpenAI Configuration
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
 

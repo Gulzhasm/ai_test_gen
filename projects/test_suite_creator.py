@@ -456,19 +456,26 @@ Only return valid JSON."""
     def _extract_platforms(self, text: str) -> List[str]:
         """Extract platforms from text.
 
-        Returns all supported platforms when none are explicitly mentioned,
-        ensuring comprehensive test coverage across all configured platforms.
+        Primary platform (first in config) is always included.
+        Additional platforms (iPad, Android Tablet) only if explicitly mentioned
+        in ACs. BA does not always include platforms in ACs — don't assume all.
         """
-        platforms = []
+        all_platforms = list(self.config.application.supported_platforms)
+        if not all_platforms:
+            return []
 
-        for platform in self.config.application.supported_platforms:
+        # Primary platform always included
+        primary = all_platforms[0]
+        platforms = [primary]
+
+        # Additional platforms only if mentioned in text (which includes ACs)
+        for platform in all_platforms[1:]:
             if platform.lower() in text:
                 platforms.append(platform)
 
-        # Default to ALL supported platforms if none explicitly mentioned
-        # This ensures comprehensive test coverage (accessibility, tablet, etc.)
-        if not platforms and self.config.application.supported_platforms:
-            platforms = list(self.config.application.supported_platforms)
+        if len(platforms) < len(all_platforms):
+            excluded = [p for p in all_platforms if p not in platforms]
+            print(f"  Platform filter: excluded {excluded} (not mentioned in ACs)")
 
         return platforms
 

@@ -54,6 +54,7 @@ final_*.txt
 .claude/
 venv310/
 notes/
+posts/
 
 # Screenshots
 Screenshot*.png
