@@ -12,7 +12,7 @@ JUDGE_SYSTEM_PROMPT = """You are a senior QA review specialist. Your job is to v
 
 IMPORTANT: Be precise and balanced. Flag real issues that would cause problems for a tester, but do NOT flag false positives. For each potential issue, verify it actually violates the rule before flagging it.
 
-You check for these 9 categories of defects (in priority order):
+You check for these 12 categories of defects (in priority order):
 
 1. FORBIDDEN LANGUAGE (Critical): The word 'or' is forbidden ONLY when it creates ambiguity about WHAT ACTION to perform — e.g., "Click Save or Export" (which one?), "Select A or B" (which one?), "Press Enter or click OK" (which one?). Each action step must have exactly ONE unambiguous instruction.
    - DO flag: "Click Rotate or Mirror" (ambiguous action), "if available, click Save" (conditional)
@@ -33,7 +33,13 @@ You check for these 9 categories of defects (in priority order):
 
 8. INCONSISTENT STEP STRUCTURE (Major): All test cases must follow the same step pattern. Flag test cases that are missing standard steps that other tests consistently include. For example, if most tests have a "Pre-req" step, a "Launch" step, and a "Close" step, flag any test that skips the Launch step or combines multiple actions into one step (e.g., "Navigate to File → New" instead of separate "Launch app" + "Open File Menu" + "Select command" steps).
 
-9. EMPTY EXPECTED RESULT (Minor): Flag middle steps (not step 1 Pre-req, not final Close step) that have an empty or missing expected result. Every action step between setup and teardown should describe what the tester observes.
+9. EMPTY EXPECTED RESULT (Major): Flag middle steps (not step 1 Pre-req, not final Close step) that have an empty or missing expected result. Every action step between setup and teardown MUST describe what the tester observes. This is a Major issue, not Minor.
+
+10. VERIFY IN ACTION STEP (Major): Flag any action step that starts with "Verify", "Confirm", "Validate", or "Check". Action steps describe WHAT THE TESTER DOES (click, select, observe, navigate), never a verification instruction. "Verify" belongs only in Expected Result. Example violation: action "Verify the Design Panel is visible" should be "Observe the right side of the screen." with expected "The Design Panel is visible."
+
+11. MISSING CREATE FILE STEP (Major): Flag any test case that is missing the "Create File" step after Launch. The mandatory step sequence is: Pre-req → Launch → Create File → feature steps → Close. The only exception is tests that explicitly test the Home Screen before file creation. If a test has Launch but no Create File step immediately after, flag it.
+
+12. UNDO/REDO COMBINED (Minor): Flag test cases that combine both Undo AND Redo verification in a single test case. Undo and Redo should be tested in separate test cases for clarity and traceability.
 
 CRITICAL: If a test case has NO real issues, do NOT invent issues. It is perfectly acceptable for all test cases to pass. An empty issues array is a valid result.
 
@@ -50,9 +56,13 @@ Rules:
 - Remove duplicate test cases, keeping the more complete version
 - Add missing setup steps (object creation, file creation) where needed
 - Standardize terminology to match the app config and the MANDATORY STEP PATTERN
-- Fix inconsistent step structure: expand combined steps into separate steps matching the MANDATORY STEP PATTERN (Pre-req → Launch → Navigate → Actions → Close)
+- Fix inconsistent step structure: expand combined steps into separate steps matching the MANDATORY STEP PATTERN (Pre-req → Launch → Create File → Navigate → Actions → Close)
 - Fix inconsistent terminology: use the exact wording from other test cases (e.g., "File Menu opens." not "File menu should be displayed.")
 - Add expected results to middle steps that have empty expected results
+- Replace "Verify/Confirm/Validate/Check" at the START of action steps with concrete tester actions (e.g., "Observe", "Note", "Click"). Move the verification to the Expected Result.
+- For missing Create File step: insert the Create File step (from MANDATORY STEP PATTERN) immediately after the Launch step
+- For combined Undo/Redo: split into two separate test cases — one for Undo, one for Redo
+- Use exact menu paths: "Select 'MenuName' > 'CommandName'." not "Navigate to Menu and select Command"
 
 OUTPUT: Return ONLY valid JSON — an array of corrected test cases matching the original structure."""
 
@@ -90,6 +100,8 @@ def build_evaluation_prompt(
     prereq = getattr(app_config, 'prereq_template', 'Pre-req: The {app_name} App is installed').format(app_name=app_name)
     launch = getattr(app_config, 'launch_step', 'Launch the {app_name} application.').format(app_name=app_name)
     launch_exp = getattr(app_config, 'launch_expected', '') or ''
+    create_file = getattr(app_config, 'create_file_step', '') or ''
+    create_file_exp = getattr(app_config, 'create_file_expected', '') or ''
     close = f"Close the {app_name} App"
 
     app_section = f"""## APPLICATION CONFIG
@@ -103,10 +115,11 @@ def build_evaluation_prompt(
 ## MANDATORY STEP PATTERN (all tests must follow):
 - Step 1: "{prereq}" (empty expected)
 - Step 2: "{launch}" (expected: "{launch_exp}")
-- Step 3+: Navigate to feature via separate steps (e.g., "Open the File Menu." then "Select the command.")
-- Middle steps: Feature-specific actions with deterministic expected results (never empty)
+- Step 3: "{create_file}" (expected: "{create_file_exp}") — MANDATORY for ALL tests except Home Screen tests
+- Step 4+: Navigate to feature via exact menu paths (e.g., "Select 'File' > 'Save'." not "Navigate to File Menu and select Save")
+- Middle steps: Feature-specific actions with deterministic expected results (NEVER empty). Action steps must NEVER start with "Verify", "Confirm", "Validate", or "Check".
 - Last step: "{close}" (empty expected)
-IMPORTANT: Steps must NOT combine multiple actions (e.g., "Navigate to File → New" should be separate Launch + Open Menu + Select command steps)."""
+IMPORTANT: Steps must NOT combine multiple actions. Undo and Redo must be in SEPARATE test cases."""
 
     # Rules
     forbidden_words = getattr(rules, 'forbidden_words', [])
@@ -130,7 +143,7 @@ Return a JSON object with this exact structure:
   "issues": [
     {
       "test_case_id": "273167-AC1",
-      "category": "forbidden_language|hallucinated_content|logical_contradiction|missing_ac_coverage|duplicate_overlap|missing_setup|inconsistent_terminology|inconsistent_step_structure|empty_expected_result",
+      "category": "forbidden_language|hallucinated_content|logical_contradiction|missing_ac_coverage|duplicate_overlap|missing_setup|inconsistent_terminology|inconsistent_step_structure|empty_expected_result|verify_in_action|missing_create_file|undo_redo_combined",
       "severity": "critical|major|minor",
       "location": "step_3_action|step_2_expected|title|objective|set_level",
       "description": "Human-readable description of the issue",
@@ -176,10 +189,13 @@ def build_fix_prompt(
     """Build the fix prompt with issues and test cases."""
 
     # Compact story context with step templates for structure fixes
-    prereq = getattr(app_config, 'prereq_template', 'Pre-req: The {app_name} App is installed').format(app_name=getattr(app_config, 'name', 'App'))
-    launch = getattr(app_config, 'launch_step', 'Launch the {app_name} application.').format(app_name=getattr(app_config, 'name', 'App'))
+    app_name_val = getattr(app_config, 'name', 'App')
+    prereq = getattr(app_config, 'prereq_template', 'Pre-req: The {app_name} App is installed').format(app_name=app_name_val)
+    launch = getattr(app_config, 'launch_step', 'Launch the {app_name} application.').format(app_name=app_name_val)
     launch_exp = getattr(app_config, 'launch_expected', '') or ''
-    close = getattr(app_config, 'close_step', 'Close the {app_name} App').format(app_name=getattr(app_config, 'name', 'App')) if hasattr(app_config, 'close_step') else f"Close the {getattr(app_config, 'name', 'App')} App"
+    create_file = getattr(app_config, 'create_file_step', '') or ''
+    create_file_exp = getattr(app_config, 'create_file_expected', '') or ''
+    close = getattr(app_config, 'close_step', 'Close the {app_name} App').format(app_name=app_name_val) if hasattr(app_config, 'close_step') else f"Close the {app_name_val} App"
 
     story_section = f"""## CONTEXT
 - Story: {story_data.get('story_id', '')} - {story_data.get('title', '')}
@@ -190,8 +206,9 @@ def build_fix_prompt(
 ## MANDATORY STEP PATTERN (all tests must follow this):
 - Step 1: "{prereq}" (empty expected)
 - Step 2: "{launch}" (expected: "{launch_exp}")
-- Step 3+: Navigate to the feature (separate steps for each action)
-- Middle steps: Feature-specific actions with deterministic expected results
+- Step 3: "{create_file}" (expected: "{create_file_exp}") — MANDATORY
+- Step 4+: Navigate to the feature using exact menu paths (e.g., "Select 'Tools' > 'Mirror Horizontal'.")
+- Middle steps: Feature-specific actions with deterministic expected results (NEVER empty, NEVER start with "Verify")
 - Last step: "{close}" (empty expected)"""
 
     # AC for reference

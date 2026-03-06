@@ -50,6 +50,9 @@ application:
     - Modal Window
     - Top Action Toolbar
     - Left Toolbar  # Vertical toolbar on the left with tool icons (Hand Tool, etc.)
+    - Bottom Bar  # Displays zoom percentage, scale info
+    - Hamburger Menu  # Tablet equivalent of File Menu
+    - Home Screen  # Displayed on startup / after closing project
 
   # Map feature keywords to their entry points
   # NOTE: Use word boundaries in code to avoid substring false matches (e.g., "cut" in "executed")
@@ -150,6 +153,11 @@ application:
     - Left Menu
     - Sidebar
     - Side Bar
+    - Status Bar  # Use "Bottom Bar" instead
+    - Navigation Bar
+    - Toolbar Menu  # Use "Tools Menu" or "Top Action Toolbar"
+    - Right Panel  # Use "Properties Panel"
+    - Context Menu  # Not available in Phase 1
 
   # Feature notes/warnings
   feature_notes:
@@ -210,6 +218,10 @@ rules:
     - Modal Window
     - Top Action Toolbar
     - Left Toolbar
+    - Bottom Bar
+    - Hamburger Menu
+    - Home Screen
+    - Home Screen UI
     - Accessibility
 
   first_test_id: AC1

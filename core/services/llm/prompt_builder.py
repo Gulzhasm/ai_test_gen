@@ -1010,15 +1010,44 @@ If two acceptance criteria overlap significantly, consolidate into ONE test that
 Each test must have a UNIQUE verification goal. Before creating a test, check: does another
 test already cover this same scenario? If yes, do not create the duplicate.
 
-### 12. CONSISTENT SETUP STEPS IN ALL TESTS
-ALL test cases MUST include the full standard setup sequence:
+### 12. CONSISTENT SETUP STEPS IN ALL TESTS (CRITICAL)
+ALL test cases MUST include the full standard setup sequence — NO EXCEPTIONS:
 - Step 1: PRE-REQ (expected empty)
 - Step 2: Launch (with expected result)
-- Step 3: Create File (if the feature requires a canvas/document)
+- Step 3: Create File — MANDATORY for ALL tests that access menus, canvas, or any feature
+- Last step: Close/Exit (expected empty)
 NEVER skip any setup step. Every test must be independently executable.
-Do not omit the "Create File" step from some tests while including it in others.
+Do NOT omit the "Create File" step. It must appear in EVERY test case after Launch.
+The ONLY exception is if the test explicitly tests the Home Screen before a file is created.
 
-### 13. DETERMINISTIC STEPS (CRITICAL — Zero Ambiguity)
+### 13. NO "VERIFY" IN ACTION STEPS (CRITICAL)
+Action steps describe WHAT THE TESTER DOES — never start an action with "Verify", "Confirm", "Validate", or "Check".
+These words belong ONLY in the Expected Result column.
+- BAD action: "Verify the Design Panel is visible" ❌
+- GOOD action: "Observe the right side of the screen." → Expected: "The Design Panel is visible."
+- BAD action: "Check that the zoom percentage displays 100%" ❌
+- GOOD action: "Observe the zoom percentage in the Bottom Bar." → Expected: "The Bottom Bar displays '100%'."
+
+### 14. EVERY ACTION STEP MUST HAVE AN EXPECTED RESULT (CRITICAL)
+Every step between Pre-req and Close MUST have a non-empty expected result.
+The expected result describes what the tester OBSERVES after performing the action.
+- BAD: step action "Click 'Zoom In'" with empty expected ❌
+- GOOD: step action "Click 'Zoom In'" → expected "The canvas zooms in. The Bottom Bar displays '125%'." ✓
+
+### 15. UNDO AND REDO MUST BE SEPARATE TEST CASES
+When AC mentions "Undo/Redo", ALWAYS create SEPARATE test cases:
+- One test for Undo (perform action → undo → verify original state restored)
+- One test for Redo (perform action → undo → redo → verify action reapplied)
+NEVER combine Undo and Redo into a single test case.
+
+### 16. USE EXACT MENU PATHS FROM FIGMA/AC
+When referencing menu navigation, use the EXACT path format: `Select 'MenuName' > 'CommandName'.`
+- BAD: "Navigate to Tools Menu and select Mirror Horizontal" ❌
+- GOOD: "Select 'Tools' > 'Mirror Horizontal'." ✓
+- BAD: "Go to File menu and click Save" ❌
+- GOOD: "Select 'File' > 'Save'." ✓
+
+### 17. DETERMINISTIC STEPS (CRITICAL — Zero Ambiguity)
 **NEVER start a step action with "If"** — every step must be a direct instruction, not a conditional.
 **NEVER use "or" in expected results** — each expected result must describe exactly ONE specific outcome.
 **ONE action per step** — never combine two toggle/menu operations into a single step.
@@ -1064,10 +1093,11 @@ When testing error conditions (invalid input, not found, permission denied):
 
 **Scenario (last segment) rules:**
 1. NEVER start with "Verify" — that's the objective's job, not the title's
-2. Describe the **behavior or action**, not the test activity
-3. Keep it concise — max ~8 words
-4. For AC1: describe the end-to-end flow in brief
-5. MUST be in Title Case (capitalize first letter of every word)
+2. NEVER include "Negative", "Edge Case", or "Error Case" in the title — describe the BEHAVIOR instead
+3. Describe the **behavior or action**, not the test activity
+4. Keep it concise — max ~8 words
+5. For AC1: describe the end-to-end flow in brief
+6. MUST be in Title Case (capitalize first letter of every word)
    - BAD: "Zoom in and out via keyboard shortcuts" ❌
    - GOOD: "Zoom In And Out Via Keyboard Shortcuts" ✓
 
@@ -1077,6 +1107,8 @@ When testing error conditions (invalid input, not found, permission denied):
 - "Ctrl + '+' increases zoom, Ctrl + '-' decreases zoom, Ctrl + '0' resets zoom" ❌ (too long, lists everything)
 - "Feature availability" ❌ (too generic)
 - "Test the feature" ❌ (not descriptive)
+- "Negative: Zero Value Input" ❌ (contains "Negative")
+- "Edge Case: Empty Canvas Mirror" ❌ (contains "Edge Case")
 
 **GOOD SCENARIOS (Use these patterns — ALL in Title Case):**
 - "Show And Hide Design Panel" ✓ (action + object)
@@ -1111,8 +1143,11 @@ Example for "Show / Hide Property Panels":
 
 ### Step Structure
 - Step 1: Always PRE-REQ (expected empty)
+- Step 2: Always Launch (with expected result)
+- Step 3: Always Create File (with expected result) — MANDATORY
+- Middle steps: Concrete actions with specific expected results — EVERY step must have a non-empty expected result
 - Last step: Always Close/Exit (expected empty)
-- Middle steps: Concrete actions with specific expected results
+- Action steps NEVER start with "Verify", "Confirm", "Validate", or "Check"
 
 ### Accessibility Tests (EXACT format)
 `{{story_id}}-{{id}}: {{Feature}} / Accessibility / {{TestType}} ({{EXACT_PLATFORM}})`
@@ -1333,7 +1368,9 @@ Example for "Show / Hide Property Panels":
 {json.dumps(templates, indent=2)}
 ```
 
-Structure: prereq → launch → create_file (if menu access needed) → feature steps → close'''
+MANDATORY structure for ALL tests: prereq → launch → create_file → feature steps → close
+The create_file step is REQUIRED in every test case (only exception: Home Screen tests before file creation).
+Do NOT skip it. Do NOT combine it with other steps.'''
 
     def _build_derived_tests_section(self) -> str:
         """Build section with expert-derived test scenarios from AC analysis."""
