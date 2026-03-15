@@ -395,6 +395,9 @@ class ProjectConfig:
     llm_provider: str = "openai"
     llm_model: str = "gpt-4o-mini"
 
+    # Self-judge (lightweight self-review using corrector's own LLM)
+    self_judge_enabled: bool = False
+
     # Judge LLM configuration (cross-validation layer)
     judge_enabled: bool = False
     judge_provider: str = "openai"
@@ -592,6 +595,8 @@ class ProjectConfig:
             llm_enabled=os.getenv('LLM_ENABLED', str(data.get('llm_enabled', True))).lower() in ('true', '1'),
             llm_provider=os.getenv('LLM_PROVIDER') or data.get('llm_provider', 'openai'),
             llm_model=os.getenv('LLM_MODEL') or data.get('llm_model', 'gpt-4o-mini'),
+            # Self-judge config
+            self_judge_enabled=os.getenv('SELF_JUDGE_ENABLED', str(data.get('self_judge_enabled', False))).lower() in ('true', '1'),
             # Judge config: .env takes priority, YAML as fallback
             judge_enabled=os.getenv('JUDGE_ENABLED', str(data.get('judge_enabled', False))).lower() in ('true', '1'),
             judge_provider=os.getenv('JUDGE_PROVIDER') or data.get('judge_provider', 'openai'),

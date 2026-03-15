@@ -297,17 +297,17 @@ def calculate_test_requirements(
         complexity_factors['format_variations'] = format_count
 
     # =========================================================================
-    # TOTAL: core + accessibility + edge/variation tests
-    # Always require additional tests beyond 1:1 AC mapping to ensure
-    # proper coverage of edge cases, variations, and boundary conditions.
+    # TOTAL: core + accessibility (hard minimum)
+    # Edge/variation tests are RECOMMENDED but NOT forced into the minimum.
+    # Forcing extra tests causes the LLM to hallucinate ungrounded scenarios.
     # =========================================================================
-    min_edge_variation = max(2, min_core // 2)  # At least 2, or half the core count
-    min_total = min_core + min_accessibility + min_edge_variation
+    min_edge_variation = max(2, min_core // 2)  # Recommended, NOT added to min_total
+    min_total = min_core + min_accessibility
 
     # Max allows room for more edge/negative/state if LLM adds them
-    max_total = min_total + 20
+    max_total = min_total + min_edge_variation + 10
 
-    complexity_factors['breakdown'] = f"core:{min_core} + a11y:{min_accessibility} + edge/variation:{min_edge_variation} = {min_total}"
+    complexity_factors['breakdown'] = f"core:{min_core} + a11y:{min_accessibility} = {min_total} (edge/variation:{min_edge_variation} recommended)"
 
     return TestRequirements(
         min_total=min_total,
@@ -967,11 +967,18 @@ Example: If AC says "Hand Tool is available from the Left Toolbar":
 - WRONG: Test error message when no object selected (AC never mentions errors or selection requirement)
 
 ### 7. WRITE SPECIFIC STEPS (Never Generic)
-BAD: "Verify the feature works correctly"
-GOOD: "Verify the Units dropdown shows 'cm'"
+Every action step must tell the tester EXACTLY what to do and WHERE to do it.
+BAD: "Verify the feature works correctly" ❌
+GOOD: "Observe the Units dropdown in the Scale dialog." ✓
 
-BAD: "Perform the action"
-GOOD: "Click the 'Mirror Horizontally' button in the Tools menu"
+BAD: "Perform the action" ❌
+GOOD: "Click the 'Mirror Horizontally' button in the Tools menu." ✓
+
+BAD: "Attempt to access multi-object selection features." ❌ (WHERE should the tester look?)
+GOOD: "Observe the Edit Menu and Canvas toolbar for multi-object selection options." ✓
+
+BAD: "Use a color contrast analyzer tool to check the contrast ratio." ❌ (too vague)
+GOOD: "Using Accessibility Insights for Windows, inspect the contrast ratio of the Canvas text against the background." ✓
 
 ### 8. VERIFY UI CONTROLS EXIST
 When AC lists fields/controls:
@@ -996,13 +1003,13 @@ Do NOT assume these are covered by other tests — create explicit verification.
 
 ### 10b. NUMERIC INPUT FIELD TESTING (CRITICAL)
 When an AC mentions a numeric input field, dialog with numeric value, or entering a number:
-- Create a DEDICATED test for **decimal input** (enter 10.5 or 3.14)
-- Create a DEDICATED test for **whole number input** (enter 100)
-- Create a DEDICATED test for **very large value** (enter 999999)
-- Create a DEDICATED test for **very small decimal** (enter 0.01)
-- Create a DEDICATED test for **overwriting the default/pre-populated value** — click into the field and type a new value directly WITHOUT selecting or deleting the existing text first. Expected: the new value replaces the default.
-These are SEPARATE tests from the error/invalid value tests (zero, negative).
-Numeric input bugs are common — thorough coverage is mandatory.
+- Create a DEDICATED test for **decimal input** — use generic description "a valid decimal value", NOT a hardcoded number
+- Create a DEDICATED test for **whole number input** — use "a valid whole number"
+- Create a DEDICATED test for **boundary values** — ONLY if AC explicitly defines max/min limits. Use the AC-defined limits, NOT invented values
+- Create a DEDICATED test for **overwriting the default/pre-populated value** — observe the default first, then overwrite with "a new valid numeric value"
+IMPORTANT: Do NOT use hardcoded specific values (10.5, 100, 999999, 0.01, "abc") in test steps.
+Use generic descriptions like "a valid numeric value", "a value exceeding the allowed maximum", "a non-numeric string".
+Specific values suggest knowledge the tester may not have and may not match actual limits.
 
 ### 11. NO DUPLICATE OR OVERLAPPING TEST CASES
 Do NOT create multiple tests that verify the same behavior through similar interactions.
@@ -1014,11 +1021,13 @@ test already cover this same scenario? If yes, do not create the duplicate.
 ALL test cases MUST include the full standard setup sequence — NO EXCEPTIONS:
 - Step 1: PRE-REQ (expected empty)
 - Step 2: Launch (with expected result)
-- Step 3: Create File — MANDATORY for ALL tests that access menus, canvas, or any feature
+- Step 3: Create File — MANDATORY in EVERY test case, including AC1 and accessibility tests
 - Last step: Close/Exit (expected empty)
 NEVER skip any setup step. Every test must be independently executable.
-Do NOT omit the "Create File" step. It must appear in EVERY test case after Launch.
-The ONLY exception is if the test explicitly tests the Home Screen before a file is created.
+Do NOT omit the "Create File" step. It MUST appear in EVERY test case after Launch.
+This includes: AC1 tests, accessibility tests (keyboard nav, color contrast, screen reader),
+and any test that observes UI elements. The ONLY exception is tests that explicitly verify
+the Home Screen state BEFORE a file is created.
 
 ### 13. NO "VERIFY" IN ACTION STEPS (CRITICAL)
 Action steps describe WHAT THE TESTER DOES — never start an action with "Verify", "Confirm", "Validate", or "Check".
@@ -1077,6 +1086,29 @@ When testing error conditions (invalid input, not found, permission denied):
 - BAD expected: "An error saying 'Not found' or similar is displayed" ❌
 - GOOD expected: "An error message indicating the printer was not found is displayed." ✓
 - NEVER use "either", "alternatively", or "if entered" in expected results
+
+### 18. NO HARDCODED TEST DATA (CRITICAL)
+Do NOT use specific hardcoded values in test steps (e.g., 10.5, 25, 100, 999999, "abc").
+Use generic descriptions instead:
+- BAD: "Enter 25 in the Scale field" ❌
+- GOOD: "Enter a valid numeric value in the Scale field" ✓
+- BAD: "Enter 999999 to test the maximum" ❌
+- GOOD: "Enter a value exceeding the allowed maximum" ✓
+- BAD: "Enter 'abc' in the numeric field" ❌
+- GOOD: "Enter a non-numeric string in the numeric field" ✓
+Exception: Use specific values ONLY when the AC explicitly defines them (e.g., "maximum zoom is 500%").
+
+### 19. OUT-OF-SCOPE ITEMS (CRITICAL)
+When AC explicitly says "X is out of scope", "X is not supported", or "X is not in this phase":
+- Do NOT create tests that USE the out-of-scope feature (e.g., no keyboard shortcut tests if "hotkeys are out of scope")
+- You MAY create a test that CONFIRMS the feature is absent (e.g., "Hover over options → No tooltips displayed")
+- Keyboard NAVIGATION (Tab, arrow keys, Enter) for accessibility is DIFFERENT from keyboard SHORTCUTS/HOTKEYS. Accessibility navigation is always in scope when Section 508/WCAG is required.
+
+### 20. ACCURATE OBJECTIVES (CRITICAL)
+The test objective MUST accurately describe what the test steps actually verify.
+After writing steps, re-read them and confirm the objective matches.
+- BAD: Objective says "Design Panel Reflects Updated State" but steps don't modify any property ❌
+- GOOD: Objective says "Design Layers And History Appear Together" and steps verify all three sections are visible ✓
 - NEVER invent specific names for dynamic items (printers, files) not mentioned in AC
 
 ## FORMATTING RULES
@@ -1132,14 +1164,19 @@ When testing error conditions (invalid input, not found, permission denied):
 - Subsequent: 005, 010, 015, 020...
 
 ### AC1 RULE (CRITICAL)
-AC1 must be an **overall acceptance test** — NOT just "verify command appears in menu".
-AC1 must prove the feature WORKS end-to-end:
-1. Navigate to entry point (menu/toolbar)
-2. **EXECUTE** the feature's primary action
-3. **VERIFY** the core behavior produces the expected result
+AC1 must be a **simple acceptance smoke test** — verify the feature EXISTS and is ACCESSIBLE.
+AC1 should NOT be a full end-to-end scenario. Keep it minimal but still include ALL setup steps:
+1. Step 1: Pre-req
+2. Step 2: Launch
+3. Step 3: Create File (MANDATORY — do NOT skip even for AC1)
+4. Navigate to the entry point (menu/toolbar)
+5. **OBSERVE** that the feature option is visible and accessible, or execute the primary action ONCE
+6. Close app
+AC1 must be DISTINCT from test 005. Do NOT duplicate the same toggle/action sequence in both.
 Example for "Show / Hide Property Panels":
-- BAD AC1: "Verify 'Show Design Panel' appears in Window Menu" ← this is just availability, NOT acceptance
-- GOOD AC1: Open Window Menu → Select 'Show Design Panel' → Verify Design Panel is visible → Select 'Show Design Panel' again → Verify Design Panel is hidden and does not occupy space
+- GOOD AC1: Pre-req → Launch → Create File → Open Window Menu → Observe 'Show / Hide Property Panels' option → Select it → Panel displayed → Close
+- BAD AC1: Show → Hide → Show again → Verify space → Verify position (too much — split into separate tests)
+The COMPLETE scenario with full toggle cycle belongs in test 005, not AC1.
 
 ### Step Structure
 - Step 1: Always PRE-REQ (expected empty)

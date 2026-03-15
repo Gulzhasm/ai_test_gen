@@ -194,11 +194,20 @@ class GenerateWorkflow(IWorkflow):
                 config, test_cases, story_id, title, acceptance_criteria, qa_prep
             )
 
-        # Judge validation (after LLM correction, before CSV generation)
+        # Judge validation (cross-LLM review)
         if config.judge_enabled:
             test_cases = self._apply_judge_validation(
                 config, test_cases,
                 story_data={'story_id': story_id, 'title': title, 'description': description},
+                acceptance_criteria=acceptance_criteria
+            )
+
+        # Self-judge (final cleanup using corrector's own LLM)
+        if config.self_judge_enabled and config.llm_enabled:
+            test_cases = self._apply_self_judge(
+                config, test_cases,
+                story_title=title,
+                story_description=description,
                 acceptance_criteria=acceptance_criteria
             )
 
@@ -272,6 +281,59 @@ class GenerateWorkflow(IWorkflow):
             return corrected
         except Exception as e:
             print(f"  LLM correction failed: {e}, using rule-based output")
+            return test_cases
+
+    def _apply_self_judge(
+        self,
+        config: ProjectConfig,
+        test_cases: List[Dict],
+        story_title: str,
+        story_description: str,
+        acceptance_criteria: List[str],
+    ) -> List[Dict]:
+        """Lightweight self-review using the corrector's own LLM provider."""
+        from core.config.environment import EnvironmentConfig
+        from core.services.llm.factory import create_llm_provider
+        from core.services.quality.self_judge import SelfJudge
+
+        try:
+            provider_type = getattr(config, 'llm_provider', None) or os.getenv("LLM_PROVIDER", "openai")
+            api_key = EnvironmentConfig.get_llm_api_key(provider_type)
+            if not api_key or api_key == "your-api-key-here":
+                return test_cases
+
+            llm_provider = create_llm_provider(
+                provider_type=provider_type,
+                model=config.llm_model,
+                api_key=api_key,
+                timeout=90,
+            )
+            if not llm_provider:
+                return test_cases
+
+            print(f"\n  Self-judge: Reviewing {len(test_cases)} test cases with {provider_type}/{config.llm_model}")
+
+            self_judge = SelfJudge(llm_provider=llm_provider)
+            verdict = self_judge.evaluate_and_fix(
+                test_cases=test_cases,
+                acceptance_criteria=acceptance_criteria,
+                story_title=story_title,
+                story_description=story_description,
+            )
+
+            status = "PASSED" if verdict.passed else "FIXED"
+            print(
+                f"  Self-judge: {status} — {verdict.total_issues} issues "
+                f"({verdict.critical_count} critical, {verdict.major_count} major, "
+                f"{verdict.minor_count} minor)"
+            )
+
+            if verdict.corrected_test_cases:
+                return verdict.corrected_test_cases
+            return test_cases
+
+        except Exception as e:
+            print(f"  Self-judge: Failed ({e}), continuing with uncorrected tests")
             return test_cases
 
     def _apply_judge_validation(

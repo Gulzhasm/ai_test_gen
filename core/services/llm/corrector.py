@@ -501,8 +501,17 @@ class LLMCorrector:
             cleaned_acs = clean_acceptance_criteria(acceptance_criteria)
             in_scope, _ = split_scope(cleaned_acs)
 
-            # Get config values
-            platform_count = len(getattr(self._project_config.application, 'supported_platforms', [])) if self._project_config else 3
+            # Get config values — filter platforms by scope (same logic as prompt_builder)
+            all_platforms = getattr(self._project_config.application, 'supported_platforms', []) if self._project_config else []
+            if len(all_platforms) > 1:
+                ac_text = ' '.join(in_scope).lower()
+                filtered = [all_platforms[0]]  # Primary always included
+                for p in all_platforms[1:]:
+                    if p.lower() in ac_text:
+                        filtered.append(p)
+                platform_count = len(filtered)
+            else:
+                platform_count = len(all_platforms) if all_platforms else 1
 
             # Detect feature types
             feature_name = getattr(self, '_current_feature_name', 'Feature')
@@ -529,8 +538,8 @@ class LLMCorrector:
         except ImportError:
             # Fallback if prompt_builder not available
             ac_count = len(acceptance_criteria)
-            platform_count = len(getattr(self._project_config.application, 'supported_platforms', [])) if self._project_config else 3
-            return max(ac_count, 3) + 5 + platform_count  # Simple fallback
+            # Use 1 platform (primary only) as safe fallback to avoid inflated minimums
+            return ac_count + 1
 
     def _retry_for_minimum_count(
         self,
@@ -547,25 +556,29 @@ class LLMCorrector:
 
         shortage = min_tests - len(current_tests)
 
-        retry_prompt = f'''CRITICAL: The previous response returned only {len(current_tests)} test cases.
-The MINIMUM required is {min_tests} tests. You are SHORT by {shortage} tests.
+        retry_prompt = f'''The previous response returned only {len(current_tests)} test cases.
+The MINIMUM required is {min_tests} tests. You need {shortage} more.
 
 Current test cases (DO NOT reduce these):
 {json.dumps({"test_cases": current_tests}, indent=2)}
 
-## MANDATORY ADDITIONS (add {shortage}+ more tests):
-Think like a senior QA engineer. For each AC, consider:
-- **Variations**: Can the same AC be tested in a different state or context?
-  (e.g., "zoom in" → test from default zoom, test from already zoomed state)
-- **Boundary conditions**: What are the natural limits of this feature?
-  (e.g., maximum zoom, minimum zoom, rapid repeated actions)
-- **Combined workflows**: How do multiple ACs interact together?
-  (e.g., zoom in multiple times → reset → verify back to 100%)
-- **Different input methods**: Does the feature work via multiple controls?
-  (e.g., keyboard shortcut + menu command + mouse action)
+## ADDITIONS NEEDED ({shortage} more tests):
+Review the acceptance criteria below. For each AC, check whether the existing
+tests already cover it with concrete steps. If an AC is NOT yet covered, add a
+focused test case for it.
 
-Every test must still relate to the feature described in the ACs.
-Do NOT invent features or UI elements not mentioned in the ACs.
+STRICT RULES for new tests:
+- Every new test MUST map to a specific AC number. If you cannot cite which AC
+  it validates, do NOT add it.
+- Do NOT add tests for features, UI elements, or behaviors not explicitly
+  mentioned in the ACs.
+- Do NOT add stress tests, rapid-action tests, or performance tests unless an
+  AC specifically requires them.
+- Do NOT add tests for input methods (keyboard shortcuts, mouse clicks) unless
+  an AC specifically mentions them.
+- Do NOT duplicate coverage already provided by existing tests.
+- Accessibility tests (keyboard navigation, color contrast) should ONLY be
+  added if the project requires them and they are not already present.
 
 Story: {story_id} - {feature_name}
 ACs: {json.dumps(acceptance_criteria)}
