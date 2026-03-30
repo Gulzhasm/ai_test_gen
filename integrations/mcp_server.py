@@ -164,6 +164,7 @@ def _apply_llm_correction(
     story_id: str,
     title: str,
     acceptance_criteria: list,
+    story_description: str = "",
 ) -> list:
     """Apply LLM correction to generated test cases."""
     from core.config.environment import EnvironmentConfig
@@ -196,6 +197,7 @@ def _apply_llm_correction(
             feature_name=title,
             acceptance_criteria=acceptance_criteria,
             reference_steps=reference_steps,
+            story_description=story_description,
         )
         print(f"  LLM correction complete: {len(corrected)} test cases")
         return corrected
@@ -360,7 +362,8 @@ async def generate_tests_for_story(
         # Optional LLM correction
         if config.llm_enabled:
             test_cases = _apply_llm_correction(
-                config, test_cases, story_id, story.title, criteria
+                config, test_cases, story_id, story.title, criteria,
+                story_description=story.description or ""
             )
 
         # Judge validation (cross-LLM review)

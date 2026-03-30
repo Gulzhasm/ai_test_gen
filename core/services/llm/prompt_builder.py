@@ -681,6 +681,7 @@ class PromptContext:
     feature_name: str
     acceptance_criteria: List[str]  # Raw ACs (cleaned externally)
     qa_prep: str
+    story_description: str = ""  # Full story description for grounding
 
     # Application constraints
     unavailable_features: List[str]
@@ -847,7 +848,8 @@ class PromptBuilder:
         story_id: str,
         feature_name: str,
         acceptance_criteria: List[str],
-        qa_prep: str = ""
+        qa_prep: str = "",
+        story_description: str = ""
     ) -> 'PromptBuilder':
         """Create PromptBuilder from a ProjectConfig."""
         context = PromptContext(
@@ -857,6 +859,7 @@ class PromptBuilder:
             feature_name=feature_name,
             acceptance_criteria=acceptance_criteria,
             qa_prep=qa_prep,
+            story_description=story_description,
             unavailable_features=getattr(config.application, 'unavailable_features', []),
             feature_notes=getattr(config.application, 'feature_notes', {}),
             ui_surfaces=config.application.main_ui_surfaces,
@@ -895,13 +898,32 @@ For EVERY acceptance criterion, ask yourself:
 4. What WORKFLOW tests verify STATE PERSISTENCE? (ONLY if AC mentions state, history, or persistence)
 
 ## ANTI-HALLUCINATION RULE (HIGHEST PRIORITY)
-Every test case MUST trace back to SPECIFIC text in the Acceptance Criteria or QA Prep.
+Every test case MUST trace back to SPECIFIC text in the Acceptance Criteria, Story Description, or QA Prep.
 Do NOT invent:
 - Error messages not mentioned in AC
 - Behaviors not described in AC (e.g., "error when no object selected" unless AC says so)
-- UI elements or dialogs not in AC
+- UI elements, options, or dialogs not in AC or Story Description
 - Negative scenarios the AC never describes
-If you cannot quote the AC text that justifies a test, DO NOT create that test.
+- Input validation tests for interactions that don't accept typed input (e.g., mouse-drag operations)
+- Keyboard shortcuts or hotkeys not mentioned in the story
+If you cannot quote the AC or Story Description text that justifies a test, DO NOT create that test.
+
+### HALLUCINATION EXAMPLES (study these carefully)
+
+**Example 1 — Feature within a surface:**
+Story says: "User draws a selection box on the Canvas by clicking and dragging."
+- HALLUCINATED: "Locate the Selection Box option in the Properties Panel" ❌ (story never says there's an option IN the Properties Panel)
+- GROUNDED: "Click on an empty area of the Canvas and drag to draw a selection box" ✓ (matches story description)
+
+**Example 2 — Untestable interaction:**
+Story says: "User drags the mouse to draw a rectangular selection box."
+- HALLUCINATED: "Enter invalid dimensions (negative width/height)" ❌ (mouse drag doesn't accept typed dimensions)
+- GROUNDED: "Draw a selection box on an area with no objects" ✓ (valid edge case for a drag interaction)
+
+**Example 3 — Inventing keyboard shortcuts:**
+Story describes only mouse-based interaction (click + drag).
+- HALLUCINATED: "Use keyboard shortcuts to select objects" ❌ (story never mentions keyboard shortcuts)
+- GROUNDED: Test the feature using the mechanism described in the story ✓
 
 ## OUTPUT CONTRACT
 Return ONLY valid JSON matching this schema:
@@ -1237,6 +1259,13 @@ The COMPLETE scenario with full toggle cycle belongs in test 005, not AC1.
         """Build scope section with in-scope and out-of-scope ACs."""
         lines = ["## SCOPE"]
 
+        # Story description for grounding (critical for understanding HOW the feature works)
+        if self.ctx.story_description:
+            lines.append("\n### Story Description (USE THIS FOR GROUNDING)")
+            lines.append("The following describes HOW the feature works. ONLY reference UI elements,")
+            lines.append("mechanisms, and interactions that are described here. Do NOT invent others.")
+            lines.append(self.ctx.story_description)
+
         # In-scope ACs (numbered)
         lines.append("\n### In-Scope Acceptance Criteria (MUST cover)")
         for i, ac in enumerate(self.ctx.acceptance_criteria_in_scope, 1):
@@ -1560,7 +1589,11 @@ Do NOT skip it. Do NOT combine it with other steps.'''
             return ""
 
         lines = ["## EXPERT QA DERIVED SCENARIOS", ""]
-        lines.append("Based on AC analysis, you MUST include tests for these scenarios:")
+        lines.append("Based on AC analysis, CONSIDER these scenarios — but ONLY include them if the AC EXPLICITLY describes the behavior:")
+        lines.append("")
+        lines.append("GROUNDING RULE: Do NOT create a test for a derived scenario unless the story description or AC text explicitly mentions the mechanism being tested.")
+        lines.append("For example, do NOT create 'invalid input' tests for mouse-drawn interactions (you cannot type negative dimensions into a drag operation).")
+        lines.append("Do NOT create 'boundary value' tests unless the AC defines specific min/max limits.")
         lines.append("")
 
         for i, scenario in enumerate(derived_scenarios[:15], 1):  # Limit to 15

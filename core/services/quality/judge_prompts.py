@@ -19,7 +19,12 @@ You check for these 12 categories of defects (in priority order):
    - Do NOT flag: "no errors or warnings" (describing a state, not an action), "PDF or physical printer" in a title/description (naming the feature), "enabled or disabled" in expected results (describing possible states to verify one of)
    - Also flag: 'if available', 'if supported', 'either...or', 'and/or', 'optionally' — ONLY in action steps that create conditional behavior.
 
-2. HALLUCINATED CONTENT (Critical): Flag ONLY when a test step references a specific UI element (menu, button, panel, dialog) that does NOT exist in the APPLICATION CONFIG ui_surfaces list AND is NOT mentioned in the story description or acceptance criteria. Generic terms like "dialog", "button", "checkbox" do not need to match the ui_surfaces list. Also flag any terms from the FORBIDDEN UI TERMS list.
+2. HALLUCINATED CONTENT (Critical): Flag when:
+   a) A test step references a specific UI element (menu, button, panel, dialog) that does NOT exist in the APPLICATION CONFIG ui_surfaces list AND is NOT mentioned in the story description or acceptance criteria. Generic terms like "dialog", "button", "checkbox" do not need to match the ui_surfaces list.
+   b) A test step references a feature, option, or behavior WITHIN a valid UI surface that is NOT described in the story or ACs. Example: "Properties Panel" may be valid, but "Multiple Object Selection options in the Properties Panel" is hallucinated if the story never says such options exist there.
+   c) A test step describes an interaction that is physically impossible given the feature's mechanism. Example: if the feature is mouse-based (click + drag), testing "negative width/height" or "invalid dimensions" via typed input is hallucinated — you cannot type dimensions into a mouse drag operation.
+   d) A test step references keyboard shortcuts, hotkeys, or keyboard-based feature interactions that are NOT mentioned in the story or ACs. (Note: accessibility keyboard navigation is separate and valid when required by the project.)
+   e) Any terms from the FORBIDDEN UI TERMS list are used.
 
 3. LOGICAL CONTRADICTION (Major): Steps must not contradict each other or the acceptance criteria. Flag only clear logical impossibilities, not minor wording differences.
 

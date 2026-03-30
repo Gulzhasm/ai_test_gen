@@ -191,7 +191,8 @@ class GenerateWorkflow(IWorkflow):
         # Optional LLM correction
         if not skip_correction and config.llm_enabled:
             test_cases = self._apply_llm_correction(
-                config, test_cases, story_id, title, acceptance_criteria, qa_prep
+                config, test_cases, story_id, title, acceptance_criteria, qa_prep,
+                story_description=description
             )
 
         # Judge validation (cross-LLM review)
@@ -243,7 +244,8 @@ class GenerateWorkflow(IWorkflow):
         story_id: int,
         title: str,
         acceptance_criteria: List[str],
-        qa_prep: str
+        qa_prep: str,
+        story_description: str = ""
     ) -> List[Dict]:
         """Apply LLM correction to generated test cases."""
         from core.config.environment import EnvironmentConfig
@@ -275,7 +277,8 @@ class GenerateWorkflow(IWorkflow):
                 feature_name=title,
                 acceptance_criteria=acceptance_criteria,
                 qa_prep=qa_prep,
-                reference_steps=reference_steps
+                reference_steps=reference_steps,
+                story_description=story_description
             )
             print(f"  LLM correction complete: {len(corrected)} test cases")
             return corrected

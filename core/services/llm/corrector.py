@@ -319,7 +319,8 @@ class LLMCorrector:
         feature_name: str,
         acceptance_criteria: List[str],
         qa_prep: str,
-        reference_steps: Optional[List[Dict]] = None
+        reference_steps: Optional[List[Dict]] = None,
+        story_description: str = ""
     ) -> List[Dict]:
         """
         Send test cases to LLM for correction and enhancement.
@@ -352,7 +353,8 @@ class LLMCorrector:
                 story_id=story_id,
                 feature_name=feature_name,
                 acceptance_criteria=acceptance_criteria,
-                qa_prep=qa_prep
+                qa_prep=qa_prep,
+                story_description=story_description
             )
             system_prompt = builder.build_system_prompt()
             user_prompt = builder.build_user_prompt(tc_json)
@@ -634,12 +636,16 @@ Think like a human QA expert reviewing test cases:
 
 ## YOUR RESPONSIBILITIES
 1. CORRECT existing test cases (formatting, language, structure)
-2. ADD comprehensive edge case tests
-3. ADD negative tests for invalid operations
-4. ADD boundary value tests at exact limits
-5. ADD error handling and recovery tests
-6. ADD state transition and persistence tests
-7. WRITE tests as if a human expert QA engineer wrote them
+2. ADD edge case tests ONLY when the AC explicitly describes the behavior being tested (e.g., error handling, validation, min/max limits)
+3. ADD negative tests ONLY for operations the AC explicitly mentions can fail or have invalid states
+4. ADD boundary value tests ONLY at limits explicitly defined in the ACs — do NOT invent limits
+5. WRITE tests as if a human expert QA engineer wrote them
+
+## ANTI-HALLUCINATION RULES
+- Do NOT add tests for interactions the feature doesn't support (e.g., "invalid dimensions" for mouse-drag operations)
+- Do NOT invent UI elements, options, or menu items not described in the story/ACs
+- Do NOT add keyboard shortcut tests unless the AC explicitly mentions keyboard shortcuts
+- Every test must map to a specific AC. If you cannot cite which AC it validates, do NOT add it.
 
 ## TITLE RULES
 Format: "<StoryID>-<ID>: <Feature> / <Area> / <Scenario>"
@@ -693,15 +699,14 @@ QA Prep Summary:
 
 ## YOUR TASKS:
 1. FIX existing tests (forbidden language, title format, expected results)
-2. ADD 3-5 edge case tests
-3. ADD 2-4 negative tests
-4. ADD 2-3 boundary value tests
-5. ADD 1-2 state/persistence tests
-6. ADD accessibility tests for supported platforms
+2. ADD edge case tests ONLY if AC explicitly describes testable edge conditions
+3. ADD negative tests ONLY for operations the AC says can fail or have invalid states
+4. ADD boundary value tests ONLY at AC-defined limits (do NOT invent limits)
+5. ADD accessibility tests for supported platforms
+6. Do NOT add tests for features, interactions, or UI elements not mentioned in the ACs
 
 ## OUTPUT
-Return enhanced JSON: {{"test_cases": [...]}}
-Expected total: 15-25 comprehensive test cases.'''
+Return enhanced JSON: {{"test_cases": [...]}}'''
 
         return system_prompt, user_prompt
 
@@ -1171,19 +1176,33 @@ Rules:
 - Title format: EXACTLY 3 segments after ID (Feature / Area / Scenario)
 
 CRITICAL GROUNDING RULE:
-- ONLY use UI elements, controls, menus, and mechanisms that are EXPLICITLY described in the story description below.
-- Do NOT invent, assume, or hallucinate UI elements that are not mentioned in the story.
-- If the story says a feature is accessed via a specific menu, use THAT menu — do not create buttons or panels that don't exist."""
+- ONLY use UI elements, controls, menus, and mechanisms that are EXPLICITLY described in the story description or acceptance criteria below.
+- Do NOT invent, assume, or hallucinate UI elements, options, or behaviors that are not mentioned in the story.
+- If the story says a feature is accessed via a specific mechanism (e.g., mouse drag on Canvas), use THAT mechanism — do not create buttons, panels, or menu options that don't exist.
+- Do NOT add edge cases, invalid input tests, or negative scenarios UNLESS the AC explicitly describes that behavior (e.g., error handling, validation rules, min/max limits).
+- Do NOT add keyboard shortcut or accessibility tests — those are handled separately."""
 
-        # Build story context for grounding
+        # Build story context for grounding — include FULL description, not truncated
         story_context = ""
         if story_description:
-            # Truncate very long descriptions to avoid token waste
-            desc_truncated = story_description[:2000]
             story_context = f"""
-## STORY DESCRIPTION (use ONLY UI elements mentioned here):
-{desc_truncated}
+## STORY DESCRIPTION (use ONLY UI elements and mechanisms mentioned here):
+{story_description}
 """
+
+        # Add app config constraints for grounding
+        app_constraints = ""
+        if self._project_config:
+            app_cfg = self._project_config.application
+            ui_surfaces = getattr(app_cfg, 'main_ui_surfaces', [])
+            forbidden_ui = getattr(app_cfg, 'forbidden_ui_terms', [])
+            unavailable = getattr(app_cfg, 'unavailable_features', [])
+            if ui_surfaces:
+                app_constraints += f"\n## VALID UI SURFACES (only reference these):\n{', '.join(ui_surfaces)}\n"
+            if forbidden_ui:
+                app_constraints += f"\n## FORBIDDEN UI TERMS (do NOT use these — they don't exist):\n{', '.join(forbidden_ui)}\n"
+            if unavailable:
+                app_constraints += f"\n## UNAVAILABLE FEATURES (do NOT reference these):\n{', '.join(unavailable)}\n"
 
         # Extract example steps from existing tests to enforce consistent wording
         example_section = ""
@@ -1209,7 +1228,7 @@ IMPORTANT: Match the navigation wording exactly — e.g., if existing tests say 
 Generate 1-2 focused test cases for EACH uncovered AC.
 
 Story: {story_id} - {feature_name}
-{story_context}{example_section}
+{story_context}{app_constraints}{example_section}
 ## UNCOVERED ACCEPTANCE CRITERIA:
 {ac_list_text}
 ## ID SEQUENCE:
@@ -1365,12 +1384,12 @@ Return JSON: {{"test_cases": [...]}}"""
         # Determine test specifics based on platform
         if 'windows' in platform_lower:
             prereq_tool = "Pre-req: Accessibility Insights for Windows is installed"
-            nav_action = f"Navigate to {entry_menu} using keyboard."
-            verify_action = f"Verify the {feature_name} controls are keyboard accessible."
-            verify_expected = f"Keyboard focus moves to {feature_name} controls with visible focus indicator."
-            tool_action = f"Verify {feature_name} controls expose meaningful labels in Accessibility Insights."
-            tool_expected = "Controls expose correct accessible name and role."
-            test_type = "Keyboard navigation and labels"
+            nav_action = f"Navigate to {entry_menu}."
+            verify_action = f"Run Accessibility Insights FastPass on the {feature_name} screen."
+            verify_expected = f"No critical accessibility failures are reported. All {feature_name} controls have visible focus indicators."
+            tool_action = f"Inspect {feature_name} controls in Accessibility Insights and check accessible names and roles."
+            tool_expected = "Controls expose correct accessible name and role. Color contrast meets WCAG 2.1 AA ratio (4.5:1 for text)."
+            test_type = "Accessibility Insights FastPass"
         elif 'ipad' in platform_lower or 'ios' in platform_lower:
             prereq_tool = "Pre-req: VoiceOver is enabled"
             nav_action = f"Navigate to {entry_menu} using VoiceOver swipe gestures."
