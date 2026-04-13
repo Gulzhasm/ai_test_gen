@@ -681,8 +681,6 @@ class PromptContext:
     feature_name: str
     acceptance_criteria: List[str]  # Raw ACs (cleaned externally)
     qa_prep: str
-    story_description: str = ""  # Full story description for grounding
-
     # Application constraints
     unavailable_features: List[str]
     feature_notes: Dict[str, str]
@@ -706,6 +704,7 @@ class PromptContext:
     forbidden_words: List[str]
     allowed_areas: List[str]
     forbidden_ui_terms: List[str] = field(default_factory=list)  # UI terms that don't exist in the app
+    story_description: str = ""  # Full story description for grounding
 
     # NEW: Preprocessed fields (populated by PromptBuilder)
     acceptance_criteria_in_scope: List[str] = field(default_factory=list)
