@@ -1,0 +1,73 @@
+# AC-coverage baseline for story 272776
+# ACs (10) and tests (11) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '272776'
+
+acceptance_criteria:
+  - id: AC1
+    text: "When hidden, all sections within the Property Panel (Design, Layers, History) are hidden together."
+    in_scope: true
+  - id: AC2
+    text: "The Window menu must include an option to show or hide the Property Panel."
+    in_scope: true
+  - id: AC3
+    text: "Clicking the Property Panel option in the Window menu must show or hide the entire Property Panel."
+    in_scope: true
+  - id: AC4
+    text: "When the Property Panel is hidden, it must not occupy space in the interface layout."
+    in_scope: true
+  - id: AC5
+    text: "When the Property Panel is shown, it must appear in its designated UI position."
+    in_scope: true
+  - id: AC6
+    text: "The Design Panel, Layers Panel, and History Panel must appear together as part of the Property Panel."
+    in_scope: true
+  - id: AC7
+    text: "Individual show/hide controls for Design, Layers, or History panels are not supported in this implementation."
+    in_scope: true
+  - id: AC8
+    text: "All behavior must comply with the specifications and details described in the User Story."
+    in_scope: true
+  - id: AC9
+    text: "Must comply with Section 508 and WCAG 2.1 AA accessibility standards (color contrast, focus order, readable text)."
+    in_scope: true
+  - id: AC10
+    text: "Hotkeys and tooltips are out of scope for Phase 1."
+    in_scope: true
+
+test_labels:
+  - test_id: '272776-AC1'
+    title: "272776-AC1: Show / Hide Property Panels / Window Menu / Show Or Hide Property Panel Option"
+    covers: []
+  - test_id: '272776-005'
+    title: "272776-005: Show / Hide Property Panels / Properties Panel / Show Or Hide The Property Panel (Complete Scenario)"
+    covers: []
+  - test_id: '272776-010'
+    title: "272776-010: Show / Hide Property Panels / Properties Panel / Hidden Panel Does Not Occupy Space"
+    covers: []
+  - test_id: '272776-015'
+    title: "272776-015: Show / Hide Property Panels / Properties Panel / Shown Panel Appears In Designated Position"
+    covers: []
+  - test_id: '272776-020'
+    title: "272776-020: Show / Hide Property Panels / Properties Panel / Design Layers And History Appear Together"
+    covers: []
+  - test_id: '272776-030'
+    title: "272776-030: Show / Hide Property Panels / Accessibility / Keyboard Navigation (Windows 11)"
+    covers: []
+  - test_id: '272776-035'
+    title: "272776-035: Show / Hide Property Panels / Accessibility Compliance Check"
+    covers: []
+  - test_id: '272776-040'
+    title: "272776-040: Show / Hide Property Panels / Focus Order Check"
+    covers: []
+  - test_id: '272776-045'
+    title: "272776-045: Show / Hide Property Panels / Properties Panel / All Sections Hidden Together"
+    covers: []
+  - test_id: '272776-050'
+    title: "272776-050: Show / Hide Property Panels / Properties Panel / Entire Panel Show/ Hide Functionality"
+    covers: []
+  - test_id: '272776-055'
+    title: "272776-055: Show / Hide Property Panels / Properties Panel / Individual Controls Not Supported"
+    covers: []

@@ -5,6 +5,7 @@ Generates Playwright TypeScript test scripts from test cases using LLM.
 Follows the same export pattern as CSVGenerator and ObjectiveGenerator.
 """
 import os
+import re
 from typing import Dict, List, Optional
 
 
@@ -14,6 +15,11 @@ class PlaywrightGenerator:
 
     Uses LLM to convert Action/Expected steps into Playwright commands.
     Falls back to deterministic template if LLM is unavailable or fails.
+
+    When an element inventory (captured by scripts/extract_ui_inventory.py) is
+    available, selectors are GROUNDED in real observed UI elements and a
+    grounding-coverage metric is reported. Without an inventory, behavior is
+    unchanged (the LLM guesses selectors).
     """
 
     def __init__(
@@ -22,14 +28,36 @@ class PlaywrightGenerator:
         app_type: str = "desktop",
         provider_type: Optional[str] = None,
         model: Optional[str] = None,
-        api_key: Optional[str] = None
+        api_key: Optional[str] = None,
+        inventory_path: Optional[str] = None,
     ):
         self._app_name = app_name
         self._app_type = app_type
         self._provider_type = provider_type
         self._model = model
         self._api_key = api_key
+        self._inventory_path = inventory_path
+        self._inventory = None
+        self._inventory_loaded = False
         self._provider = None
+
+    @property
+    def inventory(self):
+        """Lazy-load the element inventory from disk (None if unavailable)."""
+        if not self._inventory_loaded:
+            self._inventory_loaded = True
+            if self._inventory_path and os.path.exists(self._inventory_path):
+                try:
+                    from core.domain.ui_element import ElementInventory
+                    self._inventory = ElementInventory.load(self._inventory_path)
+                    print(f"  Grounding Playwright selectors in {len(self._inventory.elements)} "
+                          f"UI elements from {self._inventory_path}")
+                except Exception as e:
+                    print(f"  Warning: could not load UI inventory ({e}); generating ungrounded")
+            elif self._inventory_path:
+                print(f"  Note: UI inventory not found at {self._inventory_path}; generating ungrounded. "
+                      f"Run scripts/extract_ui_inventory.py to create it.")
+        return self._inventory
 
     @property
     def provider(self):
@@ -81,6 +109,7 @@ class PlaywrightGenerator:
         if self.provider:
             script = self._generate_with_llm(functional_tests, story_id, feature_name)
             if script and self._validate_script(script):
+                self._report_grounding(script)
                 return script
             print("  Warning: LLM Playwright output invalid, using deterministic fallback")
 
@@ -94,7 +123,8 @@ class PlaywrightGenerator:
             app_name=self._app_name,
             app_type=self._app_type,
             story_id=story_id,
-            feature_name=feature_name
+            feature_name=feature_name,
+            element_inventory=self.inventory,
         )
         system_prompt = builder.build_system_prompt()
         user_prompt = builder.build_user_prompt(test_cases)
@@ -141,6 +171,27 @@ class PlaywrightGenerator:
         has_test = "test(" in script or "test.describe(" in script
         balanced = script.count('{') == script.count('}')
         return has_import and has_test and balanced
+
+    def _report_grounding(self, script: str) -> None:
+        """Non-fatal grounding check: how many generated selectors map to real elements?"""
+        if not self.inventory:
+            return
+        result = analyze_grounding(script, self.inventory)
+        total = result["total"]
+        if total == 0:
+            return
+        pct = result["coverage"] * 100
+        print(f"  Selector grounding: {result['grounded']}/{total} ({pct:.0f}%) "
+              f"resolve to real elements")
+        if result["ungrounded"]:
+            for sel in result["ungrounded"][:10]:
+                print(f"    ungrounded: {sel}")
+        n_todo = len(re.findall(r"//\s*TODO:\s*Update selector", script))
+        if n_todo:
+            print(f"  Warning: {n_todo} '// TODO: Update selector' comment(s) — expected 0 when grounded")
+        n_ungrounded_comments = len(re.findall(r"//\s*UNGROUNDED:", script))
+        if n_ungrounded_comments:
+            print(f"  Note: {n_ungrounded_comments} step(s) marked // UNGROUNDED (no matching element)")
 
     def _generate_deterministic(self, test_cases: List[Dict], story_id: str, feature_name: str) -> str:
         """Deterministic fallback: generate skeleton .spec.ts from test cases."""
@@ -195,3 +246,60 @@ class PlaywrightGenerator:
 
         lines.append("});")
         return '\n'.join(lines)
+
+
+# --- Grounding analysis --------------------------------------------------------
+
+# Selector call shapes our system prompt constrains the LLM to. Regex (not a TS
+# AST) is sufficient and pragmatic — no Node tooling in the repo. Chained/templated
+# selectors are accepted as known false-negative noise in the coverage metric.
+_RE_GET_BY_ROLE_NAMED = re.compile(r"getByRole\(\s*['\"](\w+)['\"]\s*,\s*\{\s*name:\s*['\"]([^'\"]+)['\"]")
+_RE_GET_BY_ROLE_BARE = re.compile(r"getByRole\(\s*['\"](\w+)['\"]\s*\)")
+_RE_GET_BY_TEXT = re.compile(r"getBy(?:Text|Label)\(\s*['\"]([^'\"]+)['\"]")
+_RE_GET_BY_PLACEHOLDER = re.compile(r"getByPlaceholder\(\s*['\"]([^'\"]+)['\"]")
+_RE_GET_BY_TESTID = re.compile(r"getByTestId\(\s*['\"]([^'\"]+)['\"]")
+
+
+def analyze_grounding(script: str, inventory) -> Dict:
+    """
+    Parse selectors out of generated TypeScript and check them against the
+    inventory of real elements.
+
+    Returns {total, grounded, coverage, ungrounded[]}.
+    """
+    role_pairs = inventory.name_role_pairs()       # {(role, name_lower)}
+    names = inventory.accessible_names()           # {name_lower / text_lower}
+    known_roles = {r for r, _ in role_pairs}
+
+    total = 0
+    grounded = 0
+    ungrounded: List[str] = []
+
+    def mark(ok: bool, label: str):
+        nonlocal total, grounded
+        total += 1
+        if ok:
+            grounded += 1
+        else:
+            ungrounded.append(label)
+
+    for role, name in _RE_GET_BY_ROLE_NAMED.findall(script):
+        ok = (role.lower(), name.strip().lower()) in role_pairs
+        mark(ok, f"getByRole('{role}', {{ name: '{name}' }})")
+
+    for role in _RE_GET_BY_ROLE_BARE.findall(script):
+        # bare role (no name) — count as grounded if that role exists at all
+        mark(role.lower() in known_roles, f"getByRole('{role}')")
+
+    for text in _RE_GET_BY_TEXT.findall(script):
+        mark(text.strip().lower() in names, f"getByText/Label('{text}')")
+
+    for ph in _RE_GET_BY_PLACEHOLDER.findall(script):
+        mark(ph.strip().lower() in names, f"getByPlaceholder('{ph}')")
+
+    for tid in _RE_GET_BY_TESTID.findall(script):
+        testids = {e.attributes.get("data-testid", "").lower() for e in inventory.elements}
+        mark(tid.strip().lower() in testids, f"getByTestId('{tid}')")
+
+    coverage = (grounded / total) if total else 0.0
+    return {"total": total, "grounded": grounded, "coverage": coverage, "ungrounded": ungrounded}

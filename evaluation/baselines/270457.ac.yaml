@@ -1,0 +1,76 @@
+# AC-coverage baseline for story 270457
+# ACs (10) and tests (12) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '270457'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Windows: Ctrl + PageUp increases zoom by exactly +10%"
+    in_scope: true
+  - id: AC2
+    text: "Mac: Cmd + ArrowUp increases zoom by exactly +10%"
+    in_scope: true
+  - id: AC3
+    text: "Windows: Ctrl + PageDown decreases zoom by exactly –10%"
+    in_scope: true
+  - id: AC4
+    text: "Mac: Cmd + ArrowDown decreases zoom by exactly –10%"
+    in_scope: true
+  - id: AC5
+    text: "Windows: Ctrl + Home resets zoom to 100%"
+    in_scope: true
+  - id: AC6
+    text: "Mac: Cmd + ArrowLeft resets zoom to 100%"
+    in_scope: true
+  - id: AC7
+    text: "Shortcuts work consistently in all Canvas states."
+    in_scope: true
+  - id: AC8
+    text: "No regression in existing zoom/pan behavior."
+    in_scope: true
+  - id: AC9
+    text: "No additional UI components are introduced."
+    in_scope: true
+  - id: AC10
+    text: "This story is independent and assigned separately (per request)."
+    in_scope: true
+
+test_labels:
+  - test_id: '270457-AC1'
+    title: "270457-AC1: Zoom Controls (Keyboard & Mouse) / Canvas / Zoom In And Out Via Keyboard Shortcuts"
+    covers: []
+  - test_id: '270457-005'
+    title: "270457-005: Zoom Controls (Keyboard & Mouse) / Canvas / Ctrl + PageUp Increases Zoom By +10%"
+    covers: []
+  - test_id: '270457-010'
+    title: "270457-010: Zoom Controls (Keyboard & Mouse) / Canvas / Ctrl + PageDown Decreases Zoom By -10%"
+    covers: []
+  - test_id: '270457-015'
+    title: "270457-015: Zoom Controls (Keyboard & Mouse) / Canvas / Ctrl + Home Resets Zoom To 100%"
+    covers: []
+  - test_id: '270457-020'
+    title: "270457-020: Zoom Controls (Keyboard & Mouse) / Canvas / Shortcuts Work Consistently In All Canvas States"
+    covers: []
+  - test_id: '270457-025'
+    title: "270457-025: Zoom Controls (Keyboard & Mouse) / Canvas / No Regression In Existing Zoom/ Pan Behavior"
+    covers: []
+  - test_id: '270457-030'
+    title: "270457-030: Zoom Controls (Keyboard & Mouse) / View Menu / No Additional UI Components Are Introduced"
+    covers: []
+  - test_id: '270457-035'
+    title: "270457-035: Zoom Controls (Keyboard & Mouse) / Canvas / Zoom Respects Maximum Limit"
+    covers: []
+  - test_id: '270457-040'
+    title: "270457-040: Zoom Controls (Keyboard & Mouse) / Canvas / Zoom Respects Minimum Limit"
+    covers: []
+  - test_id: '270457-045'
+    title: "270457-045: Zoom Controls (Keyboard & Mouse) / Canvas / Ctrl + Home Centers View At 100%"
+    covers: []
+  - test_id: '270457-050'
+    title: "270457-050: Zoom Controls (Keyboard & Mouse) / Canvas / Shortcuts Do Not Conflict With Existing Shortcuts"
+    covers: []
+  - test_id: '270457-055'
+    title: "270457-055: Zoom Controls (Keyboard & Mouse) / Accessibility / Keyboard Navigation (Windows 11)"
+    covers: []

@@ -1,0 +1,67 @@
+# AC-coverage baseline for story 269901
+# ACs (8) and tests (11) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '269901'
+
+acceptance_criteria:
+  - id: AC1
+    text: "The Bottom Bar in Model Space includes a Scale showing the current drawing scale (e.g., “1' = 40 ft”)."
+    in_scope: true
+  - id: AC2
+    text: "*Users can choose a scale from predefined options depending on the selected unit system: – Imperial: 1' = 10 ft, 1' = 20 ft, 1' = 40 ft, 1' = 100 ft – Metric: 1 cm = 1 m, 1 cm = 2 m, 1 cm = 5 m, 1 cm = 10 m"
+    in_scope: true
+  - id: AC3
+    text: "The selected scale updates all measurement-based UI elements (ruler markings, coordinate values, and dimension labels)."
+    in_scope: true
+  - id: AC4
+    text: "Changing the scale does not modify zoom level or the visible appearance of the drawing."
+    in_scope: true
+  - id: AC5
+    text: "The default scale for a new drawing is 1' = 40 ft."
+    in_scope: true
+  - id: AC6
+    text: "Scale selection respects the active unit system (Imperial or Metric)."
+    in_scope: true
+  - id: AC7
+    text: "Exported drawings (PDF or image) preserve the selected scale and display it on the printed sheet."
+    in_scope: true
+  - id: AC8
+    text: "Must comply with Section 508 and WCAG 2.1 AA accessibility standards (color contrast, focus order, readable text). Hotkeys and tooltips are out of scope for Phase 1. *We agreed that the dropdown will not display the selectable list. Instead, it will show only the currently applied scale value, which may be set from different parts of the system. This approach is required due to technical constraints"
+    in_scope: true
+
+test_labels:
+  - test_id: '269901-AC1'
+    title: "269901-AC1: Scale Control / Bottom Bar / Verify Default Scale Display On New Launch"
+    covers: []
+  - test_id: '269901-005'
+    title: "269901-005: Scale Control / Unit System Synchronization / Verify Scale Control Updates Automatically Based On Unit System"
+    covers: []
+  - test_id: '269901-010'
+    title: "269901-010: Scale Control / Display-Only Behavior (Non-Interactive) / Verify Scale Control Is Display-Only And Non-Interactive (Windows 11)"
+    covers: []
+  - test_id: '269901-015'
+    title: "269901-015: Scale Control / Display-Only Behavior (Non-Interactive) / Verify Scale Control Is Display-Only On (iPadOS/Android)"
+    covers: []
+  - test_id: '269901-020'
+    title: "269901-020: Scale Control / Measurement Logic Updates / Verify Scale Change Does Not Affect Zoom Or Drawing Appearance"
+    covers: []
+  - test_id: '269901-025'
+    title: "269901-025: Scale Control / Measurement Logic Updates / Verify Measurement-Based UI Elements Update When Scale Changes"
+    covers: []
+  - test_id: '269901-030'
+    title: "269901-030: Scale Control / Validation Rules / Verify Scale Ratio Validation And Error Messaging In Units Settings"
+    covers: []
+  - test_id: '269901-035'
+    title: "269901-035: Scale Control / Performance / Verify Scale Control Stability During Rapid Unit System Switching"
+    covers: []
+  - test_id: '269901-040'
+    title: "269901-040: Scale Control / Performance / Verify Scale Update Performance On Large And Complex Drawings"
+    covers: []
+  - test_id: '269901-045'
+    title: "269901-045: Scale Control / WCAG Compliance / Accessibility Compliance Scan (Windows 11)"
+    covers: []
+  - test_id: '269901-050'
+    title: "269901-050: Scale Control / Export Pdf/ Verify Scale is Displayed in Exported PDF Output"
+    covers: []

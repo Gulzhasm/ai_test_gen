@@ -1,0 +1,73 @@
+# AC-coverage baseline for story 270741
+# ACs (8) and tests (13) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '270741'
+
+acceptance_criteria:
+  - id: AC1
+    text: "The history panel is available as a tab within the right sidebar, alongside Design and Layers, and can be accessed by selecting the “History” tab."
+    in_scope: true
+  - id: AC2
+    text: "System logs all user actions that modify the Canvas"
+    in_scope: true
+  - id: AC3
+    text: "Most recent actions appear at the top."
+    in_scope: true
+  - id: AC4
+    text: "The history panel supports the selection of individual steps and allows the deletion of selected entries via the delete action."
+    in_scope: true
+  - id: AC5
+    text: "The panel refreshes dynamically when a new action occurs."
+    in_scope: true
+  - id: AC6
+    text: "History resets when a new drawing is created"
+    in_scope: true
+  - id: AC7
+    text: "Panel supports scrolling when the list exceeds the visible height."
+    in_scope: true
+  - id: AC8
+    text: "Must comply with Section 508 / WCAG 2.1 AA accessibility standards (keyboard navigation, visible focus, readable labels)."
+    in_scope: true
+
+test_labels:
+  - test_id: '270741-AC1'
+    title: "270741-AC1: Properties Panel-History / Properties Panel / History Panel Visible"
+    covers: []
+  - test_id: '270741-005'
+    title: "270741-005: Properties Panel-History / Canvas / Log Object Creation Actions"
+    covers: []
+  - test_id: '270741-010'
+    title: "270741-010: Properties Panel-History / Canvas / Log Object Modification Actions"
+    covers: []
+  - test_id: '270741-015'
+    title: "270741-015: Properties Panel-History / Canvas / Log Style Update Actions"
+    covers: []
+  - test_id: '270741-020'
+    title: "270741-020: Properties Panel-History / Canvas / Log Object Deletion Actions"
+    covers: []
+  - test_id: '270741-030'
+    title: "270741-030: Properties Panel-History / Properties Panel / Manual Selection Of History Entries"
+    covers: []
+  - test_id: '270741-035'
+    title: "270741-035: Properties Panel-History / Properties Panel / Manual Deletion Of History Entries"
+    covers: []
+  - test_id: '270741-040'
+    title: "270741-040: Properties Panel-History / Properties Panel / Undo Redo Updates History Actions"
+    covers: []
+  - test_id: '270741-045'
+    title: "270741-045: Properties Panel-History / Workflow / History Resets On New Drawing Creation"
+    covers: []
+  - test_id: '270741-050'
+    title: "270741-050: Properties Panel-History / Workflow / History Persists On Existing Drawing Load"
+    covers: []
+  - test_id: '270741-055'
+    title: "270741-055: Properties Panel-History / Properties Panel / Panel Supports Scrolling When Entries Exceed Height"
+    covers: []
+  - test_id: '270741-060'
+    title: "270741-060: Properties Panel-History / Accessibility / Keyboard Navigation (Windows 11)"
+    covers: []
+  - test_id: '270741-075'
+    title: "270741-075: Properties Panel-History / Restrictions / Verify No Drag Reorder Of History Entries"
+    covers: []

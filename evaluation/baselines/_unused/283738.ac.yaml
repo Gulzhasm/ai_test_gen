@@ -1,0 +1,121 @@
+# AC-coverage baseline for story 283738
+# ACs (23) and tests (14) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '283738'
+
+acceptance_criteria:
+  - id: AC1
+    text: "URL Scheme Configuration"
+    in_scope: true
+  - id: AC2
+    text: "The iOS application registers the callback URL scheme: cdp-quickdraw://auth/callback"
+    in_scope: true
+  - id: AC3
+    text: "The iOS system recognizes this URL scheme and routes it to the QuickDraw application. Browser Authentication Flow"
+    in_scope: true
+  - id: AC4
+    text: "When the user initiates login, QuickDraw opens the system browser"
+    in_scope: true
+  - id: AC5
+    text: "The browser redirects the user to CDP IdentityServer for authentication. Authentication Callback Handling"
+    in_scope: true
+  - id: AC6
+    text: "After successful authentication, IdentityServer redirects the browser to the deep link: cdp-quickdraw://auth/callback"
+    in_scope: true
+  - id: AC7
+    text: "The iOS system routes the deep link back to the QuickDraw application."
+    in_scope: true
+  - id: AC8
+    text: "QuickDraw receives the authentication response and forwards the token to the shared MAUI authentication service. Application State Handling"
+    in_scope: true
+  - id: AC9
+    text: "If the QuickDraw application is already running, the authentication response is delivered to the active application instance."
+    in_scope: true
+  - id: AC10
+    text: "If the application is not running, iOS launches QuickDraw and processes the authentication response. Authentication Cancellation"
+    in_scope: true
+  - id: AC11
+    text: "If the user cancels authentication in the browser, QuickDraw returns to the unauthenticated state. Authentication Error Handling"
+    in_scope: true
+  - id: AC12
+    text: "If the authentication callback cannot be processed, the system displays the message: 'Sign-in could not be completed. Please try again.'"
+    in_scope: true
+  - id: AC13
+    text: "The user can retry the login process."
+    in_scope: true
+  - id: AC14
+    text: "Authentication tokens and sensitive authentication data must not be written to logs."
+    in_scope: true
+  - id: AC15
+    text: "Authentication responses must only be accepted from the registered callback URL scheme. QA Validation Scope QA should be able to validate:"
+    in_scope: true
+  - id: AC16
+    text: "iOS login flow using system browser"
+    in_scope: true
+  - id: AC17
+    text: "deep link redirect from IdentityServer to the application"
+    in_scope: true
+  - id: AC18
+    text: "authentication response successfully processed by QuickDraw"
+    in_scope: true
+  - id: AC19
+    text: "application receives callback when already running"
+    in_scope: true
+  - id: AC20
+    text: "application launches and processes callback when not running"
+    in_scope: true
+  - id: AC21
+    text: "login cancellation returns user to unauthenticated state"
+    in_scope: true
+  - id: AC22
+    text: "authentication errors show retry message"
+    in_scope: true
+  - id: AC23
+    text: "tokens are not written to logs User Experience and Error Handling Browser opens automatically and is brought to foreground on app launch “Completing Sign In” dialog is displayed with loading indicator Dialog text: “A browser window has been opened to complete your sign-in” “Please complete authentication in the browser. This window will close automatically once sign-in is complete.” “Open Sign-In Page” button reopens authentication if browser was closed On success, browser shows: “Authentication Successful” “You can close this window and return to CDP SiteDraft” On failure, dialog shows: “Access Denied” “Your account does not currently have access to SiteDraft. Please contact your administrator or support.” “Access Denied” dialog includes: “Contact Support” “Sign in with a different account” No detailed error information is exposed"
+    in_scope: true
+
+test_labels:
+  - test_id: '283738-AC1'
+    title: "283738-AC1: iOS Authentication Callback Handling / Browser Authentication Flow / Authorized Account Opens System Browser and Completes Sign-In"
+    covers: []
+  - test_id: '283738-005'
+    title: "283738-005: iOS Authentication Callback Handling / Authentication Cancellation / Browser Cancellation Returns to Unauthenticated State"
+    covers: []
+  - test_id: '283738-010'
+    title: "283738-010: iOS Authentication Callback Handling / Authentication Error Handling / Unprocessable Callback Shows Retry Message"
+    covers: []
+  - test_id: '283738-015'
+    title: "283738-015: iOS Authentication Callback Handling / Security Logging / Authentication Tokens Are Not Written to Logs"
+    covers: []
+  - test_id: '283738-020'
+    title: "283738-020: iOS Authentication Callback Handling / User Experience / Completing Sign In Dialog Displays Required Text and Loading Indicator"
+    covers: []
+  - test_id: '283738-025'
+    title: "283738-025: iOS Authentication Callback Handling / User Experience / Open Sign-In Reopens Browser After Browser Is Closed"
+    covers: []
+  - test_id: '283738-035'
+    title: "283738-035: iOS Authentication Callback Handling / User Experience / Non-Authorized Account Shows Access Denied Dialog"
+    covers: []
+  - test_id: '283738-040'
+    title: "283738-040: iOS Authentication Callback Handling / User Experience / Access Denied Contact Support Action Is Available"
+    covers: []
+  - test_id: '283738-045'
+    title: "283738-045: iOS Authentication Callback Handling / User Experience / Access Denied Sign In With Different Account Action Restarts Login"
+    covers: []
+  - test_id: '283738-050'
+    title: "283738-050: iOS Authentication Callback Handling / Boundary and Interaction / Rapid Browser Reopen Does Not Create Duplicate Authentication Results"
+    covers: []
+  - test_id: '283738-055'
+    title: "283738-055: iOS Authentication Callback Handling / Boundary and Interaction / Orientation Change During Completing Sign In Maintains Dialog and Flow"
+    covers: []
+  - test_id: '283738-060'
+    title: "283738-060: iOS Authentication Callback Handling / Authentication Logging / Authorized Login Success Is Written to Application Logs"
+    covers: []
+  - test_id: '283738-065'
+    title: "283738-065: iOS Authentication Callback Handling / Authentication Logging / Access Denied Is Written to Application Logs"
+    covers: []
+  - test_id: '283738-070'
+    title: "283738-070: iOS Authentication Callback Handling / Authentication Logging / Login Failure Is Written to Application Logs"
+    covers: []

@@ -1,0 +1,73 @@
+# AC-coverage baseline for story 272889
+# ACs (11) and tests (10) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '272889'
+
+acceptance_criteria:
+  - id: AC1
+    text: "The following commands are available in the Tools menu:"
+    in_scope: true
+  - id: AC2
+    text: "Commands are enabled only when at least one object is selected."
+    in_scope: true
+  - id: AC3
+    text: "Rotate Tool rotates selected object(s) according to the system’s default rotation logic."
+    in_scope: true
+  - id: AC4
+    text: "Mirror Horizontally flips the selected object(s) across the vertical axis."
+    in_scope: true
+  - id: AC5
+    text: "Mirror Vertically flips the selected object(s) across the horizontal axis."
+    in_scope: true
+  - id: AC6
+    text: "Multi-selected objects transform together while preserving relative positions."
+    in_scope: true
+  - id: AC7
+    text: "Transformation actions update the Canvas immediately."
+    in_scope: true
+  - id: AC8
+    text: "Undo/Redo fully support all transformations."
+    in_scope: true
+  - id: AC9
+    text: "Actions do not modify object color, border, stroke width, fill, text content, or size."
+    in_scope: true
+  - id: AC10
+    text: "These actions remain also available in the Properties Panel."
+    in_scope: true
+  - id: AC11
+    text: "Menu actions and Properties Panel stay synchronized (state and behavior must match)."
+    in_scope: true
+
+test_labels:
+  - test_id: '272889-AC1'
+    title: "272889-AC1: Object Transformation Tools / Properties Panel / Rotate And Mirror Available"
+    covers: []
+  - test_id: '272889-005'
+    title: "272889-005: Object Transformation Tools (Rotate & Mirror) / Tools Menu / Commands available"
+    covers: []
+  - test_id: '272889-010'
+    title: "272889-010: Object Transformation Tools (Rotate & Mirror) / Tools Menu / Commands enabled on selection"
+    covers: []
+  - test_id: '272889-020'
+    title: "272889-020: Object Transformation Tools (Rotate & Mirror) / Tools Menu / Mirror Horizontally selected objects"
+    covers: []
+  - test_id: '272889-021'
+    title: "272889-021: Object Transformation Tools (Rotate & Mirror) / Layout - Rotation / Mirror Horizontally selected objects(Tablet)"
+    covers: []
+  - test_id: '272889-025'
+    title: "272889-025: Object Transformation Tools (Rotate & Mirror) / Tools Menu / Mirror Vertically selected objects"
+    covers: []
+  - test_id: '272889-026'
+    title: "272889-026: Object Transformation Tools (Rotate & Mirror) / Layout Rotation / Mirror Vertically selected objects(Tablet)"
+    covers: []
+  - test_id: '272889-040'
+    title: "272889-040: Object Transformation Tools (Rotate & Mirror) / Tools Menu / Undo/Redo transformations"
+    covers: []
+  - test_id: '272889-041'
+    title: "272889-041: Object Transformation Tools (Rotate & Mirror) / Layout Rotation / Undo/Redo transformations(Tablet)"
+    covers: []
+  - test_id: '272889-050'
+    title: "272889-050: Object Transformation Tools (Rotate & Mirror) / Tools Menu / Accessibility / Keyboard navigation (Windows 11)"
+    covers: []

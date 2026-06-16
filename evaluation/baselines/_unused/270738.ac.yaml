@@ -1,0 +1,139 @@
+# AC-coverage baseline for story 270738
+# ACs (10) and tests (33) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '270738'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Undo/Redo functionality is available globally across the Drawing App."
+    in_scope: true
+  - id: AC2
+    text: "Each user action is added to the Undo stack."
+    in_scope: true
+  - id: AC3
+    text: "Actions include, but are not limited to: • Object creation (shapes, lines, annotations) • Object modification (move, rotate, mirror, resize) • Canvas edits (add/delete elements) • Measurement and scale adjustments • Text or annotation edits"
+    in_scope: true
+  - id: AC4
+    text: "Buttons are visible and active in both: • Top Action Toolbar • Edit Menu (“Undo [Action Name]”, “Redo [Action Name]”)"
+    in_scope: true
+  - id: AC5
+    text: "Keyboard shortcuts supported: • Ctrl + Z → Undo • Ctrl + Y / Ctrl + Shift + Z → Redo"
+    in_scope: true
+  - id: AC6
+    text: "Performing a new action clears the Redo history."
+    in_scope: true
+  - id: AC7
+    text: "Undo/Redo stacks are reset when a new drawing is opened."
+    in_scope: true
+  - id: AC8
+    text: "Application remembers the Undo limit."
+    in_scope: true
+  - id: AC9
+    text: "Disabled button state shown when no further undo or redo is available."
+    in_scope: true
+  - id: AC10
+    text: "Must comply with Section 508 / WCAG 2.1 AA standards (focus indicators, contrast, button labels). Tooltips and hotkey hints remain out of scope for Phase 1."
+    in_scope: true
+
+test_labels:
+  - test_id: '270738-AC1'
+    title: "270738-AC1: Undo Redo / Toolbar And Edit Menu (Windows 11 Only) / Controls Visible And Disabled"
+    covers: []
+  - test_id: '270738-005'
+    title: "270738-005: Undo / Redo Functionality / Edit Menu / Undo Single Action Via Edit Menu"
+    covers: []
+  - test_id: '270738-010'
+    title: "270738-010: Undo / Redo Functionality / Top Action Toolbar / Undo And Redo Single Action Via Toolbar Buttons"
+    covers: []
+  - test_id: '270738-015'
+    title: "270738-015: Undo / Redo Functionality / Edit Menu / Edit Menu Displays Shortcut Labels For Undo And Redo"
+    covers: []
+  - test_id: '270738-020'
+    title: "270738-020: Undo / Redo Functionality / Edit Menu / Undo And Redo Object Creation (Shapes, Lines, Annotations)"
+    covers: []
+  - test_id: '270738-025'
+    title: "270738-025: Undo / Redo Functionality / Edit Menu / Undo And Redo Object Modification (Move, Rotate, Mirror, Resize)"
+    covers: []
+  - test_id: '270738-030'
+    title: "270738-030: Undo / Redo Functionality / Canvas / Undo And Redo Canvas Edits (Add And Delete Elements)"
+    covers: []
+  - test_id: '270738-035'
+    title: "270738-035: Undo / Redo Functionality / Edit Menu / Undo And Redo Measurement"
+    covers: []
+  - test_id: '270738-040'
+    title: "270738-040: Undo / Redo Functionality / Edit Menu / Undo And Redo Text And Annotation Edits"
+    covers: []
+  - test_id: '270738-045'
+    title: "270738-045: Undo / Redo Functionality / Edit Menu / Undo And Redo Buttons Active After Action Performed"
+    covers: []
+  - test_id: '270738-050'
+    title: "270738-050: Undo / Redo Functionality / Top Action Toolbar / Undo And Redo Visible In Top Action Toolbar"
+    covers: []
+  - test_id: '270738-055'
+    title: "270738-055: Undo / Redo Functionality / Edit Menu / Undo And Redo Via Keyboard Shortcuts (Ctrl+Z / Ctrl+Y)"
+    covers: []
+  - test_id: '270738-060'
+    title: "270738-060: Undo / Redo Functionality / Tools Menu / Keyboard Shortcuts Supported (Windows 11)"
+    covers: []
+  - test_id: '270738-065'
+    title: "270738-065: Undo / Redo Functionality / Tools Menu / Undo And Redo Via Touch (iPad)"
+    covers: []
+  - test_id: '270738-070'
+    title: "270738-070: Undo / Redo Functionality / Tools Menu / Undo And Redo Via Touch (Android Tablet)"
+    covers: []
+  - test_id: '270738-075'
+    title: "270738-075: Undo / Redo Functionality / Edit Menu / Undo Stack Preserved After Performing New Action"
+    covers: []
+  - test_id: '270738-080'
+    title: "270738-080: Undo / Redo Functionality / Edit Menu / Undo Sequence Restores All Object States"
+    covers: []
+  - test_id: '270738-085'
+    title: "270738-085: Undo / Redo Functionality / Edit Menu / Undo Disabled After All Actions Are Undone"
+    covers: []
+  - test_id: '270738-090'
+    title: "270738-090: Undo / Redo Functionality / Edit Menu / Undo Followed By Redo Restores Correct State"
+    covers: []
+  - test_id: '270738-095'
+    title: "270738-095: Undo / Redo Functionality / Edit Menu / Undo History Cleared When New Drawing Created"
+    covers: []
+  - test_id: '270738-100'
+    title: "270738-100: Undo / Redo Functionality / Edit Menu / Undo History Cleared After Application Restart"
+    covers: []
+  - test_id: '270738-105'
+    title: "270738-105: Undo / Redo Functionality / Tools Menu / Complies With Section 508 / WCAG 2.1 AA Standards (Windows 11)"
+    covers: []
+  - test_id: '270738-110'
+    title: "270738-110: Undo / Redo Functionality / Tools Menu / Complies With Section 508 / WCAG 2.1 AA Standards (iPad)"
+    covers: []
+  - test_id: '270738-115'
+    title: "270738-115: Undo / Redo Functionality / Tools Menu / Complies With Section 508 / WCAG 2.1 AA Standards (Android Tablet)"
+    covers: []
+  - test_id: '270738-120'
+    title: "270738-120: Undo / Redo Functionality / Edit Menu / Undo And Redo State After Deselecting Objects"
+    covers: []
+  - test_id: '270738-125'
+    title: "270738-125: Undo / Redo Functionality / Edit Menu / Undo And Redo With Multiple Objects"
+    covers: []
+  - test_id: '270738-130'
+    title: "270738-130: Undo / Redo Functionality / Edit Menu / Undo And Redo Disabled On Empty Canvas"
+    covers: []
+  - test_id: '270738-135'
+    title: "270738-135: Undo / Redo Functionality / Edit Menu / Undo And Redo Maintain Correct Object State"
+    covers: []
+  - test_id: '270738-140'
+    title: "270738-140: Undo / Redo Functionality / Edit Menu / Active Tool Unchanged After Undo Or Redo"
+    covers: []
+  - test_id: '270738-155'
+    title: "270738-155: Undo / Redo Functionality / Edit Menu / Undo And Redo Object Creation (Windows 11)"
+    covers: []
+  - test_id: '270738-160'
+    title: "270738-160: Undo / Redo Functionality / Top Action Toolbar / Undo And Redo Object Creation (Tablets)"
+    covers: []
+  - test_id: '270738-165'
+    title: "270738-165: Undo / Redo Functionality / Edit Menu / Undo And Redo Object Modification (Windows 11)"
+    covers: []
+  - test_id: '270738-170'
+    title: "270738-170: Undo / Redo Functionality / Top Action Toolbar / Undo And Redo Object Modification (Tablets)"
+    covers: []

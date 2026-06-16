@@ -1,5 +1,9 @@
-# Gap Trader - US stock market gap trading scanner and journal
-# Serves as dissertation test bed for AI-generated test automation (Playwright + Postman)
+# Gap Forecaster - pre-market gap scanner, trade journal, and stats dashboard
+# Serves as dissertation test bed for AI-generated test automation (Playwright + Postman).
+# Reconciled to the actual app: github.com/Gulzhasm/gap-trading-forecaster
+#   - Next.js frontend on http://localhost:3000
+#   - FastAPI backend on http://localhost:8000 (mocked at the network layer during UI extraction)
+#   - Three client-side tabs: Scanner / Journal / Stats (no per-tab routes)
 
 project_id: gap-trader
 
@@ -8,54 +12,47 @@ source_platform: ado
 target_platform: ado
 
 application:
-  name: Gap Trader
-  description: US stock market gap trading scanner and journal web application
+  name: Gap Forecaster
+  description: Pre-market gap scanner, trade journal, and performance stats web dashboard
   type: web
+  base_url: http://localhost:3000
 
   # Step templates (web app pattern)
   prereq_template: "Pre-req: User has a web browser open and navigated to {app_name}"
-  launch_step: "Navigate to the {app_name} application at http://localhost:5000."
-  launch_expected: "The Dashboard page loads with the gap scanner form visible."
+  launch_step: "Navigate to the {app_name} application at http://localhost:3000."
+  launch_expected: "The dashboard loads with the Scanner tab and pre-market scan visible."
   close_step: "Close the browser tab for {app_name}."
 
-  # UI surfaces
+  # UI surfaces (actual app structure)
   ui_surfaces:
-    - Dashboard
-    - Watchlist Page
-    - Trade Journal Page
-    - Performance Page
-    - Navigation Bar
-    - Trade Form Modal
-    - Close Trade Modal
-    - Edit Watchlist Modal
+    - Header
+    - Scanner Tab
+    - Journal Tab
+    - Stats Tab
+    - Scan Button
+    - Top Pick Card
     - Scanner Results Table
-    - Watchlist Table
-    - Trades Table
-    - Summary Cards
-    - Charts
+    - Trade Journal Table
+    - Stats Cards
 
-  # Entry point mappings
+  # Entry point mappings (feature keyword -> UI surface)
   entry_point_mappings:
-    scan: Dashboard
-    gap: Dashboard
-    filter: Dashboard
-    search: Dashboard
-    watchlist: Watchlist Page
-    watch: Watchlist Page
-    symbol: Watchlist Page
-    add stock: Watchlist Page
-    trade: Trade Journal Page
-    journal: Trade Journal Page
-    entry: Trade Journal Page
-    open trade: Trade Journal Page
-    close trade: Trade Journal Page
-    pnl: Performance Page
-    performance: Performance Page
-    win rate: Performance Page
-    chart: Performance Page
-    stats: Performance Page
-    navigate: Navigation Bar
-    nav: Navigation Bar
+    scan: Scanner Tab
+    gap: Scanner Tab
+    forecast: Scanner Tab
+    top pick: Scanner Tab
+    p(fill): Scanner Tab
+    catalyst: Scanner Tab
+    journal: Journal Tab
+    trade: Journal Tab
+    closed trade: Journal Tab
+    stats: Stats Tab
+    win rate: Stats Tab
+    net p/l: Stats Tab
+    profit factor: Stats Tab
+    avg r: Stats Tab
+    equity: Header
+    day p/l: Header
 
   # Supported platforms (browsers for web app)
   platforms:
@@ -64,30 +61,68 @@ application:
     - Safari
     - Edge
 
-  # Features NOT available in MVP
+  # Features NOT available in this app
   unavailable_features:
-    - real-time streaming
-    - push notifications
     - user authentication
     - multi-user
     - options trading
-    - paper trading simulation
     - mobile app
-    - dark mode
+    - dark mode toggle
     - offline mode
+    - watchlist editing
+    - order placement from dashboard
 
-  # Incorrect UI terms
+  # Incorrect UI terms (do NOT exist in this app)
   forbidden_ui_terms:
     - Side Panel
     - Left Menu
     - Sidebar
-    - Toolbar
+    - Navigation Bar
+    - Watchlist Page
+    - Performance Page
 
   # Feature notes
   feature_notes:
-    scanner: "Gap scanner uses Yahoo Finance data which may have a 15-minute delay"
-    yfinance: "Rate limited; batch downloads preferred over individual lookups"
-    pnl: "P&L is calculated automatically when a trade is closed (exit_price provided)"
+    p_fill: "P(fill) is an uncalibrated heuristic, not a calibrated probability"
+    forecast: "Forecast is the model's fade/ride lean: FADE, RIDE, or STAND_ASIDE (shown as ASIDE)"
+    stats: "Stats and Journal populate only after the algo banks its first closed round-trip trade"
+
+  # --- Live UI element extraction (selector grounding for Playwright generation) ---
+  ui_extraction:
+    enabled: true
+    inventory_path: output/gap-forecaster/inventory.json
+    backend_url: http://localhost:8000
+    # Standalone Page Object Model project generated from the inventory
+    pom:
+      project_path: /Users/gulzhasmailybayeva/Desktop/gap-trading-forecaster-ui-automation
+      run_after_generate: false
+    # Backend API responses fulfilled at the network layer so data-driven DOM
+    # renders deterministically WITHOUT running the real Python backend.
+    api_mocks:
+      - url_glob: "**/api/account"
+        body_file: projects/fixtures/gap-forecaster/account.json
+      - url_glob: "**/api/market"
+        body_file: projects/fixtures/gap-forecaster/market.json
+      - url_glob: "**/api/scan"
+        body_file: projects/fixtures/gap-forecaster/scan.json
+      - url_glob: "**/api/stats"
+        body_file: projects/fixtures/gap-forecaster/stats.json
+    # Tabs are client-side state, reached by scripted role clicks (not routes).
+    page_states:
+      - name: Scanner
+        steps:
+          - { kind: goto, target: "/" }
+        ready_selector: "text=Ticker"
+      - name: Journal
+        steps:
+          - { kind: goto, target: "/" }
+          - { kind: click_role, role: button, name: Journal }
+        ready_selector: "text=Trade journal"
+      - name: Stats
+        steps:
+          - { kind: goto, target: "/" }
+          - { kind: click_role, role: button, name: Stats }
+        ready_selector: "text=Win rate"
 
 # Integration platform configuration
 integration:
@@ -119,19 +154,15 @@ rules:
     - System
 
   allowed_areas:
-    - Dashboard
-    - Watchlist Page
-    - Trade Journal Page
-    - Performance Page
-    - Navigation Bar
-    - Trade Form Modal
-    - Close Trade Modal
-    - Edit Watchlist Modal
+    - Header
+    - Scanner Tab
+    - Journal Tab
+    - Stats Tab
+    - Scan Button
+    - Top Pick Card
     - Scanner Results Table
-    - Watchlist Table
-    - Trades Table
-    - Summary Cards
-    - Charts
+    - Trade Journal Table
+    - Stats Cards
     - Accessibility
 
   first_test_id: AC1
@@ -148,15 +179,14 @@ postman_enabled: true
 
 # Objective formatting patterns
 objective_patterns:
-  - '\bDashboard\b'
-  - '\bWatchlist(?:\s+Page)?\b'
-  - '\bTrade Journal(?:\s+Page)?\b'
-  - '\bPerformance(?:\s+Page)?\b'
-  - '\bNavigation Bar\b'
   - '\bScanner\b'
-  - '\bTrade Form\b'
-  - '\b(?:gap up|gap down|gap fill)\b'
-  - '\b(?:P&L|PnL|profit|loss)\b'
+  - '\bJournal\b'
+  - '\bStats\b'
+  - '\bScan\b'
+  - '\bTop pick\b'
+  - '\bForecast\b'
+  - '\b(?:FADE|RIDE|STAND_ASIDE|ASIDE)\b'
+  - '\b(?:gap up|gap down|gap fill|P\(fill\))\b'
+  - '\b(?:win rate|net P/L|profit factor|avg R)\b'
   - '\b(?:Chrome|Firefox|Safari|Edge)\b'
   - '\b(?:enabled|disabled|visible|hidden)\b'
-  - '\b(?:open|closed|cancelled)\b'

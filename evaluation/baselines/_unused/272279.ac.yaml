@@ -1,0 +1,64 @@
+# AC-coverage baseline for story 272279
+# ACs (6) and tests (12) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '272279'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Canvas Display tab exists inside the Settings window."
+    in_scope: true
+  - id: AC2
+    text: "When Apply is clicked:"
+    in_scope: true
+  - id: AC3
+    text: "When Cancel is clicked:"
+    in_scope: true
+  - id: AC4
+    text: "When Reset Defaults is clicked:"
+    in_scope: true
+  - id: AC5
+    text: "Safe Area must always remain visible according to the selected settings and must update correctly."
+    in_scope: true
+  - id: AC6
+    text: "Expected behavior includes all details defined throughout the User Story."
+    in_scope: true
+
+test_labels:
+  - test_id: '272279-AC1'
+    title: "272279-AC1: Settings – Canvas Display / Settings / Tab And Controls Present"
+    covers: []
+  - test_id: '272279-005'
+    title: "272279-005: Tools - Settings – Canvas Display / Compass Visibility / Verify Apply Shows Compass When Enabled"
+    covers: []
+  - test_id: '272279-010'
+    title: "272279-010: Tools - Settings – Canvas Display / Compass Visibility / Verify Apply Hides Compass When Disabled"
+    covers: []
+  - test_id: '272279-015'
+    title: "272279-015: Tools - Settings – Canvas Display / Safe Area Update / Verify Safe Area Updates After Apply (Imperial)"
+    covers: []
+  - test_id: '272279-020'
+    title: "272279-020: Tools - Settings – Canvas Display / Safe Area Update / Verify Safe Area Updates After Apply (Metric Centimeters)"
+    covers: []
+  - test_id: '272279-025'
+    title: "272279-025: Tools - Settings – Canvas Display / Apply Button / Verify Apply Saves Both Compass and Safe Area Together"
+    covers: []
+  - test_id: '272279-030'
+    title: "272279-030: Tools - Settings – Canvas Display / Cancel Button / Verify Cancel Discards Unsaved Changes"
+    covers: []
+  - test_id: '272279-035'
+    title: "272279-035: Tools - Settings – Canvas Display / Reset Defaults / Verify Reset Defaults Restores Default Values and Apply Updates Canvas"
+    covers: []
+  - test_id: '272279-050'
+    title: "272279-050: Tools - Settings – Canvas Display / Rapid Interaction / Verify Rapid Changes and Apply Do Not Desync UI vs Canvas"
+    covers: []
+  - test_id: '272279-055'
+    title: "272279-055: Tools - Settings – Canvas Display / Windows Accessibility / Verify Canvas Display Tab Accessibility with Accessibility Insights"
+    covers: []
+  - test_id: '272279-060'
+    title: "272279-060: Tools - Settings – Canvas Display / iPadOS Accessibility / Verify Canvas Display Tab with VoiceOver"
+    covers: []
+  - test_id: '272279-065'
+    title: "272279-065: Tools - Settings – Canvas Display / Android Accessibility / Verify Canvas Display Tab with Android Accessibility Scanner"
+    covers: []

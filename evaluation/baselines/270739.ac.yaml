@@ -1,0 +1,133 @@
+# AC-coverage baseline for story 270739
+# ACs (9) and tests (32) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '270739'
+
+acceptance_criteria:
+  - id: AC1
+    text: "The Design tab is visible only when an object is selected."
+    in_scope: true
+  - id: AC2
+    text: "If nothing is selected, a message “Select an object to view properties” appears."
+    in_scope: true
+  - id: AC3
+    text: "Coordinates:"
+    in_scope: true
+  - id: AC4
+    text: "Dimensions (W/H):"
+    in_scope: true
+  - id: AC5
+    text: "Fill: color picker and opacity slider update the object instantly."
+    in_scope: true
+  - id: AC6
+    text: "Stroke: color picker and Weight (thickness) field update the object instantly."
+    in_scope: true
+  - id: AC7
+    text: "All edits support Undo/Redo."
+    in_scope: true
+  - id: AC8
+    text: "Unit or Scale changes automatically update displayed units without changing real-world size."
+    in_scope: true
+  - id: AC9
+    text: "Must comply with Section 508 / WCAG 2.1 AA accessibility standards (focus, color contrast, visible labels)."
+    in_scope: true
+
+test_labels:
+  - test_id: '270739-AC1'
+    title: "270739-AC1: Properties Panel – Design / Properties Panel / Design Tab Visibility"
+    covers: []
+  - test_id: '270739-005'
+    title: "270739-005: Properties Panel – Design / Properties Panel / Design Tab Hidden When No Object Selected"
+    covers: []
+  - test_id: '270739-010'
+    title: "270739-010: Properties Panel – Design / Properties Panel / Design Tab Hides On Deselection"
+    covers: []
+  - test_id: '270739-015'
+    title: "270739-015: Properties Panel – Design / Design Tab Displays All UI Sections And Controls"
+    covers: []
+  - test_id: '270739-020'
+    title: "270739-020: Properties Panel – Design / Coordinates / Update N Coordinate With Whole Number"
+    covers: []
+  - test_id: '270739-025'
+    title: "270739-025: Properties Panel – Design / Coordinates / Update W Coordinate With Whole Number"
+    covers: []
+  - test_id: '270739-030'
+    title: "270739-030: Properties Panel – Design / Coordinates / Overwrite N Coordinate Value"
+    covers: []
+  - test_id: '270739-035'
+    title: "270739-035: Properties Panel – Design / Undo And Redo Coordinate Changes"
+    covers: []
+  - test_id: '270739-040'
+    title: "270739-040: Properties Panel – Design / Dimensions / Update Width With Whole Number"
+    covers: []
+  - test_id: '270739-045'
+    title: "270739-045: Properties Panel – Design / Dimensions / Update Height With Whole Number"
+    covers: []
+  - test_id: '270739-050'
+    title: "270739-050: Properties Panel – Design / Dimensions / Overwrite Width Value"
+    covers: []
+  - test_id: '270739-055'
+    title: "270739-055: Properties Panel – Design / Undo And Redo Dimension Changes"
+    covers: []
+  - test_id: '270739-060'
+    title: "270739-060: Properties Panel – Design / Fill / Change Fill Color Instantly Updates Object"
+    covers: []
+  - test_id: '270739-065'
+    title: "270739-065: Properties Panel – Design / Fill / Adjust Opacity Slider Instantly Updates Object"
+    covers: []
+  - test_id: '270739-070'
+    title: "270739-070: Properties Panel – Design / Fill / Undo Redo Fill Color Change"
+    covers: []
+  - test_id: '270739-075'
+    title: "270739-075: Properties Panel – Design / Fill / Undo Redo Opacity Change"
+    covers: []
+  - test_id: '270739-076'
+    title: "270739-076: Properties Panel – Design / Fill / Undo From Edit Menu(Windows)"
+    covers: []
+  - test_id: '270739-077'
+    title: "270739-077: Properties Panel – Design / Fill / Redo From Edit Menu(Windows)"
+    covers: []
+  - test_id: '270739-080'
+    title: "270739-080: Properties Panel – Design / Stroke / Change Stroke Weight With Whole Number"
+    covers: []
+  - test_id: '270739-085'
+    title: "270739-085: Properties Panel – Design / Stroke / Overwrite Stroke Weight Value"
+    covers: []
+  - test_id: '270739-090'
+    title: "270739-090: Properties Panel – Design / Stroke / Undo Redo Stroke Color Change"
+    covers: []
+  - test_id: '270739-095'
+    title: "270739-095: Properties Panel – Design / Stroke / Undo Redo Stroke Weight Change"
+    covers: []
+  - test_id: '270739-100'
+    title: "270739-100: Properties Panel – Design / Units Display Updates Automatically In Design Panel"
+    covers: []
+  - test_id: '270739-105'
+    title: "270739-105: Properties Panel – Design / Accessibility / Keyboard Navigation (Windows 11)"
+    covers: []
+  - test_id: '270739-120'
+    title: "270739-120: Properties Panel – Design / Width And Height Values Display In Design Panel"
+    covers: []
+  - test_id: '270739-125'
+    title: "270739-125: Properties Panel – Design / Update Width And Height Using Input Fields"
+    covers: []
+  - test_id: '270739-130'
+    title: "270739-130: Properties Panel - Design / Stroke / Change Stroke Color Instantly Updates Object"
+    covers: []
+  - test_id: '270739-135'
+    title: "270739-135: Properties Panel - Design / Rotation / Numeric Rotation Field Accepts Valid Angles"
+    covers: []
+  - test_id: '270739-140'
+    title: "270739-140: Properties Panel - Design / Rotation / 90 Degree Rotation Buttons"
+    covers: []
+  - test_id: '270739-145'
+    title: "270739-145: Properties Panel - Design / Rotation / Mirror Horizontal And Vertical Buttons"
+    covers: []
+  - test_id: '270739-150'
+    title: "270739-150: Properties Panel - Design / Accessibility / VoiceOver Navigation (iPad)"
+    covers: []
+  - test_id: '270739-155'
+    title: "270739-155: Properties Panel - Design / Accessibility / TalkBack And Accessibility Scanner (Android Tablet)"
+    covers: []

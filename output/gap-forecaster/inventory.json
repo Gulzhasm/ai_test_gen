@@ -1,0 +1,1249 @@
+{
+  "app_name": "Gap Forecaster",
+  "base_url": "http://localhost:3001",
+  "captured_at": "2026-06-16T09:50:27.509712+00:00",
+  "elements": [
+    {
+      "role": "heading",
+      "accessible_name": "Gap Forecaster",
+      "page_context": "Scanner",
+      "text": "Gap Forecaster",
+      "tag": "h1",
+      "attributes": {
+        "class": "text-lg font-semibold tracking-tight"
+      },
+      "role_chain": [],
+      "structural_path": "body > div > header > div > h1",
+      "bounding_box": {
+        "x": 80,
+        "y": 22,
+        "width": 122.40625,
+        "height": 28
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('heading', { name: 'Gap Forecaster' })",
+      "fallback_selectors": [
+        "page.getByText('Gap Forecaster', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "2d5d36c8901706b1"
+    },
+    {
+      "role": "navigation",
+      "accessible_name": "ScannerJournalStats",
+      "page_context": "Scanner",
+      "text": "ScannerJournalStats",
+      "tag": "nav",
+      "attributes": {
+        "class": "mb-4 flex gap-1"
+      },
+      "role_chain": [],
+      "structural_path": "html > body > div > nav",
+      "bounding_box": {
+        "x": 80,
+        "y": 85,
+        "width": 1120,
+        "height": 32
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('navigation', { name: 'ScannerJournalStats' })",
+      "fallback_selectors": [
+        "page.getByText('ScannerJournalStats', { exact: true })"
+      ],
+      "stability_tier": "medium",
+      "element_id": "e4d38dc056e4cc07"
+    },
+    {
+      "role": "button",
+      "accessible_name": "Scanner",
+      "page_context": "Scanner",
+      "text": "Scanner",
+      "tag": "button",
+      "attributes": {
+        "class": "rounded-md px-3 py-1.5 text-sm font-medium transition-colors bg-[var(--accent)] text-white"
+      },
+      "role_chain": [
+        "navigation"
+      ],
+      "structural_path": "html > body > div > nav > button",
+      "bounding_box": {
+        "x": 80,
+        "y": 85,
+        "width": 78.390625,
+        "height": 32
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": true,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('button', { name: 'Scanner' })",
+      "fallback_selectors": [
+        "page.getByText('Scanner', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "1f3e645525f8b0ea"
+    },
+    {
+      "role": "button",
+      "accessible_name": "Journal",
+      "page_context": "Scanner",
+      "text": "Journal",
+      "tag": "button",
+      "attributes": {
+        "class": "rounded-md px-3 py-1.5 text-sm font-medium transition-colors text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
+      },
+      "role_chain": [
+        "navigation"
+      ],
+      "structural_path": "html > body > div > nav > button",
+      "bounding_box": {
+        "x": 162.390625,
+        "y": 85,
+        "width": 73.21875,
+        "height": 32
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": true,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('button', { name: 'Journal' })",
+      "fallback_selectors": [
+        "page.getByText('Journal', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "1dcaf33a5348e6e3"
+    },
+    {
+      "role": "button",
+      "accessible_name": "Stats",
+      "page_context": "Scanner",
+      "text": "Stats",
+      "tag": "button",
+      "attributes": {
+        "class": "rounded-md px-3 py-1.5 text-sm font-medium transition-colors text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
+      },
+      "role_chain": [
+        "navigation"
+      ],
+      "structural_path": "html > body > div > nav > button",
+      "bounding_box": {
+        "x": 239.609375,
+        "y": 85,
+        "width": 58.3125,
+        "height": 32
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": true,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('button', { name: 'Stats' })",
+      "fallback_selectors": [
+        "page.getByText('Stats', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "eb1f1d68713a72d4"
+    },
+    {
+      "role": "heading",
+      "accessible_name": "Pre-market scan \u00b7 2026-06-16",
+      "page_context": "Scanner",
+      "text": "Pre-market scan \u00b7 2026-06-16",
+      "tag": "h2",
+      "attributes": {
+        "class": "text-sm font-semibold"
+      },
+      "role_chain": [],
+      "structural_path": "div > div > div > div > h2",
+      "bounding_box": {
+        "x": 80,
+        "y": 133,
+        "width": 406.390625,
+        "height": 20
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('heading', { name: 'Pre-market scan \u00b7 2026-06-16' })",
+      "fallback_selectors": [
+        "page.getByText('Pre-market scan \u00b7 2026-06-16', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "dbd53e2c64437d4d"
+    },
+    {
+      "role": "button",
+      "accessible_name": "Scan",
+      "page_context": "Scanner",
+      "text": "Scan",
+      "tag": "button",
+      "attributes": {
+        "class": "rounded-md bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+      },
+      "role_chain": [],
+      "structural_path": "body > div > div > div > button",
+      "bounding_box": {
+        "x": 1143.25,
+        "y": 135,
+        "width": 56.75,
+        "height": 32
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": true,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('button', { name: 'Scan', exact: true })",
+      "fallback_selectors": [
+        "page.getByText('Scan', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "b96b7fabcf6b04b3"
+    },
+    {
+      "role": "columnheader",
+      "accessible_name": "#",
+      "page_context": "Scanner",
+      "text": "#",
+      "tag": "th",
+      "attributes": {
+        "class": "px-2 py-2 font-medium "
+      },
+      "role_chain": [],
+      "structural_path": "div > table > thead > tr > th",
+      "bounding_box": {
+        "x": 97,
+        "y": 307,
+        "width": 37,
+        "height": 36.5
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('columnheader', { name: '#' })",
+      "fallback_selectors": [
+        "page.getByText('#', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "fc9021dc2655c0cd"
+    },
+    {
+      "role": "columnheader",
+      "accessible_name": "Ticker",
+      "page_context": "Scanner",
+      "text": "Ticker",
+      "tag": "th",
+      "attributes": {
+        "class": "px-2 py-2 font-medium "
+      },
+      "role_chain": [],
+      "structural_path": "div > table > thead > tr > th",
+      "bounding_box": {
+        "x": 134,
+        "y": 307,
+        "width": 86.53125,
+        "height": 36.5
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('columnheader', { name: 'Ticker' })",
+      "fallback_selectors": [
+        "page.getByText('Ticker', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "e4be4af9f5a0c6df"
+    },
+    {
+      "role": "columnheader",
+      "accessible_name": "Gap",
+      "page_context": "Scanner",
+      "text": "Gap",
+      "tag": "th",
+      "attributes": {
+        "class": "px-2 py-2 font-medium text-right"
+      },
+      "role_chain": [],
+      "structural_path": "div > table > thead > tr > th",
+      "bounding_box": {
+        "x": 220.53125,
+        "y": 307,
+        "width": 99.71875,
+        "height": 36.5
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('columnheader', { name: 'Gap' })",
+      "fallback_selectors": [
+        "page.getByText('Gap', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "694a7fd3ee5ae4ce"
+    },
+    {
+      "role": "columnheader",
+      "accessible_name": "Forecast",
+      "page_context": "Scanner",
+      "text": "Forecast",
+      "tag": "th",
+      "attributes": {
+        "class": "px-2 py-2 font-medium "
+      },
+      "role_chain": [],
+      "structural_path": "div > table > thead > tr > th",
+      "bounding_box": {
+        "x": 320.25,
+        "y": 307,
+        "width": 115.953125,
+        "height": 36.5
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('columnheader', { name: 'Forecast' })",
+      "fallback_selectors": [
+        "page.getByText('Forecast', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "6112ad0f30f943e6"
+    },
+    {
+      "role": "columnheader",
+      "accessible_name": "P(fill)",
+      "page_context": "Scanner",
+      "text": "P(fill)",
+      "tag": "th",
+      "attributes": {
+        "class": "px-2 py-2 font-medium text-right"
+      },
+      "role_chain": [],
+      "structural_path": "div > table > thead > tr > th",
+      "bounding_box": {
+        "x": 436.203125,
+        "y": 307,
+        "width": 84.765625,
+        "height": 36.5
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('columnheader', { name: 'P(fill)' })",
+      "fallback_selectors": [
+        "page.getByText('P(fill)', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "def1b1ac0b39450f"
+    },
+    {
+      "role": "columnheader",
+      "accessible_name": "Catalyst",
+      "page_context": "Scanner",
+      "text": "Catalyst",
+      "tag": "th",
+      "attributes": {
+        "class": "px-2 py-2 font-medium "
+      },
+      "role_chain": [],
+      "structural_path": "div > table > thead > tr > th",
+      "bounding_box": {
+        "x": 520.96875,
+        "y": 307,
+        "width": 179.421875,
+        "height": 36.5
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('columnheader', { name: 'Catalyst' })",
+      "fallback_selectors": [
+        "page.getByText('Catalyst', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "ea8934fd8b8966c7"
+    },
+    {
+      "role": "columnheader",
+      "accessible_name": "Sent",
+      "page_context": "Scanner",
+      "text": "Sent",
+      "tag": "th",
+      "attributes": {
+        "class": "px-2 py-2 font-medium text-right"
+      },
+      "role_chain": [],
+      "structural_path": "div > table > thead > tr > th",
+      "bounding_box": {
+        "x": 700.390625,
+        "y": 307,
+        "width": 87.09375,
+        "height": 36.5
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('columnheader', { name: 'Sent' })",
+      "fallback_selectors": [
+        "page.getByText('Sent', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "25de7fe3a0a97dd3"
+    },
+    {
+      "role": "columnheader",
+      "accessible_name": "Algo",
+      "page_context": "Scanner",
+      "text": "Algo",
+      "tag": "th",
+      "attributes": {
+        "class": "px-2 py-2 font-medium "
+      },
+      "role_chain": [],
+      "structural_path": "div > table > thead > tr > th",
+      "bounding_box": {
+        "x": 787.484375,
+        "y": 307,
+        "width": 96.3125,
+        "height": 36.5
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('columnheader', { name: 'Algo' })",
+      "fallback_selectors": [
+        "page.getByText('Algo', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "96c0cb3262705aa0"
+    },
+    {
+      "role": "columnheader",
+      "accessible_name": "Entry",
+      "page_context": "Scanner",
+      "text": "Entry",
+      "tag": "th",
+      "attributes": {
+        "class": "px-2 py-2 font-medium text-right"
+      },
+      "role_chain": [],
+      "structural_path": "div > table > thead > tr > th",
+      "bounding_box": {
+        "x": 883.796875,
+        "y": 307,
+        "width": 99.71875,
+        "height": 36.5
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('columnheader', { name: 'Entry' })",
+      "fallback_selectors": [
+        "page.getByText('Entry', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "7df4c434a4b7478f"
+    },
+    {
+      "role": "columnheader",
+      "accessible_name": "Stop",
+      "page_context": "Scanner",
+      "text": "Stop",
+      "tag": "th",
+      "attributes": {
+        "class": "px-2 py-2 font-medium text-right"
+      },
+      "role_chain": [],
+      "structural_path": "div > table > thead > tr > th",
+      "bounding_box": {
+        "x": 983.515625,
+        "y": 307,
+        "width": 99.71875,
+        "height": 36.5
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('columnheader', { name: 'Stop' })",
+      "fallback_selectors": [
+        "page.getByText('Stop', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "d5f481a393b201a7"
+    },
+    {
+      "role": "columnheader",
+      "accessible_name": "Target",
+      "page_context": "Scanner",
+      "text": "Target",
+      "tag": "th",
+      "attributes": {
+        "class": "px-2 py-2 font-medium text-right"
+      },
+      "role_chain": [],
+      "structural_path": "div > table > thead > tr > th",
+      "bounding_box": {
+        "x": 1083.234375,
+        "y": 307,
+        "width": 99.765625,
+        "height": 36.5
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('columnheader', { name: 'Target' })",
+      "fallback_selectors": [
+        "page.getByText('Target', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "191bd410b0a90e95"
+    },
+    {
+      "role": "heading",
+      "accessible_name": "Gap Forecaster",
+      "page_context": "Journal",
+      "text": "Gap Forecaster",
+      "tag": "h1",
+      "attributes": {
+        "class": "text-lg font-semibold tracking-tight"
+      },
+      "role_chain": [],
+      "structural_path": "body > div > header > div > h1",
+      "bounding_box": {
+        "x": 80,
+        "y": 22,
+        "width": 122.40625,
+        "height": 28
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('heading', { name: 'Gap Forecaster' })",
+      "fallback_selectors": [
+        "page.getByText('Gap Forecaster', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "0a9eaecf58e2c99d"
+    },
+    {
+      "role": "navigation",
+      "accessible_name": "ScannerJournalStats",
+      "page_context": "Journal",
+      "text": "ScannerJournalStats",
+      "tag": "nav",
+      "attributes": {
+        "class": "mb-4 flex gap-1"
+      },
+      "role_chain": [],
+      "structural_path": "html > body > div > nav",
+      "bounding_box": {
+        "x": 80,
+        "y": 85,
+        "width": 1120,
+        "height": 32
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('navigation', { name: 'ScannerJournalStats' })",
+      "fallback_selectors": [
+        "page.getByText('ScannerJournalStats', { exact: true })"
+      ],
+      "stability_tier": "medium",
+      "element_id": "7d1d5edd43468b60"
+    },
+    {
+      "role": "button",
+      "accessible_name": "Scanner",
+      "page_context": "Journal",
+      "text": "Scanner",
+      "tag": "button",
+      "attributes": {
+        "class": "rounded-md px-3 py-1.5 text-sm font-medium transition-colors text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
+      },
+      "role_chain": [
+        "navigation"
+      ],
+      "structural_path": "html > body > div > nav > button",
+      "bounding_box": {
+        "x": 80,
+        "y": 85,
+        "width": 78.390625,
+        "height": 32
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": true,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('button', { name: 'Scanner' })",
+      "fallback_selectors": [
+        "page.getByText('Scanner', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "8dcc90e73904f857"
+    },
+    {
+      "role": "button",
+      "accessible_name": "Journal",
+      "page_context": "Journal",
+      "text": "Journal",
+      "tag": "button",
+      "attributes": {
+        "class": "rounded-md px-3 py-1.5 text-sm font-medium transition-colors bg-[var(--accent)] text-white"
+      },
+      "role_chain": [
+        "navigation"
+      ],
+      "structural_path": "html > body > div > nav > button",
+      "bounding_box": {
+        "x": 162.390625,
+        "y": 85,
+        "width": 73.21875,
+        "height": 32
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": true,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('button', { name: 'Journal' })",
+      "fallback_selectors": [
+        "page.getByText('Journal', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "87026b89ffbacccb"
+    },
+    {
+      "role": "button",
+      "accessible_name": "Stats",
+      "page_context": "Journal",
+      "text": "Stats",
+      "tag": "button",
+      "attributes": {
+        "class": "rounded-md px-3 py-1.5 text-sm font-medium transition-colors text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
+      },
+      "role_chain": [
+        "navigation"
+      ],
+      "structural_path": "html > body > div > nav > button",
+      "bounding_box": {
+        "x": 239.609375,
+        "y": 85,
+        "width": 58.3125,
+        "height": 32
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": true,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('button', { name: 'Stats' })",
+      "fallback_selectors": [
+        "page.getByText('Stats', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "e1465edeec175440"
+    },
+    {
+      "role": "heading",
+      "accessible_name": "Trade journal",
+      "page_context": "Journal",
+      "text": "Trade journal",
+      "tag": "h2",
+      "attributes": {
+        "class": "text-sm font-semibold"
+      },
+      "role_chain": [],
+      "structural_path": "body > div > div > div > h2",
+      "bounding_box": {
+        "x": 97,
+        "y": 150,
+        "width": 88.53125,
+        "height": 20
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('heading', { name: 'Trade journal' })",
+      "fallback_selectors": [
+        "page.getByText('Trade journal', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "901b5b9d18dfaef2"
+    },
+    {
+      "role": "columnheader",
+      "accessible_name": "Date",
+      "page_context": "Journal",
+      "text": "Date",
+      "tag": "th",
+      "attributes": {
+        "class": "px-2 py-2 font-medium "
+      },
+      "role_chain": [],
+      "structural_path": "div > table > thead > tr > th",
+      "bounding_box": {
+        "x": 97,
+        "y": 178,
+        "width": 230.8125,
+        "height": 36.5
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('columnheader', { name: 'Date' })",
+      "fallback_selectors": [
+        "page.getByText('Date', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "30091ee409823f4e"
+    },
+    {
+      "role": "columnheader",
+      "accessible_name": "Ticker",
+      "page_context": "Journal",
+      "text": "Ticker",
+      "tag": "th",
+      "attributes": {
+        "class": "px-2 py-2 font-medium "
+      },
+      "role_chain": [],
+      "structural_path": "div > table > thead > tr > th",
+      "bounding_box": {
+        "x": 327.8125,
+        "y": 178,
+        "width": 133,
+        "height": 36.5
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('columnheader', { name: 'Ticker' })",
+      "fallback_selectors": [
+        "page.getByText('Ticker', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "cd598bbf6105e1c3"
+    },
+    {
+      "role": "columnheader",
+      "accessible_name": "Side",
+      "page_context": "Journal",
+      "text": "Side",
+      "tag": "th",
+      "attributes": {
+        "class": "px-2 py-2 font-medium "
+      },
+      "role_chain": [],
+      "structural_path": "div > table > thead > tr > th",
+      "bounding_box": {
+        "x": 460.8125,
+        "y": 178,
+        "width": 114.578125,
+        "height": 36.5
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('columnheader', { name: 'Side' })",
+      "fallback_selectors": [
+        "page.getByText('Side', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "bad8973f188c9510"
+    },
+    {
+      "role": "columnheader",
+      "accessible_name": "Shares",
+      "page_context": "Journal",
+      "text": "Shares",
+      "tag": "th",
+      "attributes": {
+        "class": "px-2 py-2 font-medium text-right"
+      },
+      "role_chain": [],
+      "structural_path": "div > table > thead > tr > th",
+      "bounding_box": {
+        "x": 575.390625,
+        "y": 178,
+        "width": 143.71875,
+        "height": 36.5
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('columnheader', { name: 'Shares' })",
+      "fallback_selectors": [
+        "page.getByText('Shares', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "71496878e5ea7a38"
+    },
+    {
+      "role": "columnheader",
+      "accessible_name": "P/L",
+      "page_context": "Journal",
+      "text": "P/L",
+      "tag": "th",
+      "attributes": {
+        "class": "px-2 py-2 font-medium text-right"
+      },
+      "role_chain": [],
+      "structural_path": "div > table > thead > tr > th",
+      "bounding_box": {
+        "x": 719.109375,
+        "y": 178,
+        "width": 192.046875,
+        "height": 36.5
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('columnheader', { name: 'P/L' })",
+      "fallback_selectors": [
+        "page.getByText('P/L', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "335a266f0727b206"
+    },
+    {
+      "role": "columnheader",
+      "accessible_name": "R",
+      "page_context": "Journal",
+      "text": "R",
+      "tag": "th",
+      "attributes": {
+        "class": "px-2 py-2 font-medium text-right"
+      },
+      "role_chain": [],
+      "structural_path": "div > table > thead > tr > th",
+      "bounding_box": {
+        "x": 911.15625,
+        "y": 178,
+        "width": 133.859375,
+        "height": 36.5
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('columnheader', { name: 'R', exact: true })",
+      "fallback_selectors": [
+        "page.getByText('R', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "3337fd513da52148"
+    },
+    {
+      "role": "columnheader",
+      "accessible_name": "Result",
+      "page_context": "Journal",
+      "text": "Result",
+      "tag": "th",
+      "attributes": {
+        "class": "px-2 py-2 font-medium "
+      },
+      "role_chain": [],
+      "structural_path": "div > table > thead > tr > th",
+      "bounding_box": {
+        "x": 1045.015625,
+        "y": 178,
+        "width": 137.984375,
+        "height": 36.5
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('columnheader', { name: 'Result' })",
+      "fallback_selectors": [
+        "page.getByText('Result', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "2f93b99eb7ad9726"
+    },
+    {
+      "role": "heading",
+      "accessible_name": "Gap Forecaster",
+      "page_context": "Stats",
+      "text": "Gap Forecaster",
+      "tag": "h1",
+      "attributes": {
+        "class": "text-lg font-semibold tracking-tight"
+      },
+      "role_chain": [],
+      "structural_path": "body > div > header > div > h1",
+      "bounding_box": {
+        "x": 80,
+        "y": 22,
+        "width": 122.40625,
+        "height": 28
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('heading', { name: 'Gap Forecaster' })",
+      "fallback_selectors": [
+        "page.getByText('Gap Forecaster', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "1d82f6a99bf34f45"
+    },
+    {
+      "role": "navigation",
+      "accessible_name": "ScannerJournalStats",
+      "page_context": "Stats",
+      "text": "ScannerJournalStats",
+      "tag": "nav",
+      "attributes": {
+        "class": "mb-4 flex gap-1"
+      },
+      "role_chain": [],
+      "structural_path": "html > body > div > nav",
+      "bounding_box": {
+        "x": 80,
+        "y": 85,
+        "width": 1120,
+        "height": 32
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": false,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('navigation', { name: 'ScannerJournalStats' })",
+      "fallback_selectors": [
+        "page.getByText('ScannerJournalStats', { exact: true })"
+      ],
+      "stability_tier": "medium",
+      "element_id": "e2c701492e014d62"
+    },
+    {
+      "role": "button",
+      "accessible_name": "Scanner",
+      "page_context": "Stats",
+      "text": "Scanner",
+      "tag": "button",
+      "attributes": {
+        "class": "rounded-md px-3 py-1.5 text-sm font-medium transition-colors text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
+      },
+      "role_chain": [
+        "navigation"
+      ],
+      "structural_path": "html > body > div > nav > button",
+      "bounding_box": {
+        "x": 80,
+        "y": 85,
+        "width": 78.390625,
+        "height": 32
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": true,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('button', { name: 'Scanner' })",
+      "fallback_selectors": [
+        "page.getByText('Scanner', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "b19ad078ed4275af"
+    },
+    {
+      "role": "button",
+      "accessible_name": "Journal",
+      "page_context": "Stats",
+      "text": "Journal",
+      "tag": "button",
+      "attributes": {
+        "class": "rounded-md px-3 py-1.5 text-sm font-medium transition-colors text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
+      },
+      "role_chain": [
+        "navigation"
+      ],
+      "structural_path": "html > body > div > nav > button",
+      "bounding_box": {
+        "x": 162.390625,
+        "y": 85,
+        "width": 73.21875,
+        "height": 32
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": true,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('button', { name: 'Journal' })",
+      "fallback_selectors": [
+        "page.getByText('Journal', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "978e2578b9adcb86"
+    },
+    {
+      "role": "button",
+      "accessible_name": "Stats",
+      "page_context": "Stats",
+      "text": "Stats",
+      "tag": "button",
+      "attributes": {
+        "class": "rounded-md px-3 py-1.5 text-sm font-medium transition-colors bg-[var(--accent)] text-white"
+      },
+      "role_chain": [
+        "navigation"
+      ],
+      "structural_path": "html > body > div > nav > button",
+      "bounding_box": {
+        "x": 239.609375,
+        "y": 85,
+        "width": 58.3125,
+        "height": 32
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "disabled": false,
+      "editable": false,
+      "focusable": true,
+      "value": null,
+      "is_unique": true,
+      "occurrence_index": 0,
+      "recommended_selector": "page.getByRole('button', { name: 'Stats' })",
+      "fallback_selectors": [
+        "page.getByText('Stats', { exact: true })"
+      ],
+      "stability_tier": "high",
+      "element_id": "8656fb6dd8e6c789"
+    }
+  ]
+}

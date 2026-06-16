@@ -1,0 +1,163 @@
+# AC-coverage baseline for story 271914
+# ACs (9) and tests (42) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '271914'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Undo / Redo revert or repeat the most recent Canvas action."
+    in_scope: true
+  - id: AC2
+    text: "Cut / Copy / Paste use the native OS clipboard."
+    in_scope: true
+  - id: AC3
+    text: "Delete / Clear Selection removes selected object(s)."
+    in_scope: true
+  - id: AC4
+    text: "Select All / Deselect All"
+    in_scope: true
+  - id: AC5
+    text: "Duplicate creates an exact copy of selected object(s)."
+    in_scope: true
+  - id: AC6
+    text: "Keyboard Shortcuts follow OS defaults (Ctrl / Cmd / Alt / Option)."
+    in_scope: true
+  - id: AC7
+    text: "No custom UI elements (dialogs, overlays, or notifications) are used."
+    in_scope: true
+  - id: AC8
+    text: "Locked objects cannot be edited, moved, or deleted until unlocked."
+    in_scope: true
+  - id: AC9
+    text: "System instantly updates Canvas and undo/redo stack after each edit action."
+    in_scope: true
+
+test_labels:
+  - test_id: '271914-AC1'
+    title: "271914-AC1: Basic Edit Operations / Edit Menu / All Options Present"
+    covers: []
+  - test_id: '271914-005'
+    title: "271914-005: Basic Edit Operations / Straight Line Object / Edit Operations Via Edit Menu"
+    covers: []
+  - test_id: '271914-006'
+    title: "271914-006: Basic Edit Operations / Straight Line Object / Edit Operations Via Top Toolbar (Tablet)"
+    covers: []
+  - test_id: '271914-010'
+    title: "271914-010: Basic Edit Operations / Rectangle Object / Edit Operations Via Edit Menu"
+    covers: []
+  - test_id: '271914-011'
+    title: "271914-011: Basic Edit Operations / Rectangle Object / Edit Operations Via Top Toolbar (Tablet)"
+    covers: []
+  - test_id: '271914-015'
+    title: "271914-015: Basic Edit Operations / Circle Object / Edit Operations Via Edit Menu"
+    covers: []
+  - test_id: '271914-016'
+    title: "271914-016: Basic Edit Operations / Circle Object / Edit Operations Via Top Toolbar (Tablet)"
+    covers: []
+  - test_id: '271914-020'
+    title: "271914-020: Basic Edit Operations / Pen Object / Edit Operations Via Edit Menu"
+    covers: []
+  - test_id: '271914-021'
+    title: "271914-021: Basic Edit Operations / Pen Object / Edit Operations Via Top Toolbar (Tablet)"
+    covers: []
+  - test_id: '271914-025'
+    title: "271914-025: Basic Edit Operations / Pencil Object / Edit Operations Via Edit Menu"
+    covers: []
+  - test_id: '271914-026'
+    title: "271914-026: Basic Edit Operations / Pencil Object / Edit Operations Via Top Toolbar (Tablet)"
+    covers: []
+  - test_id: '271914-030'
+    title: "271914-030: Basic Edit Operations / Text Object / Edit Operations Via Edit Menu"
+    covers: []
+  - test_id: '271914-031'
+    title: "271914-031: Basic Edit Operations / Text Object / Edit Operations Via Top Toolbar (Tablet)"
+    covers: []
+  - test_id: '271914-035'
+    title: "271914-035: Basic Edit Operations / Image Object / Edit Operations Via Edit Menu"
+    covers: []
+  - test_id: '271914-040'
+    title: "271914-040: Basic Edit Operations / Distance Line Object / Edit Operations Via Edit Menu"
+    covers: []
+  - test_id: '271914-041'
+    title: "271914-041: Basic Edit Operations / Distance Line Object / Edit Operations Via Top Toolbar (Tablet)"
+    covers: []
+  - test_id: '271914-045'
+    title: "271914-045: Basic Edit Operations / Angular Dimension Object / Edit Operations Via Edit Menu"
+    covers: []
+  - test_id: '271914-046'
+    title: "271914-046: Basic Edit Operations / Angular Dimension Object / Edit Operations Via Top Toolbar (Tablet)"
+    covers: []
+  - test_id: '271914-055'
+    title: "271914-055: Basic Edit Operations / Edit Menu / Delete Removes Selected Objects"
+    covers: []
+  - test_id: '271914-057'
+    title: "271914-057: Basic Edit Operations / Top Toolbar / Delete Removes Selected Objects (Tablet)"
+    covers: []
+  - test_id: '271914-060'
+    title: "271914-060: Basic Edit Operations / Edit Menu / Select All And Deselect All Objects"
+    covers: []
+  - test_id: '271914-065'
+    title: "271914-065: Basic Edit Operations / Edit Menu / Duplicate Creates Exact Copy"
+    covers: []
+  - test_id: '271914-070'
+    title: "271914-070: Basic Edit Operations / Edit Menu / Undo Reverts Most Recent Action"
+    covers: []
+  - test_id: '271914-072'
+    title: "271914-072: Basic Edit Operations / Top Toolbar / Undo Reverts Most Recent Action (Tablet)"
+    covers: []
+  - test_id: '271914-075'
+    title: "271914-075: Basic Edit Operations / Edit Menu / Redo Repeats Most Recent Action"
+    covers: []
+  - test_id: '271914-077'
+    title: "271914-077: Basic Edit Operations / Top Toolbar / Redo Repeats Most Recent Action (Tablet)"
+    covers: []
+  - test_id: '271914-080'
+    title: "271914-080: Basic Edit Operations / Edit Menu / Keyboard Shortcuts Follow Os Defaults"
+    covers: []
+  - test_id: '271914-085'
+    title: "271914-085: Basic Edit Operations / Edit Menu / Locked Objects Cannot Be Edited"
+    covers: []
+  - test_id: '271914-087'
+    title: "271914-087: Basic Edit Operations / Top Toolbar / Locked Objects Cannot Be Edited (Tablet)"
+    covers: []
+  - test_id: '271914-090'
+    title: "271914-090: Basic Edit Operations / Edit Menu / Canvas Updates Instantly After Edit"
+    covers: []
+  - test_id: '271914-092'
+    title: "271914-092: Basic Edit Operations / Top Toolbar / Canvas Updates Instantly After Edit (Tablet)"
+    covers: []
+  - test_id: '271914-095'
+    title: "271914-095: Basic Edit Operations / Edit Menu / Undo Stack Updates After Each Edit"
+    covers: []
+  - test_id: '271914-097'
+    title: "271914-097: Basic Edit Operations / Top Toolbar / Undo Stack Updates After Each Edit (Tablet)"
+    covers: []
+  - test_id: '271914-100'
+    title: "271914-100: Basic Edit Operations / Edit Menu / No Custom Ui Elements Are Used"
+    covers: []
+  - test_id: '271914-102'
+    title: "271914-102: Basic Edit Operations / Top Toolbar / No Custom Ui Elements Are Used (Tablet)"
+    covers: []
+  - test_id: '271914-105'
+    title: "271914-105: Basic Edit Operations / Edit Menu / Attempt Paste With Incompatible Clipboard Content"
+    covers: []
+  - test_id: '271914-107'
+    title: "271914-107: Basic Edit Operations / Top Toolbar / Attempt Paste With Incompatible Clipboard Content (Tablet)"
+    covers: []
+  - test_id: '271914-110'
+    title: "271914-110: Basic Edit Operations / Edit Menu / Undo And Redo When No Actions Exist"
+    covers: []
+  - test_id: '271914-112'
+    title: "271914-112: Basic Edit Operations / Top Toolbar / Undo And Redo When No Actions Exist (Tablet)"
+    covers: []
+  - test_id: '271914-115'
+    title: "271914-115: Basic Edit Operations / Accessibility / Keyboard navigation and labels (Windows 11)"
+    covers: []
+  - test_id: '271914-116'
+    title: "271914-116: Basic Edit Operations / Accessibility / Screen Reader Navigation and Labels (Android)"
+    covers: []
+  - test_id: '271914-117'
+    title: "271914-117: Basic Edit Operations / Accessibility / Screen Reader Navigation and Labels (Ipad)"
+    covers: []

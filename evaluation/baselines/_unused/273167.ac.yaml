@@ -1,0 +1,46 @@
+# AC-coverage baseline for story 273167
+# ACs (5) and tests (7) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '273167'
+
+acceptance_criteria:
+  - id: AC1
+    text: "“Show Grid / Hide Grid” toggle appears under the View menu."
+    in_scope: true
+  - id: AC2
+    text: "When Grid is shown:"
+    in_scope: true
+  - id: AC3
+    text: "When Grid is hidden:"
+    in_scope: true
+  - id: AC4
+    text: "Grid does not:"
+    in_scope: true
+  - id: AC5
+    text: "Grid visibility persists until changed by the user (session-based)."
+    in_scope: true
+
+test_labels:
+  - test_id: '273167-AC1'
+    title: "273167-AC1: Show/Hide Grid (View Menu) / View Menu / Show/Hide Grid Menu Access"
+    covers: []
+  - test_id: '273167-005'
+    title: "273167-005: Show/Hide Grid (View Menu) / View Menu / Show Grid Functionality"
+    covers: []
+  - test_id: '273167-010'
+    title: "273167-010: Show/Hide Grid (View Menu) / View Menu / Hide Grid Functionality"
+    covers: []
+  - test_id: '273167-015'
+    title: "273167-015: Show/Hide Grid (View Menu) / View Menu / Grid Does Not Affect Drawing"
+    covers: []
+  - test_id: '273167-020'
+    title: "273167-020: Show/Hide Grid (View Menu) / View Menu / Grid Visibility Persists"
+    covers: []
+  - test_id: '273167-025'
+    title: "273167-025: Show/Hide Grid (View Menu) / Canvas / Grid Moves Simultaneously with Canvas"
+    covers: []
+  - test_id: '273167-035'
+    title: "273167-035: Show/Hide Grid (View Menu) / Accessibility / Keyboard Navigation And Labels (Windows 11)"
+    covers: []

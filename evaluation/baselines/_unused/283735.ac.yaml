@@ -1,0 +1,118 @@
+# AC-coverage baseline for story 283735
+# ACs (26) and tests (10) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '283735'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Authorization Claim Evaluation"
+    in_scope: true
+  - id: AC2
+    text: "After successful authentication, QuickDraw reads the authorization claim from the authentication token."
+    in_scope: true
+  - id: AC3
+    text: "The claim determines whether the user is allowed to access the QuickDraw application."
+    in_scope: true
+  - id: AC4
+    text: "QuickDraw does not calculate license or access logic independently and relies only on the claim issued by IdentityServer. Allowed User Behavior"
+    in_scope: true
+  - id: AC5
+    text: "If the authorization claim indicates valid access, the user is allowed to enter the main QuickDraw application. Access Denied Behavior"
+    in_scope: true
+  - id: AC6
+    text: "If the authorization claim indicates that the user does not have access, the user is not allowed to enter the application."
+    in_scope: true
+  - id: AC7
+    text: "If the required authorization claim is missing, access is also denied."
+    in_scope: true
+  - id: AC8
+    text: "In both cases, the system blocks entry to the application and displays the message: 'Your account does not currently have access to QuickDraw. Please contact your administrator or support.' Authentication Cancellation"
+    in_scope: true
+  - id: AC9
+    text: "If the user cancels the login process in the browser, QuickDraw returns to the unauthenticated state. Authentication Error Handling"
+    in_scope: true
+  - id: AC10
+    text: "If an authentication or callback error occurs, the user is shown the message: 'Sign-in could not be completed. Please try again.'"
+    in_scope: true
+  - id: AC11
+    text: "After the message is shown, the user can retry the sign-in process. Authorization Re-evaluation"
+    in_scope: true
+  - id: AC12
+    text: "Authorization is re-evaluated whenever a new authentication occurs, such as after logout or token renewal."
+    in_scope: true
+  - id: AC13
+    text: "Authorization is not continuously rechecked during normal application usage. Security and Logging"
+    in_scope: true
+  - id: AC14
+    text: "Authorization outcomes may be logged for diagnostic purposes, including:"
+    in_scope: true
+  - id: AC15
+    text: "access granted"
+    in_scope: true
+  - id: AC16
+    text: "access denied"
+    in_scope: true
+  - id: AC17
+    text: "authentication cancelled"
+    in_scope: true
+  - id: AC18
+    text: "authentication error"
+    in_scope: true
+  - id: AC19
+    text: "Sensitive token data must not be logged. QA Validation Scope QA should be able to validate:"
+    in_scope: true
+  - id: AC20
+    text: "authenticated user with access can enter the application"
+    in_scope: true
+  - id: AC21
+    text: "authenticated user without access is blocked"
+    in_scope: true
+  - id: AC22
+    text: "missing authorization claim blocks access"
+    in_scope: true
+  - id: AC23
+    text: "the Access Denied message is displayed"
+    in_scope: true
+  - id: AC24
+    text: "login cancellation returns the user to the unauthenticated state"
+    in_scope: true
+  - id: AC25
+    text: "authentication errors allow the user to retry login"
+    in_scope: true
+  - id: AC26
+    text: "logout followed by login triggers authorization check again"
+    in_scope: true
+
+test_labels:
+  - test_id: '283735-AC1'
+    title: "283735-AC1: QuickDraw – Authorization and Access Control Based on Identity Claims / Access Granted / Authorized User Completes Browser Login And Enters Application (Windows 11)"
+    covers: []
+  - test_id: '283735-005'
+    title: "283735-005: QuickDraw – Authorization and Access Control Based on Identity Claims / Access Granted / Authorized User Completes Browser Login And Enters Application (Tablets)"
+    covers: []
+  - test_id: '283735-010'
+    title: "283735-010: QuickDraw – Authorization and Access Control Based on Identity Claims / Access Denied / Limited Authorization User Is Blocked After Browser Login (Windows 11)"
+    covers: []
+  - test_id: '283735-015'
+    title: "283735-015: QuickDraw – Authorization and Access Control Based on Identity Claims / Access Denied / Limited Authorization User Is Blocked After Browser Login (Tablets)"
+    covers: []
+  - test_id: '283735-020'
+    title: "283735-020: QuickDraw – Authorization and Access Control Based on Identity Claims / Access Denied Actions / Contact Support Redirects To CDPEHS Contact Page (Windows 11)"
+    covers: []
+  - test_id: '283735-025'
+    title: "283735-025: QuickDraw – Authorization and Access Control Based on Identity Claims / Access Denied Actions / Contact Support Redirects To CDPEHS Contact Page (Tablets)"
+    covers: []
+  - test_id: '283735-030'
+    title: "283735-030: QuickDraw – Authorization and Access Control Based on Identity Claims / Access Denied Actions / Sign In With Different Account Opens Logged Out Page And Allows Re-Login (Windows 11)"
+    covers: []
+  - test_id: '283735-035'
+    title: "283735-035: QuickDraw – Authorization and Access Control Based on Identity Claims / Access Denied Actions / Sign In With Different Account Opens Logged Out Page And Allows Re-Login (Tablets)"
+    covers: []
+  - test_id: '283735-040'
+    title: "283735-040: QuickDraw – Authorization and Access Control Based on Identity Claims / Authentication Cancellation / Cancel Login Shows Sign-In Failed Dialog And Allows Retry (Windows 11)"
+    covers: []
+  - test_id: '283735-045'
+    title: "283735-045: QuickDraw – Authorization and Access Control Based on Identity Claims / Authentication Cancellation / Cancel Login Shows Sign-In Failed Dialog And Allows Retry (Tablets)"
+    covers: []

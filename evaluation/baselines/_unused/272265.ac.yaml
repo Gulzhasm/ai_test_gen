@@ -1,0 +1,52 @@
+# AC-coverage baseline for story 272265
+# ACs (6) and tests (8) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '272265'
+
+acceptance_criteria:
+  - id: AC1
+    text: "System Full Screen Mode is accessible through View → Full Screen Mode."
+    in_scope: true
+  - id: AC2
+    text: "Entering fullscreen uses the OS-native fullscreen behavior."
+    in_scope: true
+  - id: AC3
+    text: "Only OS-level UI is hidden; QuickDraw UI remains fully visible."
+    in_scope: true
+  - id: AC4
+    text: "Canvas and interface resize correctly to fill the fullscreen container."
+    in_scope: true
+  - id: AC5
+    text: "Pressing F11 exits fullscreen and restores normal windowed mode."
+    in_scope: true
+  - id: AC6
+    text: "Must comply with Section 508 / WCAG 2.1 AA (focus indicators, keyboard navigation, accessible labels)."
+    in_scope: true
+
+test_labels:
+  - test_id: '272265-AC1'
+    title: "272265-AC1: Full Screen Mode (OS native full screen) / View Menu / Full Screen Mode menu access"
+    covers: []
+  - test_id: '272265-005'
+    title: "272265-005: Full Screen Mode (OS Native Full Screen) / View Menu / Full Screen Mode Is Accessible Through View → Full Screen Mode"
+    covers: []
+  - test_id: '272265-010'
+    title: "272265-010: Full Screen Mode (OS Native Full Screen) / View Menu / Entering Fullscreen Uses The OS-Native Fullscreen Behavior"
+    covers: []
+  - test_id: '272265-015'
+    title: "272265-015: Full Screen Mode (OS Native Full Screen) / View Menu / Only OS-Level UI Is Hidden; QuickDraw UI Remains Fully Visible"
+    covers: []
+  - test_id: '272265-020'
+    title: "272265-020: Full Screen Mode (OS Native Full Screen) / View Menu / Canvas And Interface Resize Correctly To Fill The Fullscreen Container"
+    covers: []
+  - test_id: '272265-025'
+    title: "272265-025: Full Screen Mode (OS Native Full Screen) / View Menu / Pressing F11 Exits Fullscreen And Restores Normal Windowed Mode"
+    covers: []
+  - test_id: '272265-030'
+    title: "272265-030: Full Screen Mode (OS Native Full Screen) / View Menu / Stability During Transitions"
+    covers: []
+  - test_id: '272265-035'
+    title: "272265-035: Full Screen Mode (OS Native Full Screen) / Accessibility / Keyboard Navigation And Labels (Windows 11)"
+    covers: []

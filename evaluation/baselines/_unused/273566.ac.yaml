@@ -1,0 +1,64 @@
+# AC-coverage baseline for story 273566
+# ACs (6) and tests (12) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '273566'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Objects with measurements can display multiple labels."
+    in_scope: true
+  - id: AC2
+    text: "Labels can be repositioned inside or near the object boundary."
+    in_scope: true
+  - id: AC3
+    text: "Repositioning helps avoid label overlapping."
+    in_scope: true
+  - id: AC4
+    text: "Geometric meaning is preserved (e.g. radius and diameter remain close to the related geometry)."
+    in_scope: true
+  - id: AC5
+    text: "Label visibility and position can be controlled via the Properties panel."
+    in_scope: true
+  - id: AC6
+    text: "Label repositioning applies only to supported measurement labels. Note: Minor visual overlap between the label and the object border is allowed and considered acceptable behavior."
+    in_scope: true
+
+test_labels:
+  - test_id: '273566-AC1'
+    title: "273566-AC1: Canvas Label Repositioning / Canvas / Label Repositioning Available"
+    covers: []
+  - test_id: '273566-005'
+    title: "273566-005: Canvas Label Repositioning for Improved Readability / Canvas / Reposition Label Inside And Near Object Boundary"
+    covers: []
+  - test_id: '273566-010'
+    title: "273566-010: Canvas Label Repositioning for Improved Readability / Canvas / Preserve Geometric Meaning For Radius Label"
+    covers: []
+  - test_id: '273566-015'
+    title: "273566-015: Canvas Label Repositioning for Improved Readability / Properties Panel / Control Label Visibility"
+    covers: []
+  - test_id: '273566-020'
+    title: "273566-020: Canvas Label Repositioning for Improved Readability / Properties Panel / Control Label Position"
+    covers: []
+  - test_id: '273566-025'
+    title: "273566-025: Canvas Label Repositioning for Improved Readability / Labels / Reposition Measurement Label Via Properties Panel"
+    covers: []
+  - test_id: '273566-030'
+    title: "273566-030: Canvas Label Repositioning for Improved Readability / Labels / Repositioning Not Available For Non-Measurement Elements"
+    covers: []
+  - test_id: '273566-035'
+    title: "273566-035: Canvas Label Repositioning for Improved Readability / Properties Panel / Controls Disabled When No Object Selected"
+    covers: []
+  - test_id: '273566-040'
+    title: "273566-040: Canvas Label Repositioning for Improved Readability / Canvas / Label Position Persists After Save And Reopen"
+    covers: []
+  - test_id: '273566-045'
+    title: "273566-045: Canvas Label Repositioning for Improved Readability / Accessibility / Keyboard Navigation (Windows 11)"
+    covers: []
+  - test_id: '273566-050'
+    title: "273566-050: Canvas Label Repositioning for Improved Readability / Canvas / Reposition Multiple Labels On A Complex Object"
+    covers: []
+  - test_id: '273566-055'
+    title: "273566-055: Canvas Label Repositioning for Improved Readability / Canvas / Label Position And Geometric Meaning After Object Modification"
+    covers: []

@@ -1,0 +1,91 @@
+# AC-coverage baseline for story 272777
+# ACs (8) and tests (19) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '272777'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Tool is available under Draw → Measurement Line."
+    in_scope: true
+  - id: AC2
+    text: "User clicks once on the Canvas to set the starting point of the measurement. While the mouse is held and moved, a preview line follows the cursor. When the user releases the mouse button, the measurement line (straight or angled) is created."
+    in_scope: true
+  - id: AC3
+    text: "System displays the measured distance between the two selected points using the active Unit System (Imperial/Metric)."
+    in_scope: true
+  - id: AC4
+    text: "A distance label appears after the second point is selected."
+    in_scope: true
+  - id: AC5
+    text: "User can reposition the label anywhere on the Canvas - not in scope for this story, see Important section in the description."
+    in_scope: true
+  - id: AC6
+    text: "User can adjust the label’s font size through the Properties panel - not in scope for this story, see Important section in the description."
+    in_scope: true
+  - id: AC7
+    text: "Undo/Redo is supported for placing or moving the label."
+    in_scope: true
+  - id: AC8
+    text: "Must comply with Section 508 / WCAG 2.1 AA accessibility standards (readable text, keyboard focus, clear contrast)."
+    in_scope: true
+
+test_labels:
+  - test_id: '272777-AC1'
+    title: "272777-AC1: Draw - Measurement Line / Tool Availability / Verify Measurement Line Tool Availability"
+    covers: []
+  - test_id: '272777-005'
+    title: "272777-005: Draw - Measurement Line / Measurement Line Creation / Verify Measurement Line Creation Using Mouse Drag"
+    covers: []
+  - test_id: '272777-010'
+    title: "272777-010: Draw - Measurement Line / Measurement Line Creation / Verify Measurement Line Creation Using Touch/Stylus"
+    covers: []
+  - test_id: '272777-015'
+    title: "272777-015: Draw - Measurement Line / Label Display / Verify Measurement Line Displays Default Unit as Feet (ft)"
+    covers: []
+  - test_id: '272777-020'
+    title: "272777-020: Draw - Measurement Line / Label Display / Verify Measurement Line Updates Label to Inches (in) When Unit Is Changed"
+    covers: []
+  - test_id: '272777-025'
+    title: "272777-025: Draw - Measurement Line / Label Display / Verify Measurement Line Displays Metric Units After Switching Regional Format"
+    covers: []
+  - test_id: '272777-029'
+    title: "272777-029: Draw - Measurement Line / Label Display / Verify All Precision Options Are Applied Consistently Across Unit Systems"
+    covers: []
+  - test_id: '272777-030'
+    title: "272777-030: Draw - Measurement Line / Label Display / Verify Measurement Line Updates to New Unit System After Change"
+    covers: []
+  - test_id: '272777-031'
+    title: "272777-031: Draw - Measurement Line / Label Display / Verify Measurement Label Updates to One Decimal Precision (0.0)"
+    covers: []
+  - test_id: '272777-032'
+    title: "272777-032: Draw - Measurement Line / Label Display / Verify Measurement Label Updates to Two Decimal Precision (0.00)"
+    covers: []
+  - test_id: '272777-033'
+    title: "272777-033: Draw - Measurement Line / Label Display / Verify Measurement Label Updates to Three Decimal Precision (0.000)"
+    covers: []
+  - test_id: '272777-034'
+    title: "272777-034: Draw - Measurement Line / Label Display / Verify Existing Measurement Labels Update When Precision Changes"
+    covers: []
+  - test_id: '272777-035'
+    title: "272777-035: Draw - Measurement Line / Display Logic / Verify Measurement Line Is Not Created When No Drag Occurs"
+    covers: []
+  - test_id: '272777-040'
+    title: "272777-040: Draw - Measurement Line / Display Logic / Verify Zero-Length Measurement Is Not Displayed"
+    covers: []
+  - test_id: '272777-045'
+    title: "272777-045: Draw - Measurement Line / Display Logic / Verify Measurement Line Is Not Created Outside Canvas Area"
+    covers: []
+  - test_id: '272777-050'
+    title: "272777-050: Draw - Measurement Line / Display Logic / Verify Measurement Label Remains Readable at Extreme Zoom Levels"
+    covers: []
+  - test_id: '272777-055'
+    title: "272777-055: Draw - Measurement Line / WCAG Compliance / Verify Measurement Line Tool Accessibility Using Accessibility Insights"
+    covers: []
+  - test_id: '272777-060'
+    title: "272777-060: Draw - Measurement Line / WCAG Compliance / Verify Measurement Line Tool Accessibility Using VoiceOver (iPadOS)"
+    covers: []
+  - test_id: '272777-065'
+    title: "272777-065: Draw - Measurement Line / WCAG Compliance / Verify Measurement Line Tool Accessibility Using Android Accessibility Scanner"
+    covers: []

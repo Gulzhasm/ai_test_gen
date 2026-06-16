@@ -1,0 +1,46 @@
+# AC-coverage baseline for story 272779
+# ACs (5) and tests (7) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '272779'
+
+acceptance_criteria:
+  - id: AC1
+    text: "The tool is available under Dimensions → Radius."
+    in_scope: true
+  - id: AC2
+    text: "An ellipse is selected and the user chooses Dimensions → Radius or enables the corresponding toggle in the Properties – Design panel, the system automatically calculates the radius."
+    in_scope: true
+  - id: AC3
+    text: "The user can reposition the radius label - This AC is cancelled - 'According to our latest (12/16/2025) discussion radius and diameter measurements cannot be manually repositioned on the canvas. Their placement is defined by geometric rules and standards, ensuring correct and unambiguous representation. Allowing free repositioning could break geometric accuracy and lead to incorrect interpretation. '"
+    in_scope: true
+  - id: AC4
+    text: "Undo/Redo is supported for adding, moving, or removing the radius measurement."
+    in_scope: true
+  - id: AC5
+    text: "Must comply with Section 508 / WCAG 2.1 AA (readable text, sufficient contrast, keyboard accessibility)."
+    in_scope: true
+
+test_labels:
+  - test_id: '272779-AC1'
+    title: "272779-AC1: Dimensions – Radius / Dimensions Menu / Dimension Tools Menu Access"
+    covers: []
+  - test_id: '272779-010'
+    title: "272779-010: Dimensions – Radius / Dimensions Menu / Selection Behavior"
+    covers: []
+  - test_id: '272779-015'
+    title: "272779-015: Dimensions – Radius / Dimensions Menu / Radius Label Displayed Correctly"
+    covers: []
+  - test_id: '272779-020'
+    title: "272779-020: Dimensions – Radius / Dimensions Menu / Undo And Redo Actions"
+    covers: []
+  - test_id: '272779-035'
+    title: "272779-035: Dimensions – Radius / Accessibility / Keyboard Navigation And Labels (Windows 11)"
+    covers: []
+  - test_id: '272779-040'
+    title: "272779-040: Dimensions – Radius / Accessibility / Accessibility Validation for Dimensions – Radius (Android Tablet)"
+    covers: []
+  - test_id: '272779-045'
+    title: "272779-045: Dimensions – Radius / Accessibility / Accessibility Validation for Dimensions – Radius (iPadOS)"
+    covers: []

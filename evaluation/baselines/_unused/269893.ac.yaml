@@ -1,0 +1,64 @@
+# AC-coverage baseline for story 269893
+# ACs (5) and tests (13) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '269893'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Horizontal and vertical rulers are displayed along the top and left edges of the Canvas and Model Space."
+    in_scope: true
+  - id: AC2
+    text: "Rulers dynamically update when the user changes zoom or scale (in scope of dependent user stories, i.e. Scale and Zoom)."
+    in_scope: true
+  - id: AC3
+    text: "Rulers display clear, readable markings that reflect measurements based on the scale set."
+    in_scope: true
+  - id: AC4
+    text: "Rulers update automatically when zoom or scale values change (in scope of dependent user stories, i.e. Scale and Zoom)."
+    in_scope: true
+  - id: AC5
+    text: "Must follow accessibility and UI compliance standards (508 / WCAG)"
+    in_scope: true
+
+test_labels:
+  - test_id: '269893-AC1'
+    title: "269893-AC1: Display Rulers on Canvas / Ruler Display & Layout / Ruler Visibility on Canvas Load"
+    covers: []
+  - test_id: '269893-005'
+    title: "269893-005: Display Rulers on Canvas / Zoom Behavior / Ruler Updates On Zoom In"
+    covers: []
+  - test_id: '269893-010'
+    title: "269893-010: Display Rulers on Canvas / Zoom Behavior / Ruler Updates On Zoom Out"
+    covers: []
+  - test_id: '269893-020'
+    title: "269893-020: Display Rulers on Canvas / Zoom Behavior / Ruler Responsiveness and Measurement Integrity During Rapid Zoom Adjustments"
+    covers: []
+  - test_id: '269893-025'
+    title: "269893-025: Display Rulers on Canvas / Measurement Unit / Ruler Adapts Correctly to Selected Measurement System (Metric vs. Imperial)"
+    covers: []
+  - test_id: '269893-030'
+    title: "269893-030: Display Rulers on Canvas / Ruler Decimal Precision Behavior / Ruler Labels Reflect One Decimal Place (0.0)"
+    covers: []
+  - test_id: '269893-035'
+    title: "269893-035: Display Rulers on Canvas / Ruler Decimal Precision Behavior / Ruler Labels Reflect Two Decimal Place (0.00)"
+    covers: []
+  - test_id: '269893-040'
+    title: "269893-040: Display Rulers on Canvas / Ruler Decimal Precision Behavior / Ruler Labels Reflect Three Decimal Place (0.000)"
+    covers: []
+  - test_id: '269893-045'
+    title: "269893-045: Display Rulers on Canvas / Scale Behavior / Ruler Labels Reflect on Scale Changes"
+    covers: []
+  - test_id: '269893-050'
+    title: "269893-050: Display Rulers on Canvas / Coordinate Behavior / Ruler Alignment With Coordinate Display"
+    covers: []
+  - test_id: '269893-055'
+    title: "269893-055: Display Rulers on Canvas / Windows Accessibility / Verify Rulers Accessibility with Accessibility Insights"
+    covers: []
+  - test_id: '269893-060'
+    title: "269893-060: Display Rulers on Canvas / Android Accessibility / Verify Rulers Accessibility with Android Accessibility Scanner"
+    covers: []
+  - test_id: '269893-065'
+    title: "269893-065: Display Rulers on Canvas / Ipad Accessibility / Verify Rulers Accessibility with Using iPadOS Built-in Tools"
+    covers: []

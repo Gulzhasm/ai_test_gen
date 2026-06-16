@@ -1,0 +1,70 @@
+# AC-coverage baseline for story 273568
+# ACs (3) and tests (17) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '273568'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Left-side toolbox is permanently displayed and cannot be moved or hidden."
+    in_scope: true
+  - id: AC2
+    text: "Layout matches the approved design."
+    in_scope: true
+  - id: AC3
+    text: "No changes to existing tool logic or behavior."
+    in_scope: true
+
+test_labels:
+  - test_id: '273568-AC1'
+    title: "273568-AC1: Interface - Left-side Toolbox / Visibility / Layout Matches Design"
+    covers: []
+  - test_id: '273568-005'
+    title: "273568-005: Interface - Left-side Toolbox (Desktop) / Layout / Verify Left-Side Toolbox Is Permanently Displayed on Windows 11"
+    covers: []
+  - test_id: '273568-006'
+    title: "273568-006: Interface - Left-side Toolbox (Desktop) / Layout / Verify Toolbox Cannot Be Hidden via UI"
+    covers: []
+  - test_id: '273568-007'
+    title: "273568-007: Interface - Left-side Toolbox (Desktop) / Layout / Verify Toolbox Position Does Not Shift at Minimum Window Size"
+    covers: []
+  - test_id: '273568-010'
+    title: "273568-010: Interface - Left-side Toolbox (Desktop) / Expand-Collapse Behavior/ Verify Exclusive Expandable Tool Groups Behavior"
+    covers: []
+  - test_id: '273568-011'
+    title: "273568-011: Interface - Left-side Toolbox (Desktop) / Expand-Collapse Behavior/ Verify Rapid Switching Between Specific Toolbox Groups"
+    covers: []
+  - test_id: '273568-015'
+    title: "273568-015: Interface - Left-side Toolbox (Desktop) / Toolbox Grouping / Verify Toolbox Grouping and Tool Composition"
+    covers: []
+  - test_id: '273568-019'
+    title: "273568-019: Interface - Left-side Toolbox (Desktop) / Tool Activation / Verify Move Tool Is Active by Default on Application Launch"
+    covers: []
+  - test_id: '273568-020'
+    title: "273568-020: Interface - Left-side Toolbox (Desktop) / Tool Activation / Verify Only One Tool Can Be Active at a Time Across All Tools"
+    covers: []
+  - test_id: '273568-021'
+    title: "273568-021: Interface - Left-side Toolbox (Desktop) / Tool Activation / Verify Rapid Switching Between Specific Tools Does Not Activate Multiple Tools"
+    covers: []
+  - test_id: '273568-025'
+    title: "273568-025: Interface - Left-side Toolbox (Desktop) / Tool Activation / Verify Context Menu Opens on Long Left Mouse Button Press for Each Toolbox Group"
+    covers: []
+  - test_id: '273568-026'
+    title: "273568-026: Interface - Left-side Toolbox (Desktop) / Tool Activation / Verify Context Menu Does Not Open on Short Left Mouse Click in Toolbox and Canvas"
+    covers: []
+  - test_id: '273568-027'
+    title: "273568-027: Interface - Left-side Toolbox (Desktop) / Tool Activation / Verify Context Menu Behavior on Extended Long Press for Each Toolbox Group"
+    covers: []
+  - test_id: '273568-030'
+    title: "273568-030: Interface - Left-side Toolbox (Desktop) / Tool Validation/ Verify Functional Behavior of All Toolbox Tools"
+    covers: []
+  - test_id: '273568-035'
+    title: "273568-035: Interface - Left-side Toolbox (Desktop) / WCAG Compliance / Keyboard Navigation and Focus Indicators"
+    covers: []
+  - test_id: '273568-040'
+    title: "273568-040: Interface - Left-side Toolbox (Desktop) / WCAG Compliance / Screen Reader and Contrast Compliance"
+    covers: []
+  - test_id: '273568-045'
+    title: "273568-045: Interface - Left-side Toolbox (Desktop) / WCAG Compliance / Verify Focus Does Not Escape Toolbox Unexpectedly"
+    covers: []

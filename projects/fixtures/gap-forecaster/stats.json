@@ -1,0 +1,16 @@
+{
+  "n_trades": 24,
+  "wins": 14,
+  "losses": 10,
+  "win_rate": 0.583,
+  "net_pl": 1842.65,
+  "gross_win": 3920.10,
+  "gross_loss": -2077.45,
+  "avg_r": 0.42,
+  "equity": 52840.17,
+  "trades": [
+    { "date": "2026-06-15", "symbol": "AMD", "side": "long", "shares": 120, "realized_pl": 384.00, "r_multiple": 1.8, "won": true },
+    { "date": "2026-06-13", "symbol": "NVDA", "side": "short", "shares": 60, "realized_pl": -210.50, "r_multiple": -1.0, "won": false },
+    { "date": "2026-06-12", "symbol": "AAPL", "side": "long", "shares": 200, "realized_pl": 156.20, "r_multiple": 0.7, "won": true }
+  ]
+}

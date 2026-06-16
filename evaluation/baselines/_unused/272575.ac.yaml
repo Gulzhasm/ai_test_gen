@@ -1,0 +1,76 @@
+# AC-coverage baseline for story 272575
+# ACs (7) and tests (15) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '272575'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Live distance tooltip appears while drawing with Line or Pen Tool."
+    in_scope: true
+  - id: AC2
+    text: "Tooltip updates continuously as the cursor moves."
+    in_scope: true
+  - id: AC3
+    text: "Measurement uses active Scale Ratio and Regional Format (Imperial/Metric)."
+    in_scope: true
+  - id: AC4
+    text: "After the segment is created, user can enable/disable Show Length Label."
+    in_scope: true
+  - id: AC5
+    text: "Length label updates automatically if endpoints move or if Scale/Units change."
+    in_scope: true
+  - id: AC6
+    text: "Tooltip is only visible during the drawing process, and it can be toggled on/off via the Properties panel"
+    in_scope: true
+  - id: AC7
+    text: "Expected behavior includes all details defined throughout the User Story."
+    in_scope: true
+
+test_labels:
+  - test_id: '272575-AC1'
+    title: "272575-AC1: Live Measurement While Drawing a Line / Drawing / Draw Line With Live Measurement"
+    covers: []
+  - test_id: '272575-005'
+    title: "272575-005: Live Measurement While Drawing a Line / Drawing / Tooltip Updates Continuously"
+    covers: []
+  - test_id: '272575-015'
+    title: "272575-015: Live Measurement While Drawing a Line / Units / Measurement Uses Active Regional Format (Imperial)"
+    covers: []
+  - test_id: '272575-020'
+    title: "272575-020: Live Measurement While Drawing a Line / Units / Measurement Uses Active Regional Format (Metric)"
+    covers: []
+  - test_id: '272575-025'
+    title: "272575-025: Live Measurement While Drawing a Line / Properties Panel / Enable Show Length Label"
+    covers: []
+  - test_id: '272575-030'
+    title: "272575-030: Live Measurement While Drawing a Line / Properties Panel / Disable Show Length Label"
+    covers: []
+  - test_id: '272575-035'
+    title: "272575-035: Live Measurement While Drawing a Line / Drawing / Length Label Updates Automatically"
+    covers: []
+  - test_id: '272575-045'
+    title: "272575-045: Live Measurement While Drawing a Line / Drawing / Length Label Updates On Units Change"
+    covers: []
+  - test_id: '272575-050'
+    title: "272575-050: Live Measurement While Drawing a Line / Drawing / Tooltip Only Visible During Drawing"
+    covers: []
+  - test_id: '272575-055'
+    title: "272575-055: Live Measurement While Drawing a Line / Properties Panel / Toggle Tooltip Visibility"
+    covers: []
+  - test_id: '272575-060'
+    title: "272575-060: Live Measurement While Drawing a Line / Drawing / No Perimeter Calculations Available"
+    covers: []
+  - test_id: '272575-065'
+    title: "272575-065: Live Measurement While Drawing a Line / Drawing / No Area Calculations Available"
+    covers: []
+  - test_id: '272575-070'
+    title: "272575-070: Live Measurement While Drawing a Line / Accessibility / Keyboard Navigation (Windows 11)"
+    covers: []
+  - test_id: '272575-075'
+    title: "272575-075: Live Measurement While Drawing a Line / Accessibility / VoiceOver Reads Line Tool and Toggle State (iPad)"
+    covers: []
+  - test_id: '272575-080'
+    title: "272575-080: Live Measurement While Drawing a Line / Accessibility / Android Accessibility Scanner Validation"
+    covers: []

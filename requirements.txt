@@ -11,12 +11,18 @@ anthropic>=0.21.0  # Claude API
 # NLP (optional but recommended)
 spacy>=3.7.0
 
+# UI element extraction (selector grounding for Playwright generation)
+# Optional: only needed to run scripts/extract_ui_inventory.py
+playwright>=1.40.0
+
 # Testing
 pytest>=7.4.0
-pytest-cov>=4.1.0
+pytest-cov>=4.1.0  # coverage: pytest --cov=core --cov=infrastructure
 
 # Optional: for future enhancements
 # pydantic>=2.0.0  # If switching from dataclasses
 
 # Note: After installing spaCy, download the English model:
 # python -m spacy download en_core_web_sm
+# Note: After installing Playwright, download the browser binary:
+# playwright install chromium

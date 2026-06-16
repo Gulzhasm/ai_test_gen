@@ -1,0 +1,43 @@
+# AC-coverage baseline for story 269496
+# ACs (4) and tests (7) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '269496'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Model Space (gray area) is displayed as the main background workspace."
+    in_scope: true
+  - id: AC2
+    text: "Canvas is displayed within the Model Space and visually separated by a dashed border."
+    in_scope: true
+  - id: AC3
+    text: "The application opens directly to this Initial Layout screen upon launch."
+    in_scope: true
+  - id: AC4
+    text: "Must follow accessibility and UI compliance standards (508 / WCAG)"
+    in_scope: true
+
+test_labels:
+  - test_id: '269496-AC1'
+    title: "269496-AC1: Model Space and Canvas / General / Initial Layout Displayed"
+    covers: []
+  - test_id: '269496-005'
+    title: "269496-005: Model Space and Canvas / General / New Blank Drawing Opens And Displays Correctly On Canvas After File Creation"
+    covers: []
+  - test_id: '269496-010'
+    title: "269496-010: Model Space and Canvas / Accessibility / Keyboard Navigation (Windows 11)"
+    covers: []
+  - test_id: '269496-025'
+    title: "269496-025: Model Space and Canvas / General / Canvas Size And Display"
+    covers: []
+  - test_id: '269496-030'
+    title: "269496-030: Model Space and Canvas / General / Application Launch Time"
+    covers: []
+  - test_id: '269496-035'
+    title: "269496-035: Model Space and Canvas / General / Canvas Display After Minimizing And Restoring"
+    covers: []
+  - test_id: '269496-040'
+    title: "269496-040: Model Space and Canvas / General / Canvas Display After Window Resize"
+    covers: []

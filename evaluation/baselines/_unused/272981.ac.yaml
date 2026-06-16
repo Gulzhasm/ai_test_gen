@@ -1,0 +1,58 @@
+# AC-coverage baseline for story 272981
+# ACs (5) and tests (11) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '272981'
+
+acceptance_criteria:
+  - id: AC1
+    text: "“About App” appears under the Help menu."
+    in_scope: true
+  - id: AC2
+    text: "Selecting it opens an informational window."
+    in_scope: true
+  - id: AC3
+    text: "The window displays:"
+    in_scope: true
+  - id: AC4
+    text: "The user can close the window easily."
+    in_scope: true
+  - id: AC5
+    text: "No additional fields, settings, or actions are required."
+    in_scope: true
+
+test_labels:
+  - test_id: '272981-AC1'
+    title: "272981-AC1: Help: About App / Help Menu / Help: About App menu access"
+    covers: []
+  - test_id: '272981-005'
+    title: "272981-005: Help: About App / Help Menu / “About App” appears under the Help menu."
+    covers: []
+  - test_id: '272981-010'
+    title: "272981-010: Help: About App / Help Menu / Selecting it opens an informational window."
+    covers: []
+  - test_id: '272981-015'
+    title: "272981-015: Help: About App / Help Menu / The window displays application details."
+    covers: []
+  - test_id: '272981-020'
+    title: "272981-020: Help: About App / Help Menu / The user can close the window easily."
+    covers: []
+  - test_id: '272981-025'
+    title: "272981-025: Help: About App / Help Menu / No additional fields, settings, or actions are required."
+    covers: []
+  - test_id: '272981-030'
+    title: "272981-030: Help: About App / Accessibility / Touch interaction (iPad)"
+    covers: []
+  - test_id: '272981-035'
+    title: "272981-035: Help: About App / Accessibility / Touch interaction (Android Tablet)"
+    covers: []
+  - test_id: '272981-040'
+    title: "272981-040: Help: About App / Accessibility / Keyboard navigation and labels (Windows 11)"
+    covers: []
+  - test_id: '272981-045'
+    title: "272981-045: Help: About App / Accessibility / VoiceOver navigation (iPad)"
+    covers: []
+  - test_id: '272981-050'
+    title: "272981-050: Help: About App / Accessibility / Accessibility Scanner (Android Tablet)"
+    covers: []

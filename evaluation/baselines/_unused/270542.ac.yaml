@@ -1,0 +1,79 @@
+# AC-coverage baseline for story 270542
+# ACs (6) and tests (17) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '270542'
+
+acceptance_criteria:
+  - id: AC1
+    text: "The Hand Tool can be activated from Tools → Hand Tool in the main menu."
+    in_scope: true
+  - id: AC2
+    text: "The Hand Tool can also be activated from the Left Toolbar :"
+    in_scope: true
+  - id: AC3
+    text: "When active:"
+    in_scope: true
+  - id: AC4
+    text: "Canvas movement stops when the mouse button (or stylus) is released."
+    in_scope: true
+  - id: AC5
+    text: "The tool remains active until another tool is selected."
+    in_scope: true
+  - id: AC6
+    text: "Must comply with Section 508 and WCAG 2.1 AA accessibility standards. (Hotkeys and tooltips are out of scope for Phase 1.)"
+    in_scope: true
+
+test_labels:
+  - test_id: '270542-AC1'
+    title: "270542-AC1: Hand Tool / Left Toolbar / Hand Tool Icon Visible And Selectable In Left Toolbar"
+    covers: []
+  - test_id: '270542-005'
+    title: "270542-005: Hand Tool / Canvas Navigation / Canvas Movement Stops On Mouse Release"
+    covers: []
+  - test_id: '270542-010'
+    title: "270542-010: Hand Tool / Tool State / Hand Tool Remains Active Until Another Tool Is Selected"
+    covers: []
+  - test_id: '270542-015'
+    title: "270542-015: Hand Tool / Canvas Navigation / Panning Does Not Affect Object Positions"
+    covers: []
+  - test_id: '270542-020'
+    title: "270542-020: Hand Tool / Touch Interaction / Panning Via Touch On Tablet"
+    covers: []
+  - test_id: '270542-025'
+    title: "270542-025: Hand Tool / Accessibility / Keyboard Navigation To Hand Tool (Windows 11)"
+    covers: []
+  - test_id: '270542-030'
+    title: "270542-030: Hand Tool / Accessibility / VoiceOver Navigation To Hand Tool (iPad)"
+    covers: []
+  - test_id: '270542-035'
+    title: "270542-035: Hand Tool / Accessibility / Scanner Labels And Roles Present (Android Tablet)"
+    covers: []
+  - test_id: '270542-040'
+    title: "270542-040: Hand Tool / Left Toolbar / Tooltip Not Displayed On Hover (Phase 1 Scope)"
+    covers: []
+  - test_id: '270542-045'
+    title: "270542-045: Hand Tool / Canvas Navigation / Panning Direction Matches Drag Direction"
+    covers: []
+  - test_id: '270542-050'
+    title: "270542-050: Hand Tool / Canvas Navigation / Panning At Different Zoom Levels"
+    covers: []
+  - test_id: '270542-055'
+    title: "270542-055: Hand Tool / Canvas Navigation / Rapid And Continuous Panning Stability"
+    covers: []
+  - test_id: '270542-060'
+    title: "270542-060: Hand Tool / Canvas Navigation / Panning Behavior Near Canvas Boundaries"
+    covers: []
+  - test_id: '270542-065'
+    title: "270542-065: Hand Tool / Tool State / Hand Tool Does Not Interfere With Other Tools After Switching"
+    covers: []
+  - test_id: '270542-070'
+    title: "270542-070: Hand Tool / Canvas Navigation / Panning Does Not Select Or Modify Objects"
+    covers: []
+  - test_id: '270542-075'
+    title: "270542-075: Hand Tool / Touch Interaction / Stylus Panning On Tablet"
+    covers: []
+  - test_id: '270542-080'
+    title: "270542-080: Hand Tool / Tablet Navigation / No Explicit Hand Tool Activation Required On iOS And Android"
+    covers: []

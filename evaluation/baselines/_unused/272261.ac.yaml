@@ -1,0 +1,55 @@
+# AC-coverage baseline for story 272261
+# ACs (5) and tests (10) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '272261'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Selecting Rulers enables or disables rulers on the Canvas."
+    in_scope: true
+  - id: AC2
+    text: "Selecting Scale enables or disables the scale indicator on the Canvas."
+    in_scope: true
+  - id: AC3
+    text: "Selecting Compass enables or disables the compass indicator on the Canvas."
+    in_scope: true
+  - id: AC4
+    text: "When enabled, the element displays on the Canvas."
+    in_scope: true
+  - id: AC5
+    text: "When disabled, the element does not display on the Canvas."
+    in_scope: true
+
+test_labels:
+  - test_id: '272261-AC1'
+    title: "272261-AC1: Show / Hide Rulers, Scale, Compass / View (Hamburger on Tablets) Menu / Menu Access"
+    covers: []
+  - test_id: '272261-005'
+    title: "272261-005: Show / Hide Rulers, Scale, Compass / View (Hamburger on Tablets) Menu / Canvas Updates Immediately on Scale Action"
+    covers: []
+  - test_id: '272261-010'
+    title: "272261-010: Show / Hide Rulers, Scale, Compass / View (Hamburger on Tablets) Menu / Command enabled state for Rulers"
+    covers: []
+  - test_id: '272261-015'
+    title: "272261-015: Show / Hide Rulers, Scale, Compass / Hamburger Menu / Touch interaction (Tablets)"
+    covers: []
+  - test_id: '272261-020'
+    title: "272261-020: Show / Hide Rulers, Scale, Compass / Accessibility / Keyboard navigation (Windows 11)"
+    covers: []
+  - test_id: '272261-025'
+    title: "272261-025: Show / Hide Rulers, Scale, Compass / View (Hamburger on Tablets) Menu / Disable Rulers"
+    covers: []
+  - test_id: '272261-030'
+    title: "272261-030: Show / Hide Rulers, Scale, Compass / View (Hamburger on Tablets) Menu / Disable Scale"
+    covers: []
+  - test_id: '272261-035'
+    title: "272261-035: Show / Hide Rulers, Scale, Compass / View (Settings on Tablets) Menu / Disable Compass"
+    covers: []
+  - test_id: '272261-040'
+    title: "272261-040: Show / Hide Rulers, Scale, Compass / Accessibility / VoiceOver (iPad)"
+    covers: []
+  - test_id: '272261-045'
+    title: "272261-045: Show / Hide Rulers, Scale, Compass / Accessibility / Accessibility Scanner (Android Tablet)"
+    covers: []

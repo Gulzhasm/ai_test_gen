@@ -1,0 +1,100 @@
+# AC-coverage baseline for story 270472
+# ACs (6) and tests (24) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '270472'
+
+acceptance_criteria:
+  - id: AC1
+    text: "“Mirror Tool” can be activated from the Tools Menu → Mirror Horizontally or Mirror Vertically ."
+    in_scope: true
+  - id: AC2
+    text: "When activated, the user can flip the selected object:"
+    in_scope: true
+  - id: AC3
+    text: "Mirroring affects only the selected object, not the overall Canvas layout."
+    in_scope: true
+  - id: AC4
+    text: "The operation is undoable via Undo/Redo."
+    in_scope: true
+  - id: AC5
+    text: "To mirror another object, the user must select that object and choose Mirror Horizontally or Mirror Vertically again from the Tools Menu."
+    in_scope: true
+  - id: AC6
+    text: "Accessibility (Phase 1):"
+    in_scope: true
+
+test_labels:
+  - test_id: '270472-AC1'
+    title: "270472-AC1: Mirror Tool / Tools Menu / Horizontal Mirror Applied To Selected Object"
+    covers: []
+  - test_id: '270472-005'
+    title: "270472-005: Mirror Tool / Tools Menu / Horizontal Mirror Option Available"
+    covers: []
+  - test_id: '270472-010'
+    title: "270472-010: Mirror Tool / Tools Menu / Vertical Mirror Option Available"
+    covers: []
+  - test_id: '270472-015'
+    title: "270472-015: Mirror Tool / Behavior / Mirror Applies Immediately On Canvas"
+    covers: []
+  - test_id: '270472-020'
+    title: "270472-020: Mirror Tool / Geometry / Mirrored Object Retains Dimensions And Proportions"
+    covers: []
+  - test_id: '270472-025'
+    title: "270472-025: Mirror Tool / Geometry / Mirrored Object Flips In Place"
+    covers: []
+  - test_id: '270472-030'
+    title: "270472-030: Mirror Tool / Scope / Only Selected Object Is Mirrored"
+    covers: []
+  - test_id: '270472-040'
+    title: "270472-040: Mirror Tool / Edit Menu / Undo Horizontal Mirror Operation"
+    covers: []
+  - test_id: '270472-045'
+    title: "270472-045: Mirror Tool / Edit Menu / Undo Vertical Mirror Operation"
+    covers: []
+  - test_id: '270472-050'
+    title: "270472-050: Mirror Tool / Tool State / Mirror Horizontal and Vertical Commands Are Applied Per Use and Do Not Persist as Active Tools"
+    covers: []
+  - test_id: '270472-055'
+    title: "270472-055: Mirror Tool / Selection / Mirror Options Disabled Without Selection"
+    covers: []
+  - test_id: '270472-060'
+    title: "270472-060: Mirror Tool / Double Mirror / Horizontal Double Mirror Restores Original"
+    covers: []
+  - test_id: '270472-065'
+    title: "270472-065: Mirror Tool / Combined Mirror / Horizontal Then Vertical Mirror"
+    covers: []
+  - test_id: '270472-070'
+    title: "270472-070: Mirror Tool / Empty Canvas / Mirror Tool Behavior On Empty Canvas"
+    covers: []
+  - test_id: '270472-075'
+    title: "270472-075: Mirror Tool / Accessibility / Keyboard Navigation To Mirror Options (Windows 11)"
+    covers: []
+  - test_id: '270472-080'
+    title: "270472-080: Mirror Tool / Accessibility / Accessible Names Present (Windows 11)"
+    covers: []
+  - test_id: '270472-085'
+    title: "270472-085: Mirror Tool / Accessibility / WCAG 2.1 AA Contrast Compliance (Windows 11)"
+    covers: []
+  - test_id: '270472-090'
+    title: "270472-090: Mirror Tool / Shape Specific / Mirror Straight Line"
+    covers: []
+  - test_id: '270472-095'
+    title: "270472-095: Mirror Tool / Shape Specific / Mirror Rectangle"
+    covers: []
+  - test_id: '270472-100'
+    title: "270472-100: Mirror Tool / Shape Specific / Mirror Circle"
+    covers: []
+  - test_id: '270472-105'
+    title: "270472-105: Mirror Tool / Scope / Horizontal Mirror Does Not Affect Adjacent Unselected Object Or Canvas Layout"
+    covers: []
+  - test_id: '270472-110'
+    title: "270472-110: Mirror Tool / Scope / Vertical Mirror Does Not Affect Adjacent Unselected Object Or Canvas Layout"
+    covers: []
+  - test_id: '270472-115'
+    title: "270472-115: Mirror Tool / Edit Menu / Redo Horizontal Mirror Operation"
+    covers: []
+  - test_id: '270472-120'
+    title: "270472-120: Mirror Tool / Edit Menu / Redo Vertical Mirror Operation"
+    covers: []

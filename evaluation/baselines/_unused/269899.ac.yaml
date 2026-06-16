@@ -1,0 +1,118 @@
+# AC-coverage baseline for story 269899
+# ACs (8) and tests (28) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '269899'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Top Toolbar includes Zoom In and Zoom Out buttons; each click changes zoom by 10 % within limits (10 %–400 %)."
+    in_scope: true
+  - id: AC2
+    text: "Bottom Bar displays the current zoom percentage (e.g., 100 %) [and allows manual entry manual entry is out of scope and will be implemented during Phase 2 in a separate user story ] or selection from presets: 50 %-400 % with a step of 10%."
+    in_scope: true
+  - id: AC3
+    text: "Mouse and keyboard controls (this functionality is moved to a separate US - User Story 270457 Zoom Controls (Keyboard & Mouse) )"
+    in_scope: true
+  - id: AC4
+    text: "Changing zoom through any control (Toolbar, Bottom Bar, mouse, or keyboard) updates all other zoom indicators instantly."
+    in_scope: true
+  - id: AC5
+    text: "Zoom affects only the view of the drawing; it does not change the actual scale or object dimensions."
+    in_scope: true
+  - id: AC6
+    text: "Zoom level stays the same while the drawing tab is open (resets to 100% when reopened)."
+    in_scope: true
+  - id: AC7
+    text: "All zoom controls are keyboard-accessible and include tooltips (this functionality is moved to a separate US) - User Story 270457 Zoom Controls (Keyboard & Mouse)"
+    in_scope: true
+  - id: AC8
+    text: "Must follow accessibility and UI compliance standards (508 / WCAG)"
+    in_scope: true
+
+test_labels:
+  - test_id: '269899-AC1'
+    title: "269899-AC1: Zoom Control / Bottom Bar / Verify Zoom Control Availability Bottom Toolbar (Windows 11)"
+    covers: []
+  - test_id: '269899-005'
+    title: "269899-005: Zoom Control / View Menu / Zoom Out Button Decreases Zoom By 5% (Windows 11)"
+    covers: []
+  - test_id: '269899-010'
+    title: "269899-010: Zoom Control / View Menu / Zoom In Respects Maximum Limit Of 800% (Windows 11)"
+    covers: []
+  - test_id: '269899-015'
+    title: "269899-015: Zoom Control / View Menu / Zoom Out Respects Minimum Limit Of 25% (Windows 11)"
+    covers: []
+  - test_id: '269899-020'
+    title: "269899-020: Zoom Control / Bottom Bar / Current Zoom Percentage Display Shows Correct Value (Tablets)"
+    covers: []
+  - test_id: '269899-021'
+    title: "269899-021: Zoom Control / Bottom Bar / Zoom Dropdown Is Not Editable (Tablets)"
+    covers: []
+  - test_id: '269899-022'
+    title: "269899-022: Zoom Control / Bottom Bar / Presets Displays All Required Values (Tablets)"
+    covers: []
+  - test_id: '269899-023'
+    title: "269899-023: Zoom Control / Bottom Bar / Presets Selects 50% (Tablets)"
+    covers: []
+  - test_id: '269899-024'
+    title: "269899-024: Zoom Control / Bottom Bar / Presets Selects 400% (Tablets)"
+    covers: []
+  - test_id: '269899-025'
+    title: "269899-025: Zoom Control / Zoom Indicators / Bottom Bar Presets Update Instantly (Tablets)"
+    covers: []
+  - test_id: '269899-026'
+    title: "269899-026: Zoom Control / Object Dimensions / Zoom Does Not Change Actual Scale Or Dimensions (Tablets)"
+    covers: []
+  - test_id: '269899-027'
+    title: "269899-027: Zoom Control / Display Ruler / Visually Updates Without Altering Dimensions (Tablets)"
+    covers: []
+  - test_id: '269899-028'
+    title: "269899-028: Zoom Control / Zoom Level Persistence / Drawing Tab Open Stays Same (Tablets)"
+    covers: []
+  - test_id: '269899-029'
+    title: "269899-029: Zoom Control / Zoom Level Persistence / Drawing Reopened Resets To 100% (Tablets)"
+    covers: []
+  - test_id: '269899-030'
+    title: "269899-030: Zoom Control / Bottom Bar / Update Zoom Level From View Menu Updates Bottom Zoom Level (Windows 11)"
+    covers: []
+  - test_id: '269899-035'
+    title: "269899-035: Zoom Control / Bottom Bar / Manual Entry Field Available (Windows 11)"
+    covers: []
+  - test_id: '269899-040'
+    title: "269899-040: Zoom Control / Bottom Bar / Presets Displays All Required Values (Windows 11)"
+    covers: []
+  - test_id: '269899-045'
+    title: "269899-045: Zoom Control / Bottom Bar / Presets Selects 50% (Windows 11)"
+    covers: []
+  - test_id: '269899-050'
+    title: "269899-050: Zoom Control / Bottom Bar / Presets Selects 400% (Windows 11)"
+    covers: []
+  - test_id: '269899-065'
+    title: "269899-065: Zoom Control / Zoom Indicators / View Menu Updates Bottom Bar Instantly (Windows 11)"
+    covers: []
+  - test_id: '269899-070'
+    title: "269899-070: Zoom Control / Zoom Indicators / Bottom Bar Presets Update Instantly (Windows 11)"
+    covers: []
+  - test_id: '269899-075'
+    title: "269899-075: Zoom Control / Object Dimensions / Zoom Does Not Change Actual Scale Or Dimensions (Windows 11)"
+    covers: []
+  - test_id: '269899-080'
+    title: "269899-080: Zoom Control / Display Ruler / Visually Updates Without Altering Dimensions (Windows 11)"
+    covers: []
+  - test_id: '269899-085'
+    title: "269899-085: Zoom Control / Zoom Level Persistence / Drawing Tab Open Stays Same (Windows 11)"
+    covers: []
+  - test_id: '269899-090'
+    title: "269899-090: Zoom Control / Zoom Level Persistence / Drawing Reopened Resets To 100% (Windows 11)"
+    covers: []
+  - test_id: '269899-095'
+    title: "269899-095: Zoom Control / Accessibility / Keyboard Navigation (Windows 11) (Windows 11)"
+    covers: []
+  - test_id: '269899-100'
+    title: "269899-100: Zoom Control / Accessibility / Screen Reader Support (Ipad)"
+    covers: []
+  - test_id: '269899-105'
+    title: "269899-105: Zoom Control / Accessibility / Screen Reader Support (Android Tablet)"
+    covers: []

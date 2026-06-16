@@ -1,0 +1,106 @@
+# AC-coverage baseline for story 286464
+# ACs (10) and tests (22) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '286464'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Pattern selector is visible next to Fill Color"
+    in_scope: true
+  - id: AC2
+    text: "Default state shows “NONE”"
+    in_scope: true
+  - id: AC3
+    text: "Clicking opens Modal window with pattern list"
+    in_scope: true
+  - id: AC4
+    text: "User can select one pattern at a time"
+    in_scope: true
+  - id: AC5
+    text: "Pattern is applied only inside the shape"
+    in_scope: true
+  - id: AC6
+    text: "Pattern tiles correctly across entire shape"
+    in_scope: true
+  - id: AC7
+    text: "Pattern does not overflow outside shape boundaries"
+    in_scope: true
+  - id: AC8
+    text: "Pattern respects selected Fill Color"
+    in_scope: true
+  - id: AC9
+    text: "Removing pattern reverts to solid fill"
+    in_scope: true
+  - id: AC10
+    text: "Works consistently across supported devices (iOS and Android tablets)"
+    in_scope: true
+
+test_labels:
+  - test_id: '286464-AC1'
+    title: "286464-AC1: Pattern Fill Functionality / Windows 11 / Verify Pattern Selector Visibility and Default NONE State"
+    covers: []
+  - test_id: '286464-005'
+    title: "286464-005: Pattern Fill Functionality / Windows 11 / Open Pattern Modal and Validate Available Pattern List"
+    covers: []
+  - test_id: '286464-010'
+    title: "286464-010: Pattern Fill Functionality / Windows 11 / Apply Each Pattern to Rectangle One at a Time"
+    covers: []
+  - test_id: '286464-015'
+    title: "286464-015: Pattern Fill Functionality / Windows 11 / Apply Pattern to Circle and Verify Boundary Clipping"
+    covers: []
+  - test_id: '286464-020'
+    title: "286464-020: Pattern Fill Functionality / Windows 11 / Apply Pattern to Polygon Created with Pen Tool"
+    covers: []
+  - test_id: '286464-025'
+    title: "286464-025: Pattern Fill Functionality / Windows 11 / Verify Pattern Respects Selected Fill Color"
+    covers: []
+  - test_id: '286464-030'
+    title: "286464-030: Pattern Fill Functionality / Windows 11 / Remove Pattern Using NONE and Revert to Solid Fill"
+    covers: []
+  - test_id: '286464-035'
+    title: "286464-035: Pattern Fill Functionality / Windows 11 / Verify Pattern Undo and Redo History"
+    covers: []
+  - test_id: '286464-040'
+    title: "286464-040: Pattern Fill Functionality / Windows 11 / Verify Pattern Follows Object Rotation"
+    covers: []
+  - test_id: '286464-045'
+    title: "286464-045: Pattern Fill Functionality / Windows 11 / Verify Pattern Behavior During Resize"
+    covers: []
+  - test_id: '286464-050'
+    title: "286464-050: Pattern Fill Functionality / Windows 11 / Verify Pattern Is Not Applied to Open Pen Shape"
+    covers: []
+  - test_id: '286464-055'
+    title: "286464-055: Pattern Fill Functionality / Windows 11 / Verify No-Selection Pattern Action"
+    covers: []
+  - test_id: '286464-060'
+    title: "286464-060: Pattern Fill Functionality / Tablets / Verify Pattern Selector Visibility and Default NONE State"
+    covers: []
+  - test_id: '286464-065'
+    title: "286464-065: Pattern Fill Functionality / Tablets / Open Pattern Modal and Select Patterns with Touch"
+    covers: []
+  - test_id: '286464-070'
+    title: "286464-070: Pattern Fill Functionality / Tablets / Apply Pattern to Circle and Verify Boundary Clipping"
+    covers: []
+  - test_id: '286464-075'
+    title: "286464-075: Pattern Fill Functionality / Tablets / Apply Pattern to Polygon Created with Pen Tool"
+    covers: []
+  - test_id: '286464-080'
+    title: "286464-080: Pattern Fill Functionality / Tablets / Verify Pattern Respects Fill Color"
+    covers: []
+  - test_id: '286464-085'
+    title: "286464-085: Pattern Fill Functionality / Tablets / Remove Pattern Using NONE"
+    covers: []
+  - test_id: '286464-090'
+    title: "286464-090: Pattern Fill Functionality / Tablets / Verify Undo and Redo for Pattern Changes"
+    covers: []
+  - test_id: '286464-095'
+    title: "286464-095: Pattern Fill Functionality / Tablets / Verify Pattern Follows Rotation and Resizing"
+    covers: []
+  - test_id: '286464-100'
+    title: "286464-100: Pattern Fill Functionality / Tablets / Verify Pattern Is Not Applied to Open Pen Shape or No Selection"
+    covers: []
+  - test_id: '286464-105'
+    title: "286464-105: Pattern Fill Functionality / Tablets / Verify Rapid Touch Pattern Switching Stability"
+    covers: []

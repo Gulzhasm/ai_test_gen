@@ -1,0 +1,91 @@
+# AC-coverage baseline for story 272888
+# ACs (11) and tests (16) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '272888'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Draw Order submenu is accessible under Tools → Draw Order."
+    in_scope: true
+  - id: AC2
+    text: "All four actions are visible: Bring to Front, Send to Back, Bring Above Objects, Send Under Objects."
+    in_scope: true
+  - id: AC3
+    text: "A Draw Order option becomes active only when at least one object is selected."
+    in_scope: true
+  - id: AC4
+    text: "Bring to Front places the selected object(s) at the highest z-index above all other objects."
+    in_scope: true
+  - id: AC5
+    text: "Send to Back places the selected object(s) at the lowest z-index."
+    in_scope: true
+  - id: AC6
+    text: "Bring Above Objects increases the z-index by one level."
+    in_scope: true
+  - id: AC7
+    text: "Send Under Objects decreases the z-index by one level."
+    in_scope: true
+  - id: AC8
+    text: "Multi-selected objects retain their relative order when moved."
+    in_scope: true
+  - id: AC9
+    text: "Changes in stacking order appear immediately on the Canvas."
+    in_scope: true
+  - id: AC10
+    text: "Undo/Redo supports all Draw Order actions."
+    in_scope: true
+  - id: AC11
+    text: "Must comply with Section 508 and WCAG 2.1 AA accessibility standards (color contrast, focus order, readable text)."
+    in_scope: true
+
+test_labels:
+  - test_id: '272888-AC1'
+    title: "272888-AC1: Draw Order / Tools Menu / Draw Order Submenu Available"
+    covers: []
+  - test_id: '272888-005'
+    title: "272888-005: Draw Order / Tools Menu / Actions Enabled With Object Selection"
+    covers: []
+  - test_id: '272888-010'
+    title: "272888-010: Draw Order / Tools Menu / Actions Disabled Without Selection"
+    covers: []
+  - test_id: '272888-015'
+    title: "272888-015: Draw Order / Canvas / Bring To Front Moves Object To Highest Z Order"
+    covers: []
+  - test_id: '272888-020'
+    title: "272888-020: Draw Order / Canvas / Send To Back Moves Object To Lowest Z Order"
+    covers: []
+  - test_id: '272888-025'
+    title: "272888-025: Draw Order / Canvas / Bring Above Objects Increases Z Order By One Level"
+    covers: []
+  - test_id: '272888-030'
+    title: "272888-030: Draw Order / Canvas / Send Under Objects Decreases Z Order By One Level"
+    covers: []
+  - test_id: '272888-035'
+    title: "272888-035: Draw Order / Canvas / Bring Above Objects At Top Does Not Change Order"
+    covers: []
+  - test_id: '272888-040'
+    title: "272888-040: Draw Order / Canvas / Send Under Objects At Bottom Does Not Change Order"
+    covers: []
+  - test_id: '272888-045'
+    title: "272888-045: Draw Order / Canvas / Multi Selection Retains Relative Order When Moved"
+    covers: []
+  - test_id: '272888-050'
+    title: "272888-050: Draw Order / Canvas / Mixed Object Types Support Stacking Changes"
+    covers: []
+  - test_id: '272888-055'
+    title: "272888-055: Draw Order / Canvas / Order Change Is Immediate Without Property Changes"
+    covers: []
+  - test_id: '272888-060'
+    title: "272888-060: Draw Order / Canvas / Repeated Actions Produce Stable Results"
+    covers: []
+  - test_id: '272888-065'
+    title: "272888-065: Draw Order / Edit Menu / Undo Redo Supports Draw Order Actions"
+    covers: []
+  - test_id: '272888-070'
+    title: "272888-070: Draw Order / File Menu / Stacking Order Persists After Save And Reopen"
+    covers: []
+  - test_id: '272888-075'
+    title: "272888-075: Draw Order / Accessibility / Keyboard Navigation And Focus (Windows 11)"
+    covers: []

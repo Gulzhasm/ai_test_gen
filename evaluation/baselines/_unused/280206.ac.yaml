@@ -1,0 +1,76 @@
+# AC-coverage baseline for story 280206
+# ACs (7) and tests (15) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '280206'
+
+acceptance_criteria:
+  - id: AC1
+    text: "User can draw a selection box on the Canvas."
+    in_scope: true
+  - id: AC2
+    text: "All objects inside the selection box are selected."
+    in_scope: true
+  - id: AC3
+    text: "A single bounding box appears around selected objects."
+    in_scope: true
+  - id: AC4
+    text: "User can move, rotate, and resize the selection as a group."
+    in_scope: true
+  - id: AC5
+    text: "Rotation is applied around the group center."
+    in_scope: true
+  - id: AC6
+    text: "Individual object properties remain unchanged."
+    in_scope: true
+  - id: AC7
+    text: "Style and text properties are hidden for multi-selection."
+    in_scope: true
+
+test_labels:
+  - test_id: '280206-AC1'
+    title: "280206-AC1: Multiple Object Selection via Selection Box / Windows 11 / Move Tool Creates Selection Box And Selects Multiple Objects"
+    covers: []
+  - test_id: '280206-005'
+    title: "280206-005: Multiple Object Selection via Selection Box / Tablets / Multi-Selection Tool Creates Selection Box And Selects Multiple Objects"
+    covers: []
+  - test_id: '280206-010'
+    title: "280206-010: Multiple Object Selection via Selection Box / Windows 11 / Selected Objects Move Together As Temporary Group"
+    covers: []
+  - test_id: '280206-015'
+    title: "280206-015: Multiple Object Selection via Selection Box / Tablets / Selected Objects Move Together As Temporary Group"
+    covers: []
+  - test_id: '280206-020'
+    title: "280206-020: Multiple Object Selection via Selection Box / Windows 11 / Selected Objects Rotate Around Group Center Without Changing Individual Properties"
+    covers: []
+  - test_id: '280206-025'
+    title: "280206-025: Multiple Object Selection via Selection Box / Tablets / Selected Objects Rotate Around Group Center Without Changing Individual Properties"
+    covers: []
+  - test_id: '280206-030'
+    title: "280206-030: Multiple Object Selection via Selection Box / Windows 11 / Selected Objects Resize Proportionally And Preserve Relative Positions"
+    covers: []
+  - test_id: '280206-035'
+    title: "280206-035: Multiple Object Selection via Selection Box / Tablets / Selected Objects Resize Proportionally And Preserve Relative Positions"
+    covers: []
+  - test_id: '280206-040'
+    title: "280206-040: Multiple Object Selection via Selection Box / Windows 11 / Only Objects Fully Inside Selection Box Are Selected"
+    covers: []
+  - test_id: '280206-045'
+    title: "280206-045: Multiple Object Selection via Selection Box / Tablets / Only Objects Fully Inside Selection Box Are Selected"
+    covers: []
+  - test_id: '280206-050'
+    title: "280206-050: Multiple Object Selection via Selection Box / Windows 11 / Style And Text Properties Are Hidden Or Disabled During Multi-Selection"
+    covers: []
+  - test_id: '280206-055'
+    title: "280206-055: Multiple Object Selection via Selection Box / Tablets / Style And Text Properties Are Hidden Or Disabled During Multi-Selection"
+    covers: []
+  - test_id: '280206-060'
+    title: "280206-060: Multiple Object Selection via Selection Box / Windows 11 / Selection Box Is Not Started From Existing Object Area"
+    covers: []
+  - test_id: '280206-070'
+    title: "280206-070: Multiple Object Selection via Selection Box / Windows 11 / Repeated Multi-Selection And Transformation Remains Stable"
+    covers: []
+  - test_id: '280206-075'
+    title: "280206-075: Multiple Object Selection via Selection Box / Tablets / Repeated Multi-Selection And Transformation Remains Stable"
+    covers: []

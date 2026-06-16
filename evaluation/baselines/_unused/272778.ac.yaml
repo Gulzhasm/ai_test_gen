@@ -1,0 +1,67 @@
+# AC-coverage baseline for story 272778
+# ACs (8) and tests (11) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '272778'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Tool is available under Dimensions → Angular."
+    in_scope: true
+  - id: AC2
+    text: "User can define an angle by clicking a vertex point and two additional points (one on each arm)."
+    in_scope: true
+  - id: AC3
+    text: "System calculates the angle in degrees and displays an angle arc with a label."
+    in_scope: true
+  - id: AC4
+    text: "User can reposition the angle label."
+    in_scope: true
+  - id: AC5
+    text: "Invalid selections trigger a clear error message."
+    in_scope: true
+  - id: AC6
+    text: "Undo/Redo is supported."
+    in_scope: true
+  - id: AC7
+    text: "Must comply with Section 508 / WCAG 2.1 AA accessibility standards (readable label, proper contrast, keyboard focus)."
+    in_scope: true
+  - id: AC8
+    text: "Dimensions – Angular functionality is available for use on tablet devices (iOS and Android) via the bottom toolbar"
+    in_scope: true
+
+test_labels:
+  - test_id: '272778-AC1'
+    title: "272778-AC1: Dimensions – Angular / Tool Access / Open Angular Tool From Dimensions Menu (Windows)"
+    covers: []
+  - test_id: '272778-005'
+    title: "272778-005: Dimensions – Angular / Tool Access / Open Angular Tool From Dimensions Menu (iPadOS + Android)"
+    covers: []
+  - test_id: '272778-010'
+    title: "272778-010: Dimensions – Angular / Angle Measurement / Measure An Angle By Selecting Vertex + Two Arms (Windows)"
+    covers: []
+  - test_id: '272778-015'
+    title: "272778-015: Dimensions – Angular / Angle Measurement / Measure An Angle By Selecting Vertex + Two Arms (iPadOS + Android)"
+    covers: []
+  - test_id: '272778-020'
+    title: "272778-020: Dimensions – Angular / Label Interaction / Reposition The Angle Label"
+    covers: []
+  - test_id: '272778-030'
+    title: "272778-030: Dimensions – Angular / Validation & Errors / Show Error Message For Invalid Angle Selections"
+    covers: []
+  - test_id: '272778-040'
+    title: "272778-040: Dimensions – Angular / Undo/Redo / Undo/Redo Angle Creation And Label Move"
+    covers: []
+  - test_id: '272778-050'
+    title: "272778-050: Dimensions – Angular / Boundary & Performance / Handle Rapid Point Selection And Label Movement Near Canvas Edge"
+    covers: []
+  - test_id: '272778-055'
+    title: "272778-055: Dimensions – Angular / Accessibility / Accessibility Validation (Windows - Accessibility Insights)"
+    covers: []
+  - test_id: '272778-060'
+    title: "272778-060: Dimensions – Angular / Accessibility / Accessibility Validation for Angular Tool (iPadOS)"
+    covers: []
+  - test_id: '272778-065'
+    title: "272778-065: Dimensions – Angular / Accessibility / Accessibility Validation for Angular Tool (Android Tablet)"
+    covers: []

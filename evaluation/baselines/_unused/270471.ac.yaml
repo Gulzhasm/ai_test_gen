@@ -1,0 +1,154 @@
+# AC-coverage baseline for story 270471
+# ACs (7) and tests (41) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '270471'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Acceptance Criteria: When active:"
+    in_scope: true
+  - id: AC2
+    text: "A small rotation marker appears near the selected object. Exception: for line objects, the rotation marker is not displayed; the user rotates the line by dragging either endpoint."
+    in_scope: true
+  - id: AC3
+    text: "The user can click and drag this marker to turn the object in any direction (0–360°)."
+    in_scope: true
+  - id: AC4
+    text: "Holding Shift locks rotation to 15° steps for precise alignment.- [Out of scope for Phase 1: hotkeys and tooltips.]"
+    in_scope: true
+  - id: AC5
+    text: "Rotation affects only the selected object and does not change the overall Canvas layout. Accessibility (Phase 1):"
+    in_scope: true
+  - id: AC6
+    text: "Must comply with Section 508 / WCAG 2.1 AA baseline standards (visible focus, sufficient contrast, ARIA label for toolbar button)."
+    in_scope: true
+  - id: AC7
+    text: "Out of scope for Phase 1: hotkeys and tooltips."
+    in_scope: true
+
+test_labels:
+  - test_id: '270471-AC1'
+    title: "270471-AC1: Move – Rotate Tool / Tools Menu / Availability And Access From Tools Menu Entry Point"
+    covers: []
+  - test_id: '270471-005'
+    title: "270471-005: Move – Rotate Tool / Tools Menu / Rotation Marker Appears Only When Object Selected And Tool Active"
+    covers: []
+  - test_id: '270471-010'
+    title: "270471-010: Move – Rotate Tool / Tools Menu / Rotation Marker Not Visible When No Object Selected"
+    covers: []
+  - test_id: '270471-015'
+    title: "270471-015: Move – Rotate Tool / Canvas / Full Rotation Range 0-360 Degrees"
+    covers: []
+  - test_id: '270471-020'
+    title: "270471-020: Move – Rotate Tool / Canvas / Boundary Position At 0 Degrees"
+    covers: []
+  - test_id: '270471-025'
+    title: "270471-025: Move – Rotate Tool / Canvas / Boundary Position Near 360 Degrees"
+    covers: []
+  - test_id: '270471-030'
+    title: "270471-030: Move – Rotate Tool / Canvas / Wrap-around Behavior From 360 To 0 Degrees"
+    covers: []
+  - test_id: '270471-035'
+    title: "270471-035: Move – Rotate Tool / Canvas / Live Rotation Angle Feedback Displayed In Design Panel"
+    covers: []
+  - test_id: '270471-040'
+    title: "270471-040: Move – Rotate Tool / Canvas / Rotation Angle Feedback Accuracy"
+    covers: []
+  - test_id: '270471-045'
+    title: "270471-045: Move – Rotate Tool / Canvas / Shift Key Locks Rotation To 15 Degree Increments"
+    covers: []
+  - test_id: '270471-050'
+    title: "270471-050: Move – Rotate Tool / Canvas / Shift Key Step Locking Consistent Across Multiple Rotation Directions"
+    covers: []
+  - test_id: '270471-055'
+    title: "270471-055: Move – Rotate Tool / Canvas / Shift Key Step Locking With Repeated Interactions"
+    covers: []
+  - test_id: '270471-060'
+    title: "270471-060: Move – Rotate Tool / Canvas / Rotate Rectangle Object Maintaining Geometry And Proportions"
+    covers: []
+  - test_id: '270471-065'
+    title: "270471-065: Move – Rotate Tool / Canvas / Rotate Circle Object Maintaining Geometry And Proportions"
+    covers: []
+  - test_id: '270471-070'
+    title: "270471-070: Move – Rotate Tool / Canvas / Rotate Line Object Maintaining Geometry And Proportions"
+    covers: []
+  - test_id: '270471-075'
+    title: "270471-075: Move – Rotate Tool / Canvas / Rotate Polygon Tool Object Maintaining Geometry And Proportions"
+    covers: []
+  - test_id: '270471-080'
+    title: "270471-080: Move – Rotate Tool / Canvas / Rotate Text Object Maintaining Geometry And Proportions"
+    covers: []
+  - test_id: '270471-085'
+    title: "270471-085: Move – Rotate Tool / Canvas / Rotate Angular Measurement Object Maintaining Geometry And Proportions"
+    covers: []
+  - test_id: '270471-090'
+    title: "270471-090: Move – Rotate Tool / Canvas / Rotation Affects Only Selected Object"
+    covers: []
+  - test_id: '270471-095'
+    title: "270471-095: Move – Rotate Tool / Canvas / Rotation Does Not Alter Alignment Relationships"
+    covers: []
+  - test_id: '270471-100'
+    title: "270471-100: Move – Rotate Tool / Canvas / Rotation Does Not Alter Overall Canvas Layout"
+    covers: []
+  - test_id: '270471-105'
+    title: "270471-105: Move – Rotate Tool / Canvas / Rotating After Moving An Object"
+    covers: []
+  - test_id: '270471-110'
+    title: "270471-110: Move – Rotate Tool / Canvas / Multiple Rotations In Succession"
+    covers: []
+  - test_id: '270471-115'
+    title: "270471-115: Move – Rotate Tool / Canvas / Rotating Different Objects One-by-one Within Same Session"
+    covers: []
+  - test_id: '270471-120'
+    title: "270471-120: Move – Rotate Tool / Canvas / Undo Rotation Action Restores Object Orientation"
+    covers: []
+  - test_id: '270471-125'
+    title: "270471-125: Move – Rotate Tool / Canvas / Redo Rotation Action Reapplies Rotation"
+    covers: []
+  - test_id: '270471-130'
+    title: "270471-130: Move – Rotate Tool / Canvas / Multiple Undo And Redo Operations Without Cumulative Drift"
+    covers: []
+  - test_id: '270471-135'
+    title: "270471-135: Move – Rotate Tool / Tools Menu / Tool Remains Active Until Another Drawing Tool Is Selected"
+    covers: []
+  - test_id: '270471-140'
+    title: "270471-140: Move – Rotate Tool / Tools Menu / Switching Tools Properly Exits Rotation Mode"
+    covers: []
+  - test_id: '270471-145'
+    title: "270471-145: Move – Rotate Tool / Tools Menu / Keyboard Access To Tool (Windows 11)"
+    covers: []
+  - test_id: '270471-150'
+    title: "270471-150: Move – Rotate Tool / Tools Menu / Visible Focus Indicators (Windows 11)"
+    covers: []
+  - test_id: '270471-155'
+    title: "270471-155: Move – Rotate Tool / Canvas / Sufficient Contrast For Rotation Marker And Angle Display (Windows 11)"
+    covers: []
+  - test_id: '270471-160'
+    title: "270471-160: Move – Rotate Tool / Tools Menu / Meaningful Labels And Roles For Tool Control (Windows 11)"
+    covers: []
+  - test_id: '270471-165'
+    title: "270471-165: Move – Rotate Tool / Tools Menu / Touch Access With VoiceOver (iPad)"
+    covers: []
+  - test_id: '270471-170'
+    title: "270471-170: Move – Rotate Tool / Tools Menu / Visible Focus Indicators (iPad)"
+    covers: []
+  - test_id: '270471-175'
+    title: "270471-175: Move – Rotate Tool / Canvas / Sufficient Contrast For Rotation Marker And Angle Display (iPad)"
+    covers: []
+  - test_id: '270471-180'
+    title: "270471-180: Move – Rotate Tool / Tools Menu / Meaningful Labels And Roles For Tool Control (iPad)"
+    covers: []
+  - test_id: '270471-185'
+    title: "270471-185: Move – Rotate Tool / Tools Menu / Touch Access (Android Tablet)"
+    covers: []
+  - test_id: '270471-190'
+    title: "270471-190: Move – Rotate Tool / Tools Menu / Visible Focus Indicators (Android Tablet)"
+    covers: []
+  - test_id: '270471-195'
+    title: "270471-195: Move – Rotate Tool / Canvas / Sufficient Contrast For Rotation Marker And Angle Display (Android Tablet)"
+    covers: []
+  - test_id: '270471-200'
+    title: "270471-200: Move – Rotate Tool / Tools Menu / Meaningful Labels And Roles For Tool Control (Android Tablet)"
+    covers: []

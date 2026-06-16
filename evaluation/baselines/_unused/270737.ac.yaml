@@ -1,0 +1,133 @@
+# AC-coverage baseline for story 270737
+# ACs (8) and tests (33) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '270737'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Tool available under Set Coordinates tool from the Tools dropdown in the top menu ."
+    in_scope: true
+  - id: AC2
+    text: "System supports manual entry of Latitude and Longitude in decimal format (e.g., 48.12345, -123.98765)."
+    in_scope: true
+  - id: AC3
+    text: "Invalid or incomplete coordinates (e.g., letters or out-of-range values) trigger a clear validation error."
+    in_scope: true
+  - id: AC4
+    text: "Zoom or scale changes do not alter GPS coordinate values."
+    in_scope: true
+  - id: AC5
+    text: "Undo/Redo fully supported for coordinate edits."
+    in_scope: true
+  - id: AC6
+    text: "When an user zooms out or zooms in, the GPS text needs to reflect accordingly, it has to get smaller or bigger"
+    in_scope: true
+  - id: AC7
+    text: "Must comply with Section 508 / WCAG 2.1 AA accessibility and UI standards (visible input focus, high-contrast labels, readable dialog text)."
+    in_scope: true
+  - id: AC8
+    text: "[OUT OF SCOPE] The GPS dialog includes an “Align to North” option with two radio buttons: Auto — system aligns the drawing orientation to geographic north based on the entered coordinates. Manual — user sets north orientation manually (linked to Compass tool). Selected alignment mode is saved per drawing and remains consistent across sessions. If Auto is selected, north alignment is applied immediately after coordinates are entered."
+    in_scope: true
+
+test_labels:
+  - test_id: '270737-AC1'
+    title: "270737-AC1: GPS Input and Mapping / Tools Menu / Set Coordinates Tool Availability"
+    covers: []
+  - test_id: '270737-005'
+    title: "270737-005: GPS Input and Mapping / Tools Menu / Set Coordinates Dialog Access For Pen Tool Objects"
+    covers: []
+  - test_id: '270737-010'
+    title: "270737-010: GPS Input and Mapping / Tools Menu / Set Coordinates Dialog Access For Line"
+    covers: []
+  - test_id: '270737-015'
+    title: "270737-015: GPS Input and Mapping / Tools Menu / Set Coordinates Dialog Access For Object"
+    covers: []
+  - test_id: '270737-020'
+    title: "270737-020: GPS Input and Mapping / Coordinate Entry / Apply Valid Positive Latitude And Negative Longitude"
+    covers: []
+  - test_id: '270737-025'
+    title: "270737-025: GPS Input and Mapping / Coordinate Entry / Apply Valid Negative Latitude And Positive Longitude"
+    covers: []
+  - test_id: '270737-030'
+    title: "270737-030: GPS Input and Mapping / Coordinate Entry / Apply High-Precision Decimal Coordinates"
+    covers: []
+  - test_id: '270737-035'
+    title: "270737-035: GPS Input and Mapping / Coordinate Entry / Apply Very Small Decimal Coordinates"
+    covers: []
+  - test_id: '270737-040'
+    title: "270737-040: GPS Input and Mapping / Validation / Reject Empty Latitude Field"
+    covers: []
+  - test_id: '270737-045'
+    title: "270737-045: GPS Input and Mapping / Validation / Reject Empty Longitude Field"
+    covers: []
+  - test_id: '270737-050'
+    title: "270737-050: GPS Input and Mapping / Validation / Reject Both Empty Required Fields"
+    covers: []
+  - test_id: '270737-055'
+    title: "270737-055: GPS Input and Mapping / Validation / Reject Non-Numeric Latitude Letters"
+    covers: []
+  - test_id: '270737-060'
+    title: "270737-060: GPS Input and Mapping / Validation / Reject Non-Numeric Longitude Special Characters"
+    covers: []
+  - test_id: '270737-065'
+    title: "270737-065: GPS Input and Mapping / Validation / Reject Mixed Alphanumeric Input"
+    covers: []
+  - test_id: '270737-070'
+    title: "270737-070: GPS Input and Mapping / Validation / Reject Latitude Above 90"
+    covers: []
+  - test_id: '270737-075'
+    title: "270737-075: GPS Input and Mapping / Validation / Reject Latitude Below -90"
+    covers: []
+  - test_id: '270737-080'
+    title: "270737-080: GPS Input and Mapping / Validation / Reject Longitude Above 180"
+    covers: []
+  - test_id: '270737-085'
+    title: "270737-085: GPS Input and Mapping / Validation / Reject Longitude Below -180"
+    covers: []
+  - test_id: '270737-090'
+    title: "270737-090: GPS Input and Mapping / Validation / Accept Boundary Latitude -90"
+    covers: []
+  - test_id: '270737-095'
+    title: "270737-095: GPS Input and Mapping / Validation / Accept Boundary Latitude 90"
+    covers: []
+  - test_id: '270737-100'
+    title: "270737-100: GPS Input and Mapping / Validation / Accept Boundary Longitude -180"
+    covers: []
+  - test_id: '270737-105'
+    title: "270737-105: GPS Input and Mapping / Validation / Accept Boundary Longitude 180"
+    covers: []
+  - test_id: '270737-110'
+    title: "270737-110: GPS Input and Mapping / Zoom Behavior / GPS Values Unchanged After Zoom In And Zoom Out"
+    covers: []
+  - test_id: '270737-115'
+    title: "270737-115: GPS Input and Mapping / Scale Behavior / GPS Values Unchanged After Scale Change"
+    covers: []
+  - test_id: '270737-120'
+    title: "270737-120: GPS Input and Mapping / Undo And Redo / Undo Restores Previous Coordinates"
+    covers: []
+  - test_id: '270737-125'
+    title: "270737-125: GPS Input and Mapping / Undo And Redo / Redo Reapplies Updated Coordinates"
+    covers: []
+  - test_id: '270737-130'
+    title: "270737-130: GPS Input and Mapping / Dialog Actions / Cancel Does Not Save Changes"
+    covers: []
+  - test_id: '270737-135'
+    title: "270737-135: GPS Input and Mapping / Accessibility / Keyboard Navigation Through Dialog (Windows 11)"
+    covers: []
+  - test_id: '270737-140'
+    title: "270737-140: GPS Input and Mapping / Accessibility / Visible Focus Indicators (Windows 11)"
+    covers: []
+  - test_id: '270737-145'
+    title: "270737-145: GPS Input and Mapping / Accessibility / High-Contrast Labels And Readable Text (Windows 11)"
+    covers: []
+  - test_id: '270737-150'
+    title: "270737-150: GPS Input and Mapping / Accessibility / VoiceOver Labels And Touch Targets (iPad)"
+    covers: []
+  - test_id: '270737-155'
+    title: "270737-155: GPS Input and Mapping / Accessibility / TalkBack Labels And Touch Targets (Android Tablet)"
+    covers: []
+  - test_id: '270737-160'
+    title: "270737-160 : GPS Input and Mapping / Zoom Behavior / GPS Text Size Reflects Zoom Level"
+    covers: []

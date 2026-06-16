@@ -1,0 +1,73 @@
+# AC-coverage baseline for story 272574
+# ACs (7) and tests (14) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '272574'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Closed objects show Area and Total Length when enabled."
+    in_scope: true
+  - id: AC2
+    text: "Line objects show Total Length when enabled."
+    in_scope: true
+  - id: AC3
+    text: "All values use Scale and Units."
+    in_scope: true
+  - id: AC4
+    text: "Labels update whenever geometry or scale changes."
+    in_scope: true
+  - id: AC5
+    text: "Turning labels on/off does not affect the object."
+    in_scope: true
+  - id: AC6
+    text: "Expected behavior includes all details defined throughout the User Story."
+    in_scope: true
+  - id: AC7
+    text: "Must follow accessibility and UI compliance standards (508 / WCAG)"
+    in_scope: true
+
+test_labels:
+  - test_id: '272574-AC1'
+    title: "272574-AC1: Calculate Area, and Total Length / Rectangle shows Area + Total Length when enabled"
+    covers: []
+  - test_id: '272574-005'
+    title: "272574-005: Calculate Area, and Total Length / Circle shows Area + Total Length when enabled"
+    covers: []
+  - test_id: '272574-010'
+    title: "272574-010: Calculate Area, and Total Length / Closed Polygon shows Area + Total Length when enabled"
+    covers: []
+  - test_id: '272574-015'
+    title: "272574-015: Calculate Area, and Total Length / Line shows Total Length only when enabled"
+    covers: []
+  - test_id: '272574-020'
+    title: "272574-020: Calculate Area, and Total Length / Polyline shows Total Length (sum of segments) when enabled"
+    covers: []
+  - test_id: '272574-025'
+    title: "272574-025: Calculate Area, and Total Length / Values update when a closed shape geometry is edited"
+    covers: []
+  - test_id: '272574-030'
+    title: "272574-030: Calculate Area, and Total Length / Imperial unit change (ft to inch) updates displayed Area and Total Length"
+    covers: []
+  - test_id: '272574-035'
+    title: "272574-035: Calculate Area, and Total Length / Switching Regional Format to Metric (meters) updates displayed values"
+    covers: []
+  - test_id: '272574-040'
+    title: "272574-040: Calculate Area, and Total Length / Changing Scale updates Area and Total Length values for existing objects"
+    covers: []
+  - test_id: '272574-045'
+    title: "272574-045: Calculate Area, and Total Length / Toggling Show Area / Show Total Length does not change object geometry"
+    covers: []
+  - test_id: '272574-050'
+    title: "272574-050: Calculate Area, and Total Length / Negative: Open shape does not show Area"
+    covers: []
+  - test_id: '272574-055'
+    title: "272574-055: Calculate Area, and Total Length / Boundary: Rapid toggling and rapid selection switching keeps labels consistent"
+    covers: []
+  - test_id: '272574-120'
+    title: "272574-120: Calculate Area, and Total Length / Accessibility / Windows 11 – Area/Total Length controls and values are accessible"
+    covers: []
+  - test_id: '272574-125'
+    title: "272574-125: Calculate Area, and Total Length / Accessibility / Android – Area/Total Length controls and values are accessible"
+    covers: []

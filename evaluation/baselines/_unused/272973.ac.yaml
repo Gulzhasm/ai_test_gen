@@ -1,0 +1,52 @@
+# AC-coverage baseline for story 272973
+# ACs (5) and tests (9) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '272973'
+
+acceptance_criteria:
+  - id: AC1
+    text: "“User Manual” appears under the Help menu."
+    in_scope: true
+  - id: AC2
+    text: "Selecting it opens an in-app viewer containing the PDF manual(s)."
+    in_scope: true
+  - id: AC3
+    text: "The viewer displays content without requiring an internet connection."
+    in_scope: true
+  - id: AC4
+    text: "QuickDraw remains open behind the viewer."
+    in_scope: true
+  - id: AC5
+    text: "No external browser or online hosting is used."
+    in_scope: true
+
+test_labels:
+  - test_id: '272973-AC1'
+    title: "272973-AC1: Help: User Manual / Help Menu / Help: User Manual Menu Access"
+    covers: []
+  - test_id: '272973-005'
+    title: "272973-005: Help: User Manual / Help Menu / 'User Manual' Appears Under The Help Menu"
+    covers: []
+  - test_id: '272973-010'
+    title: "272973-010: Help: User Manual / Help Menu / Selecting Command Opens In-App Viewer"
+    covers: []
+  - test_id: '272973-015'
+    title: "272973-015: Help: User Manual / Help Menu / Content Accessible Without Internet Connection"
+    covers: []
+  - test_id: '272973-020'
+    title: "272973-020: Help: User Manual / Help Menu / No External Browser Launched When Viewing"
+    covers: []
+  - test_id: '272973-025'
+    title: "272973-025: Help: User Manual / Help Menu / Touch interaction (Tablets)"
+    covers: []
+  - test_id: '272973-030'
+    title: "272973-030: Help: User Manual / Accessibility / Keyboard Navigation (Windows 11)"
+    covers: []
+  - test_id: '272973-035'
+    title: "272973-035: Help: User Manual / Accessibility / VoiceOver Functionality (iPad)"
+    covers: []
+  - test_id: '272973-040'
+    title: "272973-040: Help: User Manual / Accessibility / Accessibility Scanner (Android Tablet)"
+    covers: []

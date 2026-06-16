@@ -1,0 +1,91 @@
+# AC-coverage baseline for story 271309
+# ACs (8) and tests (19) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '271309'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Available via File menu (Open, Save, Save As, Close Project)."
+    in_scope: true
+  - id: AC2
+    text: "“Open” uses OS-native file picker and loads val id .qdraw f iles."
+    in_scope: true
+  - id: AC3
+    text: "“Save” overwrites existing file, unless it’s new → triggers “Save As”."
+    in_scope: true
+  - id: AC4
+    text: "“Save As” dialog allows custom filename, folder, and format."
+    in_scope: true
+  - id: AC5
+    text: "“Close Project” prompts user if unsaved changes exist."
+    in_scope: true
+  - id: AC6
+    text: "File paths and permissions validated before writing."
+    in_scope: true
+  - id: AC7
+    text: "Error handling for: file not found, access denied, save failed."
+    in_scope: true
+  - id: AC8
+    text: "Accessibility: Section 508 / WCAG 2.1 AA (focus, readable labels)."
+    in_scope: true
+
+test_labels:
+  - test_id: '271309-AC1'
+    title: "271309-AC1: File – Open / Save / Save As / Close / File Menu / Menu Layout"
+    covers: []
+  - test_id: '271309-005'
+    title: "271309-005: File – Open / Save / Save As / Close Project / File Menu / End-To-End File Management Flow"
+    covers: []
+  - test_id: '271309-006'
+    title: "271309-006: File – Open / Save / Save As / Close Project / Hamburger Menu / Verify File Menu Commands Are Available (Tablets)"
+    covers: []
+  - test_id: '271309-010'
+    title: "271309-010: File – Open / Save / Save As / Close Project / Dialog Window / Open Uses Os-Native File Picker"
+    covers: []
+  - test_id: '271309-015'
+    title: "271309-015: File – Open / Save / Save As / Close Project / File Menu / Open Valid .Qdraw File"
+    covers: []
+  - test_id: '271309-020'
+    title: "271309-020: File – Open / Save / Save As / Close Project / File Menu / Open Invalid File Type"
+    covers: []
+  - test_id: '271309-025'
+    title: "271309-025: File – Open / Save / Save As / Close Project / File Menu / Save Overwrites Existing File"
+    covers: []
+  - test_id: '271309-030'
+    title: "271309-030: File – Open / Save / Save As / Close Project / File Menu / Save New File Triggers Save As"
+    covers: []
+  - test_id: '271309-035'
+    title: "271309-035: File – Open / Save / Save As / Close Project / Dialog Window / Save As Custom Filename"
+    covers: []
+  - test_id: '271309-040'
+    title: "271309-040: File – Open / Save / Save As / Close Project / Dialog Window / Save As Custom Folder"
+    covers: []
+  - test_id: '271309-050'
+    title: "271309-050: File – Open / Save / Save As / Close Project / Modal Window / Close Project Prompts For Unsaved Changes"
+    covers: []
+  - test_id: '271309-055'
+    title: "271309-055: File – Open / Save / Save As / Close Project / Modal Window / Close Project With Unsaved Changes - Select Save"
+    covers: []
+  - test_id: '271309-060'
+    title: "271309-060: File – Open / Save / Save As / Close Project / Modal Window / Close Project With Unsaved Changes - Select Don'T Save"
+    covers: []
+  - test_id: '271309-070'
+    title: "271309-070: File – Open / Save / Save As / Close Project / Dialog Window / Save To Invalid Path"
+    covers: []
+  - test_id: '271309-075'
+    title: "271309-075: File – Open / Save / Save As / Close Project / Dialog Window / Save To Read-Only Location"
+    covers: []
+  - test_id: '271309-080'
+    title: "271309-080: File – Open / Save / Save As / Close Project / Dialog Window / Open Non-Existent File"
+    covers: []
+  - test_id: '271309-090'
+    title: "271309-090: File – Open / Save / Save As / Close Project / Accessibility / Keyboard Navigation (Windows 11)"
+    covers: []
+  - test_id: '271309-095'
+    title: "271309-095: File – Open / Save / Save As / Close Project / Accessibility / Voiceover And Touch Targets (Ipad)"
+    covers: []
+  - test_id: '271309-100'
+    title: "271309-100: File – Open / Save / Save As / Close Project / Accessibility / TalkBack and Accessibility Scanner (Android Tablet)"
+    covers: []

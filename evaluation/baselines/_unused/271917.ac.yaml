@@ -1,0 +1,58 @@
+# AC-coverage baseline for story 271917
+# ACs (5) and tests (11) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '271917'
+
+acceptance_criteria:
+  - id: AC1
+    text: "User can insert images (PNG, JPG, BMP) through native OS picker; image appears on Canvas and can be moved, resized, rotated, and locked as background."
+    in_scope: true
+  - id: AC2
+    text: "[Out of Scope] User can insert objects from library; symbol appears on Canvas and can be moved, resized, or rotated."
+    in_scope: true
+  - id: AC3
+    text: "User can insert editable text fields and type directly on Canvas."
+    in_scope: true
+  - id: AC4
+    text: "User can insert annotations, add comments, and move annotation markers."
+    in_scope: true
+  - id: AC5
+    text: "Accessibility (Phase 1): Must comply with Section 508 / WCAG 2.1 AA baseline standards (focus indicator, visible feedback, ARIA labels for toolbar buttons). Out of scope for Phase 1: hotkeys and tooltips."
+    in_scope: true
+
+test_labels:
+  - test_id: '271917-AC1'
+    title: "271917-AC1: Insert — Annotations / Insert Menu / Insert Menu Access"
+    covers: []
+  - test_id: '271917-005'
+    title: "271917-005: Insert — Images, Text, Symbols (Out Of Scope For Ph1) & Annotations / Insert Menu / Insert Image (PNG)"
+    covers: []
+  - test_id: '271917-010'
+    title: "271917-010: Insert — Images, Text, Symbols (Out Of Scope For Ph1) & Annotations / Insert Menu / Insert Image (JPG)"
+    covers: []
+  - test_id: '271917-015'
+    title: "271917-015: Insert — Images, Text, Symbols (Out Of Scope For Ph1) & Annotations / Insert Menu / Insert Image (BMP)"
+    covers: []
+  - test_id: '271917-020'
+    title: "271917-020: Insert — Images, Text, Symbols (Out Of Scope For Ph1) & Annotations / Insert Menu / Insert Editable Text Fields"
+    covers: []
+  - test_id: '271917-025'
+    title: "271917-025: Insert — Images, Text, Symbols (Out Of Scope For Ph1) & Annotations / Insert Menu / Insert Annotations"
+    covers: []
+  - test_id: '271917-030'
+    title: "271917-030: Insert — Images, Text, Symbols (Out Of Scope For Ph1) & Annotations / Insert Menu / North Indicator Visibility"
+    covers: []
+  - test_id: '271917-035'
+    title: "271917-035: Insert — Images, Text, Symbols (Out Of Scope For Ph1) & Annotations / Insert Menu / Scale Bar Visibility"
+    covers: []
+  - test_id: '271917-040'
+    title: "271917-040: Insert — Images, Text, Symbols (Out Of Scope For Ph1) & Annotations / Accessibility / Keyboard Navigation (Windows 11)"
+    covers: []
+  - test_id: '271917-045'
+    title: "271917-045: Insert — Images, Text, Symbols (Out Of Scope For Ph1) & Annotations / Accessibility / VoiceOver Navigation (iPad)"
+    covers: []
+  - test_id: '271917-050'
+    title: "271917-050: Insert — Images, Text, Symbols (Out Of Scope For Ph1) & Annotations / Accessibility / Touch Gestures (Android Tablet)"
+    covers: []

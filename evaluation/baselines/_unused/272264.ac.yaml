@@ -1,0 +1,100 @@
+# AC-coverage baseline for story 272264
+# ACs (6) and tests (24) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '272264'
+
+acceptance_criteria:
+  - id: AC1
+    text: "User can change Line Color using a color picker."
+    in_scope: true
+  - id: AC2
+    text: "User can change Line Thickness via numeric input."
+    in_scope: true
+  - id: AC3
+    text: "User can choose Line Type: Solid, Dashed, or Dotted."
+    in_scope: true
+  - id: AC4
+    text: "Visual update happens immediately on the Canvas."
+    in_scope: true
+  - id: AC5
+    text: "Must follow accessibility and UI compliance standards (508 / WCAG)"
+    in_scope: true
+  - id: AC6
+    text: "Expected behavior includes all details defined throughout the User Story."
+    in_scope: true
+
+test_labels:
+  - test_id: '272264-AC1'
+    title: "272264-AC1: Line Style Options / Properties Panel / Line Style Controls Available"
+    covers: []
+  - test_id: '272264-005'
+    title: "272264-005: Line Style Options — Color, Thickness, Dashed Line / Properties Panel / Change Line Color Via Color Picker"
+    covers: []
+  - test_id: '272264-010'
+    title: "272264-010: Line Style Options — Color, Thickness, Dashed Line / Properties Panel / Change Line Thickness Via Numeric Input"
+    covers: []
+  - test_id: '272264-015'
+    title: "272264-015: Line Style Options — Color, Thickness, Dashed Line / Properties Panel / Change Line Type To Dashed"
+    covers: []
+  - test_id: '272264-020'
+    title: "272264-020: Line Style Options — Color, Thickness, Dashed Line / Properties Panel / Change Line Type To Dotted"
+    covers: []
+  - test_id: '272264-025'
+    title: "272264-025: Line Style Options — Color, Thickness, Dashed Line / Properties Panel / Change Line Type To Solid"
+    covers: []
+  - test_id: '272264-030'
+    title: "272264-030: Line Style Options — Color, Thickness, Dashed Line / Properties Panel / Line Thickness Does Not Accept Decimal Input"
+    covers: []
+  - test_id: '272264-035'
+    title: "272264-035: Line Style Options — Color, Thickness, Dashed Line / Properties Panel / Line Thickness Accepts Very Large Value"
+    covers: []
+  - test_id: '272264-040'
+    title: "272264-040: Line Style Options — Color, Thickness, Dashed Line / Properties Panel / Line Color Accepts RGB Numeric Input"
+    covers: []
+  - test_id: '272264-045'
+    title: "272264-045: Line Style Options — Color, Thickness, Dashed Line / Properties Panel / Overwrite Default Line Thickness Value"
+    covers: []
+  - test_id: '272264-050'
+    title: "272264-050: Line Style Options — Color, Thickness, Dashed Line / Properties Panel / Controls Not Visible For Image Object"
+    covers: []
+  - test_id: '272264-055'
+    title: "272264-055: Line Style Options — Color, Thickness, Dashed Line / Properties Panel / Controls Not Visible For Non-Stroked Object"
+    covers: []
+  - test_id: '272264-060'
+    title: "272264-060: Line Style Options — Color, Thickness, Dashed Line / Properties Panel / Line Style Persistence When Switching Objects"
+    covers: []
+  - test_id: '272264-065'
+    title: "272264-065: Line Style Options — Color, Thickness, Dashed Line / File Menu / Line Style Persistence After Save And Reopen"
+    covers: []
+  - test_id: '272264-070'
+    title: "272264-070: Line Style Options — Color, Thickness, Dashed Line / Accessibility / Keyboard Navigation (Windows 11)"
+    covers: []
+  - test_id: '272264-075'
+    title: "272264-075: Line Style Options — Color, Thickness, Dashed Line / Properties Panel / Independent Operation Of Line Color"
+    covers: []
+  - test_id: '272264-080'
+    title: "272264-080: Line Style Options — Color, Thickness, Dashed Line / Properties Panel / Independent Operation Of Line Thickness"
+    covers: []
+  - test_id: '272264-085'
+    title: "272264-085: Line Style Options — Color, Thickness, Dashed Line / Properties Panel / Independent Operation Of Line Type"
+    covers: []
+  - test_id: '272264-090'
+    title: "272264-090: Line Style Options — Color, Thickness, Dashed Line / Properties Panel / Line Style Applies To Stroke Only"
+    covers: []
+  - test_id: '272264-095'
+    title: "272264-095: Line Style Options — Color, Thickness, Dashed Line / Properties Panel / Line Style Does Not Affect Measurement Labels"
+    covers: []
+  - test_id: '272264-100'
+    title: "272264-100: Line Style Options — Color, Thickness, Dashed Line / Canvas / Consistent Rendering Of Dashed Pattern"
+    covers: []
+  - test_id: '272264-105'
+    title: "272264-105: Line Style Options — Color, Thickness, Dashed Line / Canvas / Consistent Rendering Of Dotted Pattern"
+    covers: []
+  - test_id: '274413-110'
+    title: "274413-110: Line Style Options — Color, Thickness, Dashed Line / Accessibility / Accessibility Validation for Line Style Controls (iPadOS)"
+    covers: []
+  - test_id: '270480-115'
+    title: "270480-115: Line Style Options — Color, Thickness, Dashed Line / Accessibility / Accessibility Validation for Line Style Controls (Android Tablet)"
+    covers: []

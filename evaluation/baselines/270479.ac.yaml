@@ -1,0 +1,190 @@
+# AC-coverage baseline for story 270479
+# ACs (9) and tests (51) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '270479'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Shape Tools are available from both:"
+    in_scope: true
+  - id: AC2
+    text: "When a Shape Tool is active:"
+    in_scope: true
+  - id: AC3
+    text: "Line Tool: draws a straight line between two points."
+    in_scope: true
+  - id: AC4
+    text: "Rectangle Tool: defines two corners; holding Shift creates a square."
+    in_scope: true
+  - id: AC5
+    text: "Circle Tool: draws from center outward; holding Shift constrains to perfect circle."
+    in_scope: true
+  - id: AC6
+    text: "Each shape obeys the current scale and coordinate system."
+    in_scope: true
+  - id: AC7
+    text: "All drawn shapes can be selected, moved, deleted, and undone/redone."
+    in_scope: true
+  - id: AC8
+    text: "Tool remains active until another tool is selected."
+    in_scope: true
+  - id: AC9
+    text: "Accessibility (Phase 1):"
+    in_scope: true
+
+test_labels:
+  - test_id: '270479-AC1'
+    title: "270479-AC1: Basic Shape Tools / Tool Availability / Visible In Toolbar And Draw Menu"
+    covers: []
+  - test_id: '270479-005'
+    title: "270479-005: Basic Shape Tools / Tool Activation / Left Toolbar/ Selecting a Shape Tool Updates Cursor to Crosshair"
+    covers: []
+  - test_id: '270479-006'
+    title: "270479-006: Basic Shape Tools / Tool Activation / Top Draw Menu / Selecting a Shape Tool Updates Cursor to Crosshair"
+    covers: []
+  - test_id: '270479-010'
+    title: "270479-010: Basic Shape Tools / Tool Activation / Rectangle / Active Tool Persists Until Changed (Windows 11)"
+    covers: []
+  - test_id: '270479-011'
+    title: "270479-011: Basic Shape Tools / Tool Activation / Line / Active Tool Persists Until Changed (Windows 11)"
+    covers: []
+  - test_id: '270479-012'
+    title: "270479-012: Basic Shape Tools / Tool Activation / Circle / Active Tool Persists Until Changed (Windows 11)"
+    covers: []
+  - test_id: '270479-015'
+    title: "270479-015: Basic Shape Tools / Tool Activation / Rectangle / Active Tool Persists Until Changed (iPadOS / Android Tablet)"
+    covers: []
+  - test_id: '270479-016'
+    title: "270479-016: Basic Shape Tools / Tool Activation/ Line / Active Tool Persists Until Changed (iPadOS / Android Tablet)"
+    covers: []
+  - test_id: '270479-017'
+    title: "270479-017: Basic Shape Tools / Tool Activation / Circle / Active Tool Persists Until Changed (iPadOS / Android Tablet)"
+    covers: []
+  - test_id: '270479-020'
+    title: "270479-020: Basic Shape Tools / Drawing Behavior / Left Toolbar / Draw Line(Windows 11)"
+    covers: []
+  - test_id: '270479-021'
+    title: "270479-021: Basic Shape Tools / Drawing Behavior / Top Menu → Draw / Draw Line(Windows 11)"
+    covers: []
+  - test_id: '270479-025'
+    title: "270479-025: Basic Shape Tools / Drawing Behavior / Bottom Toolbar / Draw Line(IPadOS/Android)"
+    covers: []
+  - test_id: '270479-030'
+    title: "270479-030: Basic Shape Tools / Drawing Behavior/ Left Toolbar / Draw Rectangle(Windows 11)"
+    covers: []
+  - test_id: '270479-031'
+    title: "270479-031: Basic Shape Tools / Drawing Behavior/ Top Menu → Draw / Draw Rectangle(Windows 11)"
+    covers: []
+  - test_id: '270479-035'
+    title: "270479-035: Basic Shape Tools / Drawing Behavior / Bottom Toolbar / Draw Rectangle(IPadOS/Android)"
+    covers: []
+  - test_id: '270479-037'
+    title: "270479-037: Basic Shape Tools / Drawing Behavior / Left Toolbar / Draw Circle(Windows 11)"
+    covers: []
+  - test_id: '270479-038'
+    title: "270479-038: Basic Shape Tools / Drawing Behavior / Top Menu → Draw / Draw Circle(Windows 11)"
+    covers: []
+  - test_id: '270479-040'
+    title: "270479-040: Basic Shape Tools / Drawing Behavior / Bottom Toolbar / Draw Circle(IPadOS/Android)"
+    covers: []
+  - test_id: '270479-045'
+    title: "270479-045: Basic Shape Tools / Drawing Behavior / Rectangle Constrained to Square with Shift Key (Windows 11)"
+    covers: []
+  - test_id: '270479-050'
+    title: "270479-050: Basic Shape Tools / Drawing Behavior / Circle Constrained to Perfect Circle with Shift Key (Windows 11)"
+    covers: []
+  - test_id: '270479-055'
+    title: "270479-055: Basic Shape Tools / Drawing Behavior / Line / Live Preview Accuracy During Mouse Drag (Windows 11)"
+    covers: []
+  - test_id: '270479-056'
+    title: "270479-056: Basic Shape Tools / Drawing Behavior / Rectangle / Live Preview Accuracy During Mouse Drag (Windows 11)"
+    covers: []
+  - test_id: '270479-057'
+    title: "270479-057: Basic Shape Tools / Drawing Behavior / Circle / Live Preview Accuracy During Mouse Drag (Windows 11)"
+    covers: []
+  - test_id: '270479-060'
+    title: "270479-060: Basic Shape Tools / Drawing Behavior / Line / Live Preview Accuracy During Drag (iPadOS / Android)"
+    covers: []
+  - test_id: '270479-061'
+    title: "270479-061: Basic Shape Tools / Drawing Behavior / Rectangle / Live Preview Accuracy During Drag (iPadOS / Android)"
+    covers: []
+  - test_id: '270479-062'
+    title: "270479-062: Basic Shape Tools / Drawing Behavior / Circle / Live Preview Accuracy During Drag (iPadOS / Android)"
+    covers: []
+  - test_id: '270479-065'
+    title: "270479-065: Basic Shape Tools / Drawing Behavior / Line / Shapes Obey Current Scale (Windows 11)"
+    covers: []
+  - test_id: '270479-066'
+    title: "270479-066: Basic Shape Tools / Drawing Behavior / Rectangle / Shapes Obey Current Scale (Windows 11)"
+    covers: []
+  - test_id: '270479-067'
+    title: "270479-067: Basic Shape Tools / Drawing Behavior / Circle / Shapes Obey Current Scale (Windows 11)"
+    covers: []
+  - test_id: '270479-070'
+    title: "270479-070: Basic Shape Tools / Drawing Behavior / Line / Shapes Obey Current Scale Settings (iPadOS / Android)"
+    covers: []
+  - test_id: '270479-071'
+    title: "270479-071: Basic Shape Tools / Drawing Behavior / Rectangle / Shapes Obey Current Scale Settings (iPadOS / Android)"
+    covers: []
+  - test_id: '270479-072'
+    title: "270479-072: Basic Shape Tools / Drawing Behavior / Circle / Shapes Obey Current Scale Settings (iPadOS / Android)"
+    covers: []
+  - test_id: '270479-075'
+    title: "270479-075: Basic Shape Tools / Drawing Behavior / Line / Shapes Obey Coordinate System (Windows 11)"
+    covers: []
+  - test_id: '270479-076'
+    title: "270479-076: Basic Shape Tools / Drawing Behavior / Rectangle / Shapes Obey Coordinate System (Windows 11)"
+    covers: []
+  - test_id: '270479-077'
+    title: "270479-077: Basic Shape Tools / Drawing Behavior / Circle / Shapes Obey Coordinate System (Windows 11)"
+    covers: []
+  - test_id: '270479-085'
+    title: "270479-085: Basic Shape Tools / Editing Behavior / Left Toolbar / Coordinates Update While Moving a Rectangle (Windows 11)"
+    covers: []
+  - test_id: '270479-086'
+    title: "270479-086: Basic Shape Tools / Editing Behavior / Top Menu → Draw / Coordinates Update While Moving a Rectangle (Windows 11)"
+    covers: []
+  - test_id: '270479-090'
+    title: "270479-090: Basic Shape Tools / Editing Behavior / Left Toolbar / Coordinates Update While Moving a Circle (Windows 11)"
+    covers: []
+  - test_id: '270479-091'
+    title: "270479-091: Basic Shape Tools / Editing Behavior / Top Menu → Draw / Coordinates Update While Moving a Circle (Windows 11)"
+    covers: []
+  - test_id: '270479-095'
+    title: "270479-095: Basic Shape Tools / Editing Behavior / Left Toolbar / Coordinates Update While Moving a Line (Windows 11)"
+    covers: []
+  - test_id: '270479-096'
+    title: "270479-096: Basic Shape Tools / Editing Behavior / Top Menu → Draw / Coordinates Update While Moving a Line (Windows 11)"
+    covers: []
+  - test_id: '270479-100'
+    title: "270479-100: Basic Shape Tools / Editing Behavior / Left Toolbar / Rectangle Resize via Corner Points (Windows 11)"
+    covers: []
+  - test_id: '270479-101'
+    title: "270479-101: Basic Shape Tools / Editing Behavior / Top Menu → Draw / Rectangle Resize via Corner Points (Windows 11)"
+    covers: []
+  - test_id: '270479-105'
+    title: "270479-105: Basic Shape Tools / Editing Behavior / Left Toolbar / Circle Resize via Corner Points (Windows 11)"
+    covers: []
+  - test_id: '270479-106'
+    title: "270479-106: Basic Shape Tools / Editing Behavior / Top Menu → Draw / Circle Resize via Corner Points (Windows 11)"
+    covers: []
+  - test_id: '270479-110'
+    title: "270479-110: Basic Shape Tools / Editing Behavior / Left Toolbar / Line Resize / Edit via Endpoints (Windows 11)"
+    covers: []
+  - test_id: '270479-111'
+    title: "270479-111: Basic Shape Tools / Editing Behavior / Top Menu → Draw / Line Resize / Edit via Endpoints (Windows 11)"
+    covers: []
+  - test_id: '270479-130'
+    title: "270479-130: Basic Shape Tools / Editing Behavior / Bottom Toolbar / Rectangle Resize via Corner Points (iPadOS/Android)"
+    covers: []
+  - test_id: '270479-135'
+    title: "270479-135: Basic Shape Tools / Editing Behavior / Bottom Toolbar / Circle Resize via Corner Points (iPadOS/Android)"
+    covers: []
+  - test_id: '270479-140'
+    title: "270479-140: Basic Shape Tools / Editing Behavior / Bottom Toolbar / Line Resize via Corner Points (iPadOS/Android)"
+    covers: []
+  - test_id: '270479-145'
+    title: "270479-145: Basic Shape Tools / WCAG Compliance / Accessibility Insights"
+    covers: []

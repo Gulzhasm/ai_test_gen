@@ -1,0 +1,127 @@
+# AC-coverage baseline for story 270480
+# ACs (15) and tests (24) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '270480'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Acceptance Criteria: Pen Tool:"
+    in_scope: true
+  - id: AC2
+    text: "Activated from Draw → Pen Tool."
+    in_scope: true
+  - id: AC3
+    text: "Cursor changes to a pen icon."
+    in_scope: true
+  - id: AC4
+    text: "User clicks to add points; each new point connects with a straight line segment."
+    in_scope: true
+  - id: AC5
+    text: "Double-click or pressing Enter finalizes the shape."
+    in_scope: true
+  - id: AC6
+    text: "The created shape can be selected, moved, deleted, and undone/redone. Pencil Tool:"
+    in_scope: true
+  - id: AC7
+    text: "Activated from Draw → Pencil Tool."
+    in_scope: true
+  - id: AC8
+    text: "Cursor changes to a pencil icon (or crosshair)."
+    in_scope: true
+  - id: AC9
+    text: "User drags mouse or stylus to draw a smooth, continuous line that follows motion in real time."
+    in_scope: true
+  - id: AC10
+    text: "The line finalizes automatically when mouse/stylus is released."
+    in_scope: true
+  - id: AC11
+    text: "The drawn line can be selected, moved, deleted, and undone/redone. General Behavior:"
+    in_scope: true
+  - id: AC12
+    text: "Default stroke color, thickness, and style apply."
+    in_scope: true
+  - id: AC13
+    text: "Both tools support mouse and stylus input."
+    in_scope: true
+  - id: AC14
+    text: "Tool remains active until another tool is selected."
+    in_scope: true
+  - id: AC15
+    text: "Accessibility (Phase 1):"
+    in_scope: true
+
+test_labels:
+  - test_id: '270480-AC1'
+    title: "270480-AC1: Pen / Pencil Tool / Tool Activation / Pen And Pencil Tool Activation"
+    covers: []
+  - test_id: '270480-005'
+    title: "270480-005: Pen / Pencil Tool / Tool Activation / Pencil Tool Activation from Draw Menu"
+    covers: []
+  - test_id: '270480-010'
+    title: "270480-010: Pen / Pencil Tool / Drawing Behavior / Pen Tool (Windows 11)"
+    covers: []
+  - test_id: '270480-015'
+    title: "270480-015: Pen / Pencil Tool / Drawing Behavior / Pen Tool (IpadOS/Android)"
+    covers: []
+  - test_id: '270480-020'
+    title: "270480-020: Pen / Pencil Tool / Drawing Behavior / Pencil Tool (Windows 11)"
+    covers: []
+  - test_id: '270480-025'
+    title: "270480-025: Pen / Pencil Tool / Drawing Behavior / Pencil Tool (IpadOS/Android)"
+    covers: []
+  - test_id: '270480-030'
+    title: "270480-030: Pen / Pencil Tool / Select Drawings / Pen Tool (Windows 11)"
+    covers: []
+  - test_id: '270480-035'
+    title: "270480-035: Pen / Pencil Tool / Select Drawings / Pencil Tool (Windows 11)"
+    covers: []
+  - test_id: '270480-040'
+    title: "270480-040: Pen / Pencil Tool / Select Drawings / Pen Tool (IpadOS/Android)"
+    covers: []
+  - test_id: '270480-045'
+    title: "270480-045: Pen / Pencil Tool / Select Drawings / Pencil Tool (IpadOS/Android)"
+    covers: []
+  - test_id: '270480-050'
+    title: "270480-050: Pen / Pencil Tool / Move Drawings / Pen Tool (Windows 11)"
+    covers: []
+  - test_id: '270480-055'
+    title: "270480-055: Pen / Pencil Tool / Move Drawings / Pencil Tool (Windows 11)"
+    covers: []
+  - test_id: '270480-060'
+    title: "270480-060: Pen / Pencil Tool / Move Drawings / Pen Tool (IpadOS/Android)"
+    covers: []
+  - test_id: '270480-065'
+    title: "270480-065: Pen / Pencil Tool / Move Drawings / Pencil Tool (IpadOS/Android)"
+    covers: []
+  - test_id: '270480-070'
+    title: "270480-070: Pen / Pencil Tool / Delete Drawings / Pen Tool (Windows 11)"
+    covers: []
+  - test_id: '270480-075'
+    title: "270480-075: Pen / Pencil Tool / Delete Drawings / Pencil Tool (Windows 11)"
+    covers: []
+  - test_id: '270480-080'
+    title: "270480-080: Pen / Pencil Tool / Delete Drawings / Pen Tool (IpadOS/Android)"
+    covers: []
+  - test_id: '270480-085'
+    title: "270480-085: Pen / Pencil Tool / Delete Drawings / Pencil Tool (IpadOS/Android)"
+    covers: []
+  - test_id: '270480-090'
+    title: "270480-090: Pen / Pencil Tool / WCAG Compliance / Accessibility Validation for Pen Tool (Windows 11)"
+    covers: []
+  - test_id: '270480-095'
+    title: "270480-095: Pen / Pencil Tool / WCAG Compliance / Accessibility Validation for Pencil Tool (Windows 11)"
+    covers: []
+  - test_id: '270480-100'
+    title: "270480-100: Pen / Pencil Tool / WCAG Compliance / Accessibility Validation for Pen Tool (Android Tablet)"
+    covers: []
+  - test_id: '270480-105'
+    title: "270480-105: Pen / Pencil Tool / WCAG Compliance / Accessibility Validation for Pencil Tool (Android Tablet)"
+    covers: []
+  - test_id: '270480-110'
+    title: "270480-110: Pen / Pencil Tool / WCAG Compliance / Accessibility Validation for Pen Tool (iPadOS)"
+    covers: []
+  - test_id: '270480-115'
+    title: "270480-115: Pen / Pencil Tool / WCAG Compliance / Accessibility Validation for Pencil Tool (iPadOS)"
+    covers: []

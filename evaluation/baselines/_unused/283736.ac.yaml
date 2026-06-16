@@ -1,0 +1,133 @@
+# AC-coverage baseline for story 283736
+# ACs (19) and tests (22) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '283736'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Acceptance Criteria Loopback Listener Initialization"
+    in_scope: true
+  - id: AC2
+    text: "When authentication begins on Windows, QuickDraw starts a temporary HTTP listener bound to 127.0.0.1 . Browser Authentication Flow"
+    in_scope: true
+  - id: AC3
+    text: "When authentication starts, QuickDraw opens the system browser and redirects the user to CDP IdentityServer. Authentication Callback Handling"
+    in_scope: true
+  - id: AC4
+    text: "After successful authentication, IdentityServer redirects the browser to the loopback address."
+    in_scope: true
+  - id: AC5
+    text: "QuickDraw receives the authentication response through the local listener."
+    in_scope: true
+  - id: AC6
+    text: "QuickDraw extracts the authorization response and passes it to the shared authentication service. Listener Lifecycle"
+    in_scope: true
+  - id: AC7
+    text: "The loopback listener runs only for the duration of the authentication process."
+    in_scope: true
+  - id: AC8
+    text: "After the authentication response is received and processed, the listener is stopped."
+    in_scope: true
+  - id: AC9
+    text: "The listener must not remain active after authentication completes. Authentication Failure Handling"
+    in_scope: true
+  - id: AC10
+    text: "If the authentication response cannot be received or processed, the system displays the message: 'Sign-in could not be completed. Please try again.'"
+    in_scope: true
+  - id: AC11
+    text: "After the message is shown, the user can retry the login process."
+    in_scope: true
+  - id: AC12
+    text: "The loopback listener must only accept requests from the local machine (127.0.0.1)."
+    in_scope: true
+  - id: AC13
+    text: "Authentication tokens and sensitive authentication data must not be logged. QA Validation Scope QA should be able to validate:"
+    in_scope: true
+  - id: AC14
+    text: "Windows authentication flow using system browser"
+    in_scope: true
+  - id: AC15
+    text: "Successful callback to the local loopback listener"
+    in_scope: true
+  - id: AC16
+    text: "Authentication response correctly processed by QuickDraw"
+    in_scope: true
+  - id: AC17
+    text: "Local listener stops after authentication completes"
+    in_scope: true
+  - id: AC18
+    text: "Authentication failure shows retry message"
+    in_scope: true
+  - id: AC19
+    text: "Tokens are not written to logs User Experience and Error Handling Browser opens automatically and is brought to foreground on app launch “Completing Sign In” dialog is displayed with loading indicator Dialog text: “A browser window has been opened to complete your sign-in” “Please complete authentication in the browser. This window will close automatically once sign-in is complete.” “Open Sign-In Page” button reopens authentication if browser was closed On success, browser shows: “Authentication Successful” “You can close this window and return to CDP SiteDraft” On failure, dialog shows: “Access Denied” “Your account does not currently have access to SiteDraft. Please contact your administrator or support.” “Access Denied” dialog includes: “Contact Support” “Sign in with a different account” No detailed error information is exposed"
+    in_scope: true
+
+test_labels:
+  - test_id: '283736-AC1'
+    title: "283736-AC1: Windows Authentication Callback Handling / Browser Authentication Flow / System Browser Opens And Redirects To IdentityServer"
+    covers: []
+  - test_id: '283736-005'
+    title: "283736-005: Windows Authentication Callback Handling / Loopback Listener / Temporary Listener Starts On Authentication Begin"
+    covers: []
+  - test_id: '283736-010'
+    title: "283736-010: Windows Authentication Callback Handling / Authentication Callback / IdentityServer Redirects Browser To Loopback Address"
+    covers: []
+  - test_id: '283736-015'
+    title: "283736-015: Windows Authentication Callback Handling / Authentication Callback / Application Receives Authentication Response Through Local Listener"
+    covers: []
+  - test_id: '283736-020'
+    title: "283736-020: Windows Authentication Callback Handling / Authentication Callback / Authorization Response Is Extracted And Passed To Shared Service"
+    covers: []
+  - test_id: '283736-025'
+    title: "283736-025: Windows Authentication Callback Handling / Listener Lifecycle / Listener Runs Only During Authentication Process"
+    covers: []
+  - test_id: '283736-030'
+    title: "283736-030: Windows Authentication Callback Handling / Listener Lifecycle / Listener Stops After Response Is Received And Processed"
+    covers: []
+  - test_id: '283736-035'
+    title: "283736-035: Windows Authentication Callback Handling / Listener Lifecycle / Listener Does Not Remain Active After Authentication Completes"
+    covers: []
+  - test_id: '283736-040'
+    title: "283736-040: Windows Authentication Callback Handling / Failure Handling / Failure Message Shown When Authentication Response Cannot Be Received"
+    covers: []
+  - test_id: '283736-050'
+    title: "283736-050: Windows Authentication Callback Handling / Failure Handling / User Can Retry Login After Authentication Failure"
+    covers: []
+  - test_id: '283736-055'
+    title: "283736-055: Windows Authentication Callback Handling / Security / Loopback Listener Accepts Requests Only From Local Machine"
+    covers: []
+  - test_id: '283736-060'
+    title: "283736-060: Windows Authentication Callback Handling / Security / Authentication Tokens Are Not Written To Logs"
+    covers: []
+  - test_id: '283736-065'
+    title: "283736-065: Windows Authentication Callback Handling / User Experience / Completing Sign In Dialog Shows Loading Indicator"
+    covers: []
+  - test_id: '283736-070'
+    title: "283736-070: Windows Authentication Callback Handling / User Experience / Completing Sign In Dialog Displays Required Text"
+    covers: []
+  - test_id: '283736-075'
+    title: "283736-075: Windows Authentication Callback Handling / User Experience / Open Sign-In Page Button Reopens Authentication"
+    covers: []
+  - test_id: '283736-080'
+    title: "283736-080: Windows Authentication Callback Handling / Success Experience / Browser Shows Successful Authentication Message"
+    covers: []
+  - test_id: '283736-085'
+    title: "283736-085: Windows Authentication Callback Handling / Access Denied / Unauthorized Account Shows Access Denied Dialog"
+    covers: []
+  - test_id: '283736-090'
+    title: "283736-090: Windows Authentication Callback Handling / Access Denied / Access Denied Dialog Includes Contact Support Action"
+    covers: []
+  - test_id: '283736-095'
+    title: "283736-095: Windows Authentication Callback Handling / Access Denied / Access Denied Dialog Includes Sign In With Different Account Action"
+    covers: []
+  - test_id: '283736-100'
+    title: "283736-100: Windows Authentication Callback Handling / Application Logs / Successful Login Logged"
+    covers: []
+  - test_id: '283736-105'
+    title: "283736-105: Windows Authentication Callback Handling / Application Logs / Access Denied Logged"
+    covers: []
+  - test_id: '283736-110'
+    title: "283736-110: Windows Authentication Callback Handling / Application Logs / Failed or Incomplete Login Logged"
+    covers: []

@@ -1,0 +1,29 @@
+{
+  "session_date": "2026-06-16",
+  "rows": [
+    {
+      "rank": 1, "symbol": "NVDA", "last": 134.20, "gap_pct": 6.42,
+      "premarket_volume": 8200000, "sentiment": 0.71, "catalyst": "earnings beat",
+      "p_fill": 0.38, "forecast": "FADE", "algo": "SHORT",
+      "pattern_5m": "lower-high", "pattern_15m": "exhaustion", "market_aligned": true,
+      "strategy_reason": "Extended gap into resistance with fading premarket volume",
+      "entry": 133.80, "stop": 135.10, "target": 130.50
+    },
+    {
+      "rank": 2, "symbol": "AMD", "last": 168.05, "gap_pct": 3.18,
+      "premarket_volume": 3100000, "sentiment": 0.44, "catalyst": "analyst upgrade",
+      "p_fill": 0.62, "forecast": "RIDE", "algo": "LONG",
+      "pattern_5m": "higher-low", "pattern_15m": "trend", "market_aligned": true,
+      "strategy_reason": "Continuation gap aligned with risk-on tape",
+      "entry": 168.40, "stop": 166.90, "target": 172.00
+    },
+    {
+      "rank": 3, "symbol": "TSLA", "last": 248.90, "gap_pct": -2.05,
+      "premarket_volume": 5400000, "sentiment": -0.22, "catalyst": "none",
+      "p_fill": 0.55, "forecast": "STAND_ASIDE", "algo": "WAIT",
+      "pattern_5m": "range", "pattern_15m": "range", "market_aligned": false,
+      "strategy_reason": "No catalyst and choppy premarket structure",
+      "entry": null, "stop": null, "target": null
+    }
+  ]
+}

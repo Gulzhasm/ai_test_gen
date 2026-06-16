@@ -499,27 +499,66 @@ class GenerateWorkflow(IWorkflow):
 
         # Playwright script generation
         if getattr(config, 'playwright_enabled', False) and config.llm_enabled:
-            print("  Generating Playwright script...")
-            try:
-                from infrastructure.export.playwright_generator import PlaywrightGenerator
-                pw_gen = PlaywrightGenerator(
-                    app_name=config.application.name,
-                    app_type=config.application.app_type,
-                    provider_type=llm_provider,
-                    model=config.llm_model if hasattr(config, 'llm_model') else "gpt-4o-mini",
-                    api_key=llm_api_key
-                )
-                pw_path = os.path.join(output_dir, f"{story_id}_{safe_title}_PLAYWRIGHT.spec.ts")
-                playwright_content = pw_gen.generate_script(
-                    test_cases=test_cases,
-                    story_id=str(story_id),
-                    feature_name=title,
-                    output_file=pw_path
-                )
-                output_files['playwright'] = pw_path
-                print(f"  Playwright: {pw_path}")
-            except Exception as e:
-                print(f"  Warning: Playwright generation failed: {e}")
+            # Resolve the (optional) UI element inventory path for selector grounding
+            inventory_path = None
+            ui_ext = getattr(config.application, 'ui_extraction', None)
+            _base = os.path.dirname(os.path.abspath(__file__))
+            if ui_ext and getattr(ui_ext, 'inventory_path', ''):
+                inv = ui_ext.inventory_path
+                inventory_path = inv if os.path.isabs(inv) else os.path.join(_base, inv)
+
+            pom_project_path = getattr(ui_ext, 'pom_project_path', '') if ui_ext else ''
+            if pom_project_path and inventory_path and os.path.exists(inventory_path):
+                # POM mode: generate page objects + a grounded spec into the standalone project
+                print("  Generating POM Playwright project...")
+                try:
+                    from infrastructure.export.pom.pom_generator import PomGenerator
+                    api_mocks = [
+                        {"url_glob": m["url_glob"],
+                         "body_file": m["body_file"] if os.path.isabs(m["body_file"]) else os.path.join(_base, m["body_file"])}
+                        for m in (ui_ext.api_mocks or [])
+                    ]
+                    tab_names = [s.get("name") for s in (ui_ext.page_states or []) if s.get("name")]
+                    pom_gen = PomGenerator(
+                        project_path=pom_project_path,
+                        app_name=config.application.name,
+                        inventory_path=inventory_path,
+                        tab_names=tab_names,
+                        api_mocks=api_mocks,
+                        provider_type=llm_provider,
+                        model=config.llm_model if hasattr(config, 'llm_model') else "gpt-4o-mini",
+                        api_key=llm_api_key,
+                    )
+                    playwright_content = pom_gen.generate_spec(
+                        test_cases=test_cases, story_id=str(story_id), feature_name=title)
+                    if playwright_content:
+                        output_files['playwright_pom'] = pom_project_path
+                except Exception as e:
+                    print(f"  Warning: POM generation failed: {e}")
+            else:
+                # Flat mode: single grounded .spec.ts into the output dir
+                print("  Generating Playwright script...")
+                try:
+                    from infrastructure.export.playwright_generator import PlaywrightGenerator
+                    pw_gen = PlaywrightGenerator(
+                        app_name=config.application.name,
+                        app_type=config.application.app_type,
+                        provider_type=llm_provider,
+                        model=config.llm_model if hasattr(config, 'llm_model') else "gpt-4o-mini",
+                        api_key=llm_api_key,
+                        inventory_path=inventory_path,
+                    )
+                    pw_path = os.path.join(output_dir, f"{story_id}_{safe_title}_PLAYWRIGHT.spec.ts")
+                    playwright_content = pw_gen.generate_script(
+                        test_cases=test_cases,
+                        story_id=str(story_id),
+                        feature_name=title,
+                        output_file=pw_path
+                    )
+                    output_files['playwright'] = pw_path
+                    print(f"  Playwright: {pw_path}")
+                except Exception as e:
+                    print(f"  Warning: Playwright generation failed: {e}")
 
         # Postman collection generation
         if getattr(config, 'postman_enabled', False) and config.llm_enabled:

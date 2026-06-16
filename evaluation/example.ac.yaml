@@ -1,0 +1,32 @@
+# SYNTHETIC example showing the baseline format. NOT real data, NOT scored
+# (it lives outside baselines/). Copy this shape into evaluation/baselines/<story>.ac.yaml.
+
+story_id: 'EXAMPLE'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Zoom In button increases zoom by 5%"
+    in_scope: true
+  - id: AC2
+    text: "Zoom Out button decreases zoom by 5%"
+    in_scope: true
+  - id: AC3
+    text: "Current zoom percentage is displayed in the bottom bar"
+    in_scope: true
+
+test_labels:
+  - test_id: 'EX-AC1'
+    title: "Zoom Control / Zoom In increases by 5% (Windows)"
+    covers: [AC1]
+  - test_id: 'EX-005'
+    title: "Zoom Control / Zoom In increases by 5% (iPad)"
+    covers: [AC1]            # redundant second test for AC1
+  - test_id: 'EX-010'
+    title: "Zoom Control / Zoom Out decreases by 5%"
+    covers: [AC2]
+  - test_id: 'EX-015'
+    title: "Zoom Control / Reset view to default"
+    covers: []              # spurious: no AC covers a 'reset view' behaviour
+  - test_id: 'EX-020'
+    title: "Zoom Control / Zoom In then Out keeps percentage label in sync"
+    covers: [AC1, AC2]

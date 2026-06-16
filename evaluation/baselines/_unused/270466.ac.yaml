@@ -1,0 +1,91 @@
+# AC-coverage baseline for story 270466
+# ACs (9) and tests (18) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '270466'
+
+acceptance_criteria:
+  - id: AC1
+    text: "The Select & Move Tool is available from the Left Toolbar."
+    in_scope: true
+  - id: AC2
+    text: "When active: The cursor looks like an arrow (selection mode)."
+    in_scope: true
+  - id: AC3
+    text: "Clicking an object selects it."
+    in_scope: true
+  - id: AC4
+    text: "Clicking and dragging moves the selected object on the Canvas."
+    in_scope: true
+  - id: AC5
+    text: "Clicking and dragging on empty space creates a selection box for multiple objects."
+    in_scope: true
+  - id: AC6
+    text: "Movement is limited to the visible Canvas area."
+    in_scope: true
+  - id: AC7
+    text: "All actions can be undone or redone with Undo / Redo."
+    in_scope: true
+  - id: AC8
+    text: "The tool remains active until another drawing tool is selected."
+    in_scope: true
+  - id: AC9
+    text: "Must comply with Section 508 and WCAG 2.1 AA accessibility standards. (Hotkeys and tooltips are out of scope for Phase 1.)"
+    in_scope: true
+
+test_labels:
+  - test_id: '270466-AC1'
+    title: "270466-AC1: Select / Move Tool / Toolbar / Tool Visible And Active By Default"
+    covers: []
+  - test_id: '270466-005'
+    title: "270466-005: Select / Move Tool / Object Selection / Single Object Selection by Mouse Click (Windows 11)"
+    covers: []
+  - test_id: '270466-010'
+    title: "270466-010: Select / Move Tool / Object Selection / Single Object Selection via Tap or Stylus Tap (IpadOS/Android)"
+    covers: []
+  - test_id: '270466-015'
+    title: "270466-015: Select / Move Tool / Object Movement (Drag Single Object) / Move Object by Dragging with Mouse (Windows 11)"
+    covers: []
+  - test_id: '270466-020'
+    title: "270466-020: Select / Move Tool / Object Movement (Drag Single Object) / Move Object by Dragging with Finger or Stylus (IpadOS/Android)"
+    covers: []
+  - test_id: '270466-025'
+    title: "270466-025: Select / Move Tool / Multi-Selection / Create Selection Box by Dragging on Empty Area(Windows 11)"
+    covers: []
+  - test_id: '270466-030'
+    title: "270466-030: Select / Move Tool / Multi-Selection / Create Selection Box via Finger/Stylus Drag(IpadOS/Android)"
+    covers: []
+  - test_id: '270466-035'
+    title: "270466-035: Select / Move Tool / Invalid Actions / Cannot Select or Move Canvas Background (Windows 11)"
+    covers: []
+  - test_id: '270466-040'
+    title: "270466-040: Select / Move Tool / Invalid Actions /Cannot Select or Move Canvas Background (IpadOS/Android)"
+    covers: []
+  - test_id: '270466-045'
+    title: "270466-045: Select / Move Tool / Invalid Actions /Object Movement Limited to Canvas Bounds (Windows 11)"
+    covers: []
+  - test_id: '270466-050'
+    title: "270466-050: Select / Move Tool / Invalid Actions /Object Movement Limited to Canvas Bounds (IpadOS/Android)"
+    covers: []
+  - test_id: '270466-055'
+    title: "270466-055: Select / Move Tool / Overlapping Objects / Object Selection When Objects Overlap (Windows 11)"
+    covers: []
+  - test_id: '270466-060'
+    title: "270466-060: Select / Move Tool / Overlapping Objects / Object Selection When Objects Overlap (IpadOS/Android)"
+    covers: []
+  - test_id: '270466-065'
+    title: "270466-065: Select / Move Tool / Overlapping Objects / Selection Box Prioritizes Objects Fully Inside the Marquee (Windows 11)"
+    covers: []
+  - test_id: '270466-070'
+    title: "270466-070: Select / Move Tool / Overlapping Objects / Selection Box Prioritizes Objects Fully Inside the Marquee (IpadOS/Android)"
+    covers: []
+  - test_id: '270466-075'
+    title: "270466-075: Select / Move Tool / WCAG Compliance(Windows 11)"
+    covers: []
+  - test_id: '270466-080'
+    title: "270466-080: Select / Move Tool / WCAG Compliance(Ipad)"
+    covers: []
+  - test_id: '270466-085'
+    title: "270466-085: Select / Move Tool / WCAG Compliance(Android Tablet)"
+    covers: []

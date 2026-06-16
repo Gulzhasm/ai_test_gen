@@ -1,0 +1,58 @@
+# AC-coverage baseline for story 269903
+# ACs (6) and tests (10) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '269903'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Bottom Bar displays two coordinate fields labeled X and Y."
+    in_scope: true
+  - id: AC2
+    text: "Coordinate values update in real time as the cursor moves across the Canvas."
+    in_scope: true
+  - id: AC3
+    text: "When an object is selected, the coordinates of the cursor are still displayed."
+    in_scope: true
+  - id: AC4
+    text: "Coordinate values reflect the current scale and measurement units (e.g., ft, m)."
+    in_scope: true
+  - id: AC5
+    text: "Coordinate display is read-only; users cannot edit values directly."
+    in_scope: true
+  - id: AC6
+    text: "Must comply with Section 508 and WCAG 2.1 AA accessibility standards."
+    in_scope: true
+
+test_labels:
+  - test_id: '269903-AC1'
+    title: "269903-AC1: Coordinate Display / Coordinate Layout / Show Coordinate Display on Canvas Load"
+    covers: []
+  - test_id: '269903-010'
+    title: "269903-010: Coordinate Display / Read-Only Restriction / Coordinate Field Do Not Accept Keyboard Focus (Windows 11)"
+    covers: []
+  - test_id: '269903-015'
+    title: "269903-015: Coordinate Display / Coordinate Values Update/ Moving Cursor (Windows 11)"
+    covers: []
+  - test_id: '269903-025'
+    title: "269903-025: Coordinate Display / Scale / Coordinates Reflect Current Drawing Scale(Windows 11)"
+    covers: []
+  - test_id: '269903-030'
+    title: "269903-030: Coordinate Display / Unit Integration / Coordinates Reflect Selected Measurement Unit(Windows 11)"
+    covers: []
+  - test_id: '269903-045'
+    title: "269903-045: Coordinate Display / Decimal Precision Behavior / Coordinates Reflect One Decimal Precision (0.0) (Windows 11)"
+    covers: []
+  - test_id: '269903-055'
+    title: "269903-055: Coordinate Display / Decimal Precision Behavior / Coordinates Reflect Two Decimal Precision (0.00) (Windows 11)"
+    covers: []
+  - test_id: '269903-065'
+    title: "269903-065: Coordinate Display / Decimal Precision Behavior / Coordinates Reflect Three Decimal Precision (0.000) (Windows 11)"
+    covers: []
+  - test_id: '269903-075'
+    title: "269903-075: Coordinate Display / Object Behavior / Coordinates Update When Moving an Object(Windows 11)"
+    covers: []
+  - test_id: '269903-085'
+    title: "269903-085: Coordinate Display / Windows Accessibility / Coordinate Labels & Values"
+    covers: []

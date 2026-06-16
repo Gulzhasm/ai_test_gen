@@ -11,11 +11,37 @@ import re
 
 
 @dataclass
+class UIExtractionConfig:
+    """
+    Configuration for live UI element extraction (selector grounding).
+
+    Used by scripts/extract_ui_inventory.py to crawl a running web app and by
+    the Playwright generator to locate the resulting inventory. `page_states` and
+    `api_mocks` are kept as raw dicts here; the extraction script maps them to
+    core.interfaces.element_extractor.PageState / ApiMock objects.
+    """
+    enabled: bool = False
+    inventory_path: str = ""                                   # where inventory.json is read/written
+    backend_url: str = ""                                      # informational: app's backend origin
+    page_states: List[Dict[str, Any]] = field(default_factory=list)
+    api_mocks: List[Dict[str, Any]] = field(default_factory=list)
+    # Optional POM (Page Object Model) standalone project generation
+    pom_project_path: str = ""                                 # sibling dir for the generated UI-automation project
+    pom_run_after_generate: bool = False                       # run `npx playwright test` after generating
+
+
+@dataclass
 class ApplicationConfig:
     """Configuration for the application under test."""
     name: str  # e.g., "ENV QuickDraw", "MediaPedia", "MyApp"
     description: str = ""
     app_type: str = "desktop"  # desktop, web, mobile, hybrid
+
+    # Web app base URL (used to ground Playwright BASE_URL + drive UI extraction)
+    base_url: str = ""
+
+    # Live UI element extraction config (selector grounding)
+    ui_extraction: Optional['UIExtractionConfig'] = None
 
     # Step templates (these replace hardcoded ENV QuickDraw references)
     prereq_template: str = "Pre-req: The {app_name} is installed"
@@ -466,7 +492,22 @@ class ProjectConfig:
             forbidden_ui_terms=app_data.get('forbidden_ui_terms', []),
             feature_aliases=app_data.get('feature_aliases', {}),
             feature_notes=app_data.get('feature_notes', {}),
+            base_url=app_data.get('base_url', ''),
         )
+
+        # Extract UI extraction config (optional, for selector grounding)
+        ui_ext_data = app_data.get('ui_extraction', {})
+        if ui_ext_data:
+            pom_data = ui_ext_data.get('pom', {})
+            application.ui_extraction = UIExtractionConfig(
+                enabled=ui_ext_data.get('enabled', True),
+                inventory_path=ui_ext_data.get('inventory_path', ''),
+                backend_url=ui_ext_data.get('backend_url', ''),
+                page_states=ui_ext_data.get('page_states', []),
+                api_mocks=ui_ext_data.get('api_mocks', []),
+                pom_project_path=pom_data.get('project_path', ''),
+                pom_run_after_generate=pom_data.get('run_after_generate', False),
+            )
 
         # Extract integration config (for URL customization and future Jira/TestRail support)
         integration_data = data.get('integration', {})

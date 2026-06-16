@@ -1,0 +1,118 @@
+# AC-coverage baseline for story 270736
+# ACs (12) and tests (24) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '270736'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Tool available under Dimensions → Set Scale (reference line)."
+    in_scope: true
+  - id: AC2
+    text: "User c licks the first known point on the Canvas and moves the mouse to second point — a temporary line appears between them."
+    in_scope: true
+  - id: AC3
+    text: "System opens a dialog to enter a numeric value (decimals allowed) and select unit (ft/m)."
+    in_scope: true
+  - id: AC4
+    text: "After confirmation, the app calculates and applies the scale so the reference line matches the entered real distance."
+    in_scope: true
+  - id: AC5
+    text: "Zoom level and visual appearance stay unchanged – only measurement logic updates."
+    in_scope: true
+  - id: AC6
+    text: "Rulers, coordinates, and dimensions instantly reflect the new scale."
+    in_scope: true
+  - id: AC7
+    text: "Bottom Bar shows the updated scale (e.g., 1″ = 40 ft / 1 cm = 2 m)."
+    in_scope: true
+  - id: AC8
+    text: "Scale is saved and displayed correctly on PDF exports."
+    in_scope: true
+  - id: AC9
+    text: "The input field accepts only numeric values (digits, decimal point, or comma) and does not allow zero, according to the defined minimum values for the selected metric or imperial unit system."
+    in_scope: true
+  - id: AC10
+    text: "Action is Undo/Redo supported."
+    in_scope: true
+  - id: AC11
+    text: "Must comply with Section 508 / WCAG 2.1 AA accessibility and UI standards (visible focus indicators, readable dialog text, clear error messages)."
+    in_scope: true
+  - id: AC12
+    text: "The system shall validate minimum and maximum scale values based on the selected measurement units."
+    in_scope: true
+
+test_labels:
+  - test_id: '270736-AC1'
+    title: "270736-AC1: Set Scale (Reference Line) / Dimensions Menu / Command Availability"
+    covers: []
+  - test_id: '270736-005'
+    title: "270736-005: Set Scale (Reference Line) / Input / Decimal Value Accepted"
+    covers: []
+  - test_id: '270736-010'
+    title: "270736-010: Set Scale (Reference Line) / Validation / Above Maximum Value Rejected Per Unit System (Imperial)"
+    covers: []
+  - test_id: '270736-015'
+    title: "270736-015: Set Scale (Reference Line) / Input / Small Decimal Value Accepted"
+    covers: []
+  - test_id: '270736-020'
+    title: "270736-020: Set Scale (Reference Line) / Input / Overwrite Default Value In Dialog"
+    covers: []
+  - test_id: '270736-025'
+    title: "270736-025: Set Scale (Reference Line) / Application / Rulers Coordinates And Dimensions Reflect New Scale"
+    covers: []
+  - test_id: '270736-030'
+    title: "270736-030: Set Scale (Reference Line) / Calculation / Reference Line Matches Entered Distance After Scale"
+    covers: []
+  - test_id: '270736-035'
+    title: "270736-035: Set Scale (Reference Line) / Visual / Zoom Level And Appearance Unchanged After Scale"
+    covers: []
+  - test_id: '270736-040'
+    title: "270736-040: Set Scale (Reference Line) / Bottom Bar / Bottom Bar Displays Updated Scale"
+    covers: []
+  - test_id: '270736-045'
+    title: "270736-045: Set Scale (Reference Line) / Application / Scale Applied Using Meters Unit"
+    covers: []
+  - test_id: '270736-050'
+    title: "270736-050: Set Scale (Reference Line) / Export / Scale Displayed Correctly On PDF Export"
+    covers: []
+  - test_id: '270736-055'
+    title: "270736-055: Set Scale (Reference Line) / Bottom Bar / Scale Persists In Bottom Bar After Navigation"
+    covers: []
+  - test_id: '270736-060'
+    title: "270736-060: Set Scale (Reference Line) / Validation / Above Maximum Value Rejected Per Unit System (Metric)"
+    covers: []
+  - test_id: '270736-065'
+    title: "270736-065: Set Scale (Reference Line) / Accessibility / Keyboard Navigation And Labels (Windows 11)"
+    covers: []
+  - test_id: '270736-070'
+    title: "270736-070: Set Scale (Reference Line) / Accessibility / VoiceOver Navigation (iPad)"
+    covers: []
+  - test_id: '270736-075'
+    title: "270736-075: Set Scale (Reference Line) / Accessibility / TalkBack And Accessibility Scanner (Android Tablet)"
+    covers: []
+  - test_id: '270736-080'
+    title: "270736-080: Set Scale (Reference Line) / Validation / Zero Value Triggers Error Message"
+    covers: []
+  - test_id: '270736-085'
+    title: "270736-085: Set Scale (Reference Line) / Validation / Negative Value Rejected"
+    covers: []
+  - test_id: '270736-090'
+    title: "270736-090: Set Scale (Reference Line) / Validation / Identical Points Triggers Error Message"
+    covers: []
+  - test_id: '270736-095'
+    title: "270736-095: Set Scale (Reference Line) / Validation / Exact Boundary Values Accepted Per Unit System (Metric)"
+    covers: []
+  - test_id: '270736-100'
+    title: "270736-100: Set Scale (Reference Line) / Reference Line / Temporary Line Displayed Between Two Points"
+    covers: []
+  - test_id: '270736-105'
+    title: "270736-105: Set Scale (Reference Line) / Validation / Non-Numeric Input Rejected"
+    covers: []
+  - test_id: '270736-110'
+    title: "270736-110: Set Scale (Reference Line) / Validation / Below Minimum Value Rejected Per Unit System"
+    covers: []
+  - test_id: '270736-115'
+    title: "270736-115: Set Scale (Reference Line) / Validation / Exact Boundary Values Accepted Per Unit System (Imperial)"
+    covers: []

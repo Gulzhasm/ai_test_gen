@@ -1,0 +1,70 @@
+# AC-coverage baseline for story 272972
+# ACs (6) and tests (14) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '272972'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Home Screen is shown:"
+    in_scope: true
+  - id: AC2
+    text: "No dedicated Home button is displayed in the UI."
+    in_scope: true
+  - id: AC3
+    text: "Home Screen contains:"
+    in_scope: true
+  - id: AC4
+    text: "Selecting any action loads the drawing and hides Home Screen."
+    in_scope: true
+  - id: AC5
+    text: "Closing a project returns the user to Home Screen."
+    in_scope: true
+  - id: AC6
+    text: "If the project has unsaved changes, the user receives a save prompt before closing."
+    in_scope: true
+
+test_labels:
+  - test_id: '272972-AC1'
+    title: "272972-AC1: Home Screen / Startup / Home Screen Displayed When No Project Is Open"
+    covers: []
+  - test_id: '272972-005'
+    title: "272972-005: Home Screen / File Menu / Close Project Returns To Home Screen"
+    covers: []
+  - test_id: '272972-010'
+    title: "272972-010: Home Screen / Workspace UI / No Dedicated Home Button While Project Is Open"
+    covers: []
+  - test_id: '272972-015'
+    title: "272972-015: Home Screen / Home Screen UI / Recent Files List And Actions Are Present"
+    covers: []
+  - test_id: '272972-020'
+    title: "272972-020: Home Screen / Navigation / Selecting Actions Loads Drawing And Hides Home Screen"
+    covers: []
+  - test_id: '272972-025'
+    title: "272972-025: Home Screen / Project Lifecycle / Repeated Open And Close Preserves Correct Home Screen State"
+    covers: []
+  - test_id: '272972-030'
+    title: "272972-030: Home Screen / File Menu / Unsaved Changes Save Prompt Appears Before Close Project"
+    covers: []
+  - test_id: '272972-035'
+    title: "272972-035: Home Screen / Accessibility / Keyboard Navigation And Focus Order (Windows 11)"
+    covers: []
+  - test_id: '272972-040'
+    title: "272972-040: Home Screen / Accessibility / VoiceOver Labels And Reading Order (iPad)"
+    covers: []
+  - test_id: '272972-045'
+    title: "272972-045: Home Screen / Accessibility / Labels And Roles Scan (Android Tablet)"
+    covers: []
+  - test_id: '272972-050'
+    title: "272972-050: Home Screen / Recent Files / Empty State When No Recent Files Exist"
+    covers: []
+  - test_id: '272972-055'
+    title: "272972-055: Home Screen / Open File / Cancel In System File Browser Leaves Home Screen Visible"
+    covers: []
+  - test_id: '272972-060'
+    title: "272972-060: Home Screen / Recent Files / Unavailable Recent File Shows Deterministic Failure Behavior"
+    covers: []
+  - test_id: '272972-065'
+    title: "272972-065: Home Screen / Workspace Isolation / Home Screen Prevents Canvas Interaction When No Project Is Open"
+    covers: []

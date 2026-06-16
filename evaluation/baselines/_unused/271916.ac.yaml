@@ -1,0 +1,88 @@
+# AC-coverage baseline for story 271916
+# ACs (9) and tests (17) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '271916'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Print dialog opens when user selects File → Print."
+    in_scope: true
+  - id: AC2
+    text: "Preview shows the Canvas with correct proportions and margins."
+    in_scope: true
+  - id: AC3
+    text: "“Fit to paper” scales the image properly within printable area."
+    in_scope: true
+  - id: AC4
+    text: "“Save as PDF” generates a PDF identical to the preview."
+    in_scope: true
+  - id: AC5
+    text: "User can choose between available printers or PDF export."
+    in_scope: true
+  - id: AC6
+    text: "Cancel button closes the dialog without changes."
+    in_scope: true
+  - id: AC7
+    text: "Printed or exported output contains all visible objects from Canvas, plus North Indicator."
+    in_scope: true
+  - id: AC8
+    text: "Orientation remains Portrait."
+    in_scope: true
+  - id: AC9
+    text: "Display message if printer not found or permission denied."
+    in_scope: true
+
+test_labels:
+  - test_id: '271916-AC1'
+    title: "271916-AC1: Print — Export to PDF / Dialog Window / Print Dialog Controls"
+    covers: []
+  - test_id: '271916-005'
+    title: "271916-005: Print — Export to PDF and Physical Printer / Preview / Canvas Proportions And Margins Display Correctly"
+    covers: []
+  - test_id: '271916-010'
+    title: "271916-010: Print — Export to PDF and Physical Printer / Letter Size / Fit to Paper Expands Printable Area and Removes Boundary Lines"
+    covers: []
+  - test_id: '271916-011'
+    title: "271916-011: Print — Export to PDF and Physical Printer / A4 / Fit to Paper Expands Printable Area and Removes Boundary Lines"
+    covers: []
+  - test_id: '271916-020'
+    title: "271916-020: Print — Export to PDF and Physical Printer / Export / Save As Pdf Generates Identical Output"
+    covers: []
+  - test_id: '271916-025'
+    title: "271916-025: Print — Export to PDF and Physical Printer / Printer Selection / Choose Between Printers And Pdf Export"
+    covers: []
+  - test_id: '271916-030'
+    title: "271916-030: Print — Export to PDF and Physical Printer / Dialog Window / Cancel Button Closes Dialog Without Changes"
+    covers: []
+  - test_id: '271916-035'
+    title: "271916-035: Print — Export to PDF and Physical Printer / Output Content / Visible Objects And North Indicator Included"
+    covers: []
+  - test_id: '271916-040'
+    title: "271916-040: Print — Export to PDF and Physical Printer / Orientation / Orientation Remains Portrait"
+    covers: []
+  - test_id: '271916-045'
+    title: "271916-045: Print — Export to PDF and Physical Printer / Printer Selection / Printer and Device List Matches OS-Provided Options"
+    covers: []
+  - test_id: '271916-048'
+    title: "271916-048: Print — Export to PDF and Physical Printer / Error Handling / Display Message If Permission Denied"
+    covers: []
+  - test_id: '271916-050'
+    title: "271916-050: Print — Export to PDF and Physical Printer / Dialog Window / Print Dialog Blocks Background Interaction"
+    covers: []
+  - test_id: '271916-055'
+    title: "271916-055: Print — Export to PDF and Physical Printer / Copies / Enter Valid Whole Number For Copies"
+    covers: []
+  - test_id: '271916-060'
+    title: "271916-060: Print — Export to PDF and Physical Printer / Copies / Overwrite Default Value For Copies"
+    covers: []
+  - test_id: '271916-065'
+    title: "271916-065: Print — Export to PDF and Physical Printer / Paper Size / Select Letter Paper Size"
+    covers: []
+  - test_id: '271916-070'
+    title: "271916-070: Print — Export to PDF and Physical Printer / Paper Size / Select A4 Paper Size"
+    covers: []
+  - test_id: '271916-075'
+    title: "271916-075: Print — Export to PDF and Physical Printer / Accessibility / Keyboard Navigation (Windows 11)"
+    covers: []

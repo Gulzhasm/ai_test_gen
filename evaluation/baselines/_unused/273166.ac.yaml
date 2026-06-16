@@ -1,0 +1,79 @@
+# AC-coverage baseline for story 273166
+# ACs (7) and tests (16) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '273166'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Typography section is visible only when a text object is selected."
+    in_scope: true
+  - id: AC2
+    text: "All controls appear as shown in the UI (dropdowns + toggle buttons)."
+    in_scope: true
+  - id: AC3
+    text: "Changing any control updates the selected text object immediately."
+    in_scope: true
+  - id: AC4
+    text: "Font, style, size, alignment, decoration, case, and list style work independently."
+    in_scope: true
+  - id: AC5
+    text: "Default typography settings apply when creating a new text object."
+    in_scope: true
+  - id: AC6
+    text: "No controls appear for non-text objects."
+    in_scope: true
+  - id: AC7
+    text: "No manual text size entry in Phase 1 (dropdown only)."
+    in_scope: true
+
+test_labels:
+  - test_id: '273166-AC1'
+    title: "273166-AC1: Typography Controls / Properties Panel / Text Formatting Visible"
+    covers: []
+  - test_id: '273166-005'
+    title: "273166-005: Typography Controls / Properties Panel / Controls Display Correctly"
+    covers: []
+  - test_id: '273166-006'
+    title: "273166-006: Typography Controls / Verify pressing Enter creates a new line within the text area"
+    covers: []
+  - test_id: '273166-010'
+    title: "273166-010: Typography Controls / Properties Panel / Changes Apply Immediately"
+    covers: []
+  - test_id: '273166-015'
+    title: "273166-015: Typography Controls / Properties Panel / Independent Control Operation"
+    covers: []
+  - test_id: '273166-020'
+    title: "273166-020: Typography Controls / Properties Panel / Default Typography Settings"
+    covers: []
+  - test_id: '273166-025'
+    title: "273166-025: Typography Controls / Properties Panel / No Controls For Non-Text Objects"
+    covers: []
+  - test_id: '273166-030'
+    title: "273166-030: Typography Controls / Properties Panel / Decoration Updates Correctly"
+    covers: []
+  - test_id: '273166-035'
+    title: "273166-035: Typography Controls / Properties Panel / Case Updates Correctly"
+    covers: []
+  - test_id: '273166-040'
+    title: "273166-040: Typography Controls / Properties Panel / List Style Updates Correctly"
+    covers: []
+  - test_id: '273166-045'
+    title: "273166-045: Typography Controls / Properties Panel / Manual Text Size Entry"
+    covers: []
+  - test_id: '273166-055'
+    title: "273166-055: Typography Controls / Properties Panel / Rapid Control Interaction"
+    covers: []
+  - test_id: '273166-060'
+    title: "273166-060: Typography Controls / Properties Panel / Switching Between Text Objects"
+    covers: []
+  - test_id: '273166-065'
+    title: "273166-065: Typography Controls / Accessibility / Keyboard Navigation (Windows 11)"
+    covers: []
+  - test_id: '273166-070'
+    title: "273166-070: Typography Controls / Accessibility / VoiceOver navigation (iPad)"
+    covers: []
+  - test_id: '273166-075'
+    title: "273166-075: Typography Controls / Accessibility / TalkBack and Accessibility Scanner (Android Tablet)"
+    covers: []

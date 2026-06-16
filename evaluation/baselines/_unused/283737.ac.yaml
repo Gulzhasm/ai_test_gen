@@ -1,0 +1,112 @@
+# AC-coverage baseline for story 283737
+# ACs (23) and tests (11) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '283737'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Deep Link Configuration"
+    in_scope: true
+  - id: AC2
+    text: "Android application registers the deep link callback URI: cdp-quickdraw://auth/callback"
+    in_scope: true
+  - id: AC3
+    text: "The Android system recognizes this URI and routes it to the QuickDraw application. Browser Authentication Flow"
+    in_scope: true
+  - id: AC4
+    text: "When the user initiates login, QuickDraw opens the system browser."
+    in_scope: true
+  - id: AC5
+    text: "The browser redirects the user to CDP IdentityServer for authentication. Authentication Callback Handling"
+    in_scope: true
+  - id: AC6
+    text: "After successful authentication, IdentityServer redirects the browser to the deep link: cdp-quickdraw://auth/callback"
+    in_scope: true
+  - id: AC7
+    text: "Android routes the deep link back to the QuickDraw application."
+    in_scope: true
+  - id: AC8
+    text: "QuickDraw receives the authentication response and forwards the token to the shared MAUI authentication service. Application State Handling"
+    in_scope: true
+  - id: AC9
+    text: "If the QuickDraw application is already running, the authentication response is delivered to the active application instance."
+    in_scope: true
+  - id: AC10
+    text: "If the application is not active, the system launches QuickDraw and processes the authentication response. Authentication Cancellation"
+    in_scope: true
+  - id: AC11
+    text: "If the user cancels authentication in the browser, QuickDraw returns to the unauthenticated state. Authentication Error Handling"
+    in_scope: true
+  - id: AC12
+    text: "If the authentication callback cannot be processed, the system displays the message: 'Sign-in could not be completed. Please try again.'"
+    in_scope: true
+  - id: AC13
+    text: "The user can retry the login process."
+    in_scope: true
+  - id: AC14
+    text: "Authentication tokens and sensitive authentication data must not be written to logs."
+    in_scope: true
+  - id: AC15
+    text: "Authentication responses must only be accepted from the registered deep link callback. QA Validation Scope QA should be able to validate:"
+    in_scope: true
+  - id: AC16
+    text: "Android login flow using system browser"
+    in_scope: true
+  - id: AC17
+    text: "deep link redirect from IdentityServer to the application"
+    in_scope: true
+  - id: AC18
+    text: "authentication response successfully processed by QuickDraw"
+    in_scope: true
+  - id: AC19
+    text: "application receives callback when already running"
+    in_scope: true
+  - id: AC20
+    text: "application launches and processes callback when not running"
+    in_scope: true
+  - id: AC21
+    text: "login cancellation returns user to unauthenticated state"
+    in_scope: true
+  - id: AC22
+    text: "authentication errors show retry message"
+    in_scope: true
+  - id: AC23
+    text: "tokens are not written to logs User Experience and Error Handling Browser opens automatically and is brought to foreground on app launch “Completing Sign In” dialog is displayed with loading indicator Dialog text: “A browser window has been opened to complete your sign-in” “Please complete authentication in the browser. This window will close automatically once sign-in is complete.” “Open Sign-In Page” button reopens authentication if browser was closed On success, browser shows: “Authentication Successful” “You can close this window and return to CDP SiteDraft” On failure, dialog shows: “Access Denied” “Your account does not currently have access to SiteDraft. Please contact your administrator or support.” “Access Denied” dialog includes: “Contact Support” “Sign in with a different account” No detailed error information is exposed"
+    in_scope: true
+
+test_labels:
+  - test_id: '283737-AC1'
+    title: "283737-AC1: Android Authentication Callback Handling / Successful Authentication / System Browser Login and Completing Sign In Dialog"
+    covers: []
+  - test_id: '283737-005'
+    title: "283737-005: Android Authentication Callback Handling / Authentication Cancellation / Browser Cancellation Returns User to Unauthenticated State"
+    covers: []
+  - test_id: '283737-010'
+    title: "283737-010: Android Authentication Callback Handling / Browser Recovery / Open Sign-In Page Reopens Authentication After Browser Closure"
+    covers: []
+  - test_id: '283737-015'
+    title: "283737-015: Android Authentication Callback Handling / Access Denied / Non-Authorized Account Shows Generic Access Denied Dialog"
+    covers: []
+  - test_id: '283737-020'
+    title: "283737-020: Android Authentication Callback Handling / Authentication Retry / Callback Processing Error Shows Retry Message"
+    covers: []
+  - test_id: '283737-025'
+    title: "283737-025: Android Authentication Callback Handling / Security Logging / Authentication Tokens Are Not Written to Logs"
+    covers: []
+  - test_id: '283737-035'
+    title: "283737-035: Android Authentication Callback Handling / Rapid Interaction / Repeated Open Sign-In Page Actions Do Not Break Authentication"
+    covers: []
+  - test_id: '283737-040'
+    title: "283737-040: Android Authentication Callback Handling / Dialog Layout / Authentication Dialog Remains Usable After Orientation Change"
+    covers: []
+  - test_id: '283737-045'
+    title: "283737-045: Android Authentication Callback Handling / Application Logs / Verify Login Success Is Written to Application Logs"
+    covers: []
+  - test_id: '283737-050'
+    title: "283737-050: Android Authentication Callback Handling / Application Logs / Verify Access Denied Is Written to Application Logs"
+    covers: []
+  - test_id: '283737-055'
+    title: "283737-055: Android Authentication Callback Handling / Application Logs / Verify Login Failure Is Written to Application Logs"
+    covers: []

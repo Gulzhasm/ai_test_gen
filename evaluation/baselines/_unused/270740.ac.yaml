@@ -1,0 +1,136 @@
+# AC-coverage baseline for story 270740
+# ACs (12) and tests (30) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '270740'
+
+acceptance_criteria:
+  - id: AC1
+    text: "The Layers Panel is available on the right sidebar for every open drawing."
+    in_scope: true
+  - id: AC2
+    text: "All objects on the Canvas appear as rows in the list."
+    in_scope: true
+  - id: AC3
+    text: "Each row includes:"
+    in_scope: true
+  - id: AC4
+    text: "Selection synchronization:"
+    in_scope: true
+  - id: AC5
+    text: "Hidden objects are not visible or selectable on the Canvas."
+    in_scope: true
+  - id: AC6
+    text: "Locked objects cannot be moved or edited until unlocked."
+    in_scope: true
+  - id: AC7
+    text: "Object names update immediately when renamed (validation: non-empty, max length 100)."
+    in_scope: true
+  - id: AC8
+    text: "Changing order updates the visual stacking on the Canvas (front/back) ."
+    in_scope: true
+  - id: AC9
+    text: "Deleted objects are fully removed from both Canvas and the list after confirmation."
+    in_scope: true
+  - id: AC10
+    text: "All layer states (visibility, lock, order, name) persist within the saved drawing file."
+    in_scope: true
+  - id: AC11
+    text: "Undo/Redo applies to rename, visibility, lock, order, and delete actions (limit 50)."
+    in_scope: true
+  - id: AC12
+    text: "Must comply with Section 508 / WCAG 2.1 AA (focus indicators, keyboard navigation, accessible labels)."
+    in_scope: true
+
+test_labels:
+  - test_id: '270740-AC1'
+    title: "270740-AC1: Properties Panel -Layers / Layers Panel Availability and Layout"
+    covers: []
+  - test_id: '270740-005'
+    title: "270740-005: Properties Panel -Layers / Canvas Objects Displayed as Layer Rows"
+    covers: []
+  - test_id: '270740-010'
+    title: "270740-010: Properties Panel -Layers / Layers Panel Handles Many Objects"
+    covers: []
+  - test_id: '270740-015'
+    title: "270740-015: Properties Panel -Layers / Layer Row Displays All Controls"
+    covers: []
+  - test_id: '270740-020'
+    title: "270740-020: Properties Panel -Layers / Show Layer Using Visibility Toggle"
+    covers: []
+  - test_id: '270740-025'
+    title: "270740-025: Properties Panel -Layers / Hide Layer Using Visibility Toggle"
+    covers: []
+  - test_id: '270740-030'
+    title: "270740-030: Properties Panel -Layers / Lock Layer Editing"
+    covers: []
+  - test_id: '270740-035'
+    title: "270740-035: Properties Panel -Layers / Unlock Layer Editing"
+    covers: []
+  - test_id: '270740-045'
+    title: "270740-045: Properties Panel -Layers / Rename Layer with Valid Name"
+    covers: []
+  - test_id: '270740-050'
+    title: "270740-050: Properties Panel -Layers / Rename Layer Using Maximum Length Name"
+    covers: []
+  - test_id: '270740-055'
+    title: "270740-055: Properties Panel -Layers / Prevent Rename with Empty Name"
+    covers: []
+  - test_id: '270740-060'
+    title: "270740-060: Properties Panel -Layers / Prevent Rename Exceeding Maximum Length"
+    covers: []
+  - test_id: '270740-065'
+    title: "270740-065: Properties Panel -Layers / Reorder Layers by Dragging"
+    covers: []
+  - test_id: '270740-070'
+    title: "270740-070: Properties Panel -Layers / Delete Layer with Confirmation"
+    covers: []
+  - test_id: '270740-075'
+    title: "270740-075: Properties Panel -Layers / Cancel Layer Deletion"
+    covers: []
+  - test_id: '270740-080'
+    title: "270740-080: Properties Panel -Layers / Canvas Selection Highlights Layer Row"
+    covers: []
+  - test_id: '270740-085'
+    title: "270740-085: Properties Panel -Layers / Layer Row Selection Highlights Canvas Object"
+    covers: []
+  - test_id: '270740-090'
+    title: "270740-090: Properties Panel -Layers / Hidden Layers Cannot Be Selected"
+    covers: []
+  - test_id: '270740-095'
+    title: "270740-095: Properties Panel -Layers / Locked Layers Cannot Be Moved or Resized"
+    covers: []
+  - test_id: '270740-100'
+    title: "270740-100: Properties Panel -Layers / Locked Layers Cannot Be Edited"
+    covers: []
+  - test_id: '270740-105'
+    title: "270740-105: Properties Panel -Layers / Layer States Persist After Saving"
+    covers: []
+  - test_id: '270740-110'
+    title: "270740-110: Properties Panel -Layers / Keyboard Accessibility Navigation (Windows 11)"
+    covers: []
+  - test_id: '270740-115'
+    title: "270740-115: Properties Panel -Layers / VoiceOver Navigation (iPad)"
+    covers: []
+  - test_id: '270740-120'
+    title: "270740-120: Properties Panel -Layers / TalkBack Accessibility Support (Android Tablet)"
+    covers: []
+  - test_id: '270740-125'
+    title: "270740-125: Properties Panel -Layers / Undo/Redo Rename Action"
+    covers: []
+  - test_id: '270740-130'
+    title: "270740-130: Properties Panel -Layers / Undo/Redo Visibility Toggle"
+    covers: []
+  - test_id: '270740-135'
+    title: "270740-135: Properties Panel -Layers / Undo/Redo Lock Toggle"
+    covers: []
+  - test_id: '270740-140'
+    title: "270740-140: Properties Panel -Layers / Undo/Redo Layer Reorder"
+    covers: []
+  - test_id: '270740-145'
+    title: "270740-145: Properties Panel -Layers / Undo/Redo Layer Deletion"
+    covers: []
+  - test_id: '270740-150'
+    title: "270740-150: Properties Panel -Layers / Undo History Limit (50 Actions)"
+    covers: []

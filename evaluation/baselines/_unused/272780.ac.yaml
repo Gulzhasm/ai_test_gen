@@ -1,0 +1,64 @@
+# AC-coverage baseline for story 272780
+# ACs (8) and tests (10) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '272780'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Tool is available under Dimensions → Diameter."
+    in_scope: true
+  - id: AC2
+    text: "An ellipse is selected and the user chooses Dimensions → Diameter or enables the corresponding toggle in the Properties – Design panel, the system automatically calculates the radius."
+    in_scope: true
+  - id: AC3
+    text: "The user can reposition the diameter label - This AC is cancelled - 'According to our latest (12/16/2025) discussion radius and diameter measurements cannot be manually repositioned on the canvas. Their placement is defined by geometric rules and standards, ensuring correct and unambiguous representation. Allowing free repositioning could break geometric accuracy and lead to incorrect interpretation. '"
+    in_scope: true
+  - id: AC4
+    text: "A visibility control allows the user to show or hide the diameter measurement for the selected object."
+    in_scope: true
+  - id: AC5
+    text: "Undo/Redo is supported for adding, moving, or removing the diameter measurement."
+    in_scope: true
+  - id: AC6
+    text: "If the selected object is a Circle, the system shall display one diameter"
+    in_scope: true
+  - id: AC7
+    text: "If the selected object is an Ellipse, the system shall display two diameter values:"
+    in_scope: true
+  - id: AC8
+    text: "Must comply with Section 508 / WCAG 2.1 AA (readable text, sufficient contrast, keyboard accessibility)."
+    in_scope: true
+
+test_labels:
+  - test_id: '272780-AC1'
+    title: "272780-AC1: Dimensions – Diameter / Dimensions Menu / Tool Availability"
+    covers: []
+  - test_id: '272780-005'
+    title: "272780-005: Dimensions – Diameter / Dimensions Menu / Command Functionality"
+    covers: []
+  - test_id: '272780-010'
+    title: "272780-010: Dimensions – Diameter / Dimensions Menu / Automatic Calculation"
+    covers: []
+  - test_id: '272780-015'
+    title: "272780-015: Dimensions – Diameter / Dimensions Menu / Visibility Control"
+    covers: []
+  - test_id: '272780-020'
+    title: "272780-020: Dimensions – Diameter / Dimensions Menu / Undo And Redo Actions"
+    covers: []
+  - test_id: '272780-025'
+    title: "272780-025: Dimensions – Diameter / Dimensions Menu / Edge Case - No Selection"
+    covers: []
+  - test_id: '272780-030'
+    title: "272780-030: Dimensions – Diameter / Dimensions Menu / Edge Case - Non-Ellipse Selection"
+    covers: []
+  - test_id: '272780-035'
+    title: "272780-035: Dimensions – Diameter / Accessibility / Keyboard Navigation And Labels (Windows 11)"
+    covers: []
+  - test_id: '272780-040'
+    title: "272780-040: Dimensions – Diameter / Accessibility / Accessibility Validation for Dimensions – Diameter (iPadOS)"
+    covers: []
+  - test_id: '272780-045'
+    title: "272780-045: Dimensions – Diameter / Accessibility / Accessibility Validation for Dimensions – Diameter (Android Tablet)"
+    covers: []

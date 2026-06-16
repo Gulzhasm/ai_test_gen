@@ -1,0 +1,151 @@
+# AC-coverage baseline for story 283734
+# ACs (33) and tests (14) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '283734'
+
+acceptance_criteria:
+  - id: AC1
+    text: "Authentication Service"
+    in_scope: true
+  - id: AC2
+    text: "A shared authentication service exists in the MAUI layer."
+    in_scope: true
+  - id: AC3
+    text: "The service supports:"
+    in_scope: true
+  - id: AC4
+    text: "login initiation"
+    in_scope: true
+  - id: AC5
+    text: "session evaluation on application startup"
+    in_scope: true
+  - id: AC6
+    text: "token validation"
+    in_scope: true
+  - id: AC7
+    text: "token renewal attempt Application Startup Behavior"
+    in_scope: true
+  - id: AC8
+    text: "When the application starts online with a valid token, the user enters the application without being asked to sign in again."
+    in_scope: true
+  - id: AC9
+    text: "When the application starts online without a token, the system requires the user to sign in."
+    in_scope: true
+  - id: AC10
+    text: "When sign-in is required, QuickDraw opens the system browser and redirects the user to CDP IdentityServer."
+    in_scope: true
+  - id: AC11
+    text: "When the application starts online with an expired or invalid token, the system attempts token renewal."
+    in_scope: true
+  - id: AC12
+    text: "If token renewal fails, the user must sign in again. Token Renewal"
+    in_scope: true
+  - id: AC13
+    text: "When a valid session exists and token renewal is allowed, QuickDraw attempts token renewal automatically when online."
+    in_scope: true
+  - id: AC14
+    text: "If token renewal succeeds, the user continues using the application without interruption."
+    in_scope: true
+  - id: AC15
+    text: "If token renewal fails, the system requires the user to sign in again. Offline Behavior"
+    in_scope: true
+  - id: AC16
+    text: "When the device is offline and a previously authenticated session exists, the user is allowed to continue using the application in offline mode."
+    in_scope: true
+  - id: AC17
+    text: "When the device is offline and no previous authenticated session exists, the system blocks access and displays the message: “Sign in could not be completed. Please try again.” The dialog includes a Try Again button."
+    in_scope: true
+  - id: AC18
+    text: "When the user signs out, the local authentication session and token are cleared."
+    in_scope: true
+  - id: AC19
+    text: "After logout, the user must sign in again to access the application. Logging and Security"
+    in_scope: true
+  - id: AC20
+    text: "Authentication events may be logged for diagnostic purposes, including:"
+    in_scope: true
+  - id: AC21
+    text: "login success"
+    in_scope: true
+  - id: AC22
+    text: "token renewal attempt"
+    in_scope: true
+  - id: AC23
+    text: "token renewal failure"
+    in_scope: true
+  - id: AC24
+    text: "Tokens and sensitive authentication data must not be written to logs. Platform Consistency"
+    in_scope: true
+  - id: AC25
+    text: "Authentication session logic must behave consistently across Android, iOS, and Windows through the shared MAUI layer. QA Validation Scope QA should be able to validate:"
+    in_scope: true
+  - id: AC26
+    text: "application startup with valid session"
+    in_scope: true
+  - id: AC27
+    text: "application startup with missing session"
+    in_scope: true
+  - id: AC28
+    text: "application startup with expired token"
+    in_scope: true
+  - id: AC29
+    text: "successful token renewal"
+    in_scope: true
+  - id: AC30
+    text: "failed token renewal"
+    in_scope: true
+  - id: AC31
+    text: "offline startup with previous session"
+    in_scope: true
+  - id: AC32
+    text: "offline startup without session"
+    in_scope: true
+  - id: AC33
+    text: "logout resets authentication state"
+    in_scope: true
+
+test_labels:
+  - test_id: '283734-AC1'
+    title: "283734-AC1: Shared MAUI Authentication and Session Management / Windows 11 / Startup With Valid Token Enters App Without Sign-In"
+    covers: []
+  - test_id: '283734-005'
+    title: "283734-005: Shared MAUI Authentication and Session Management / Tablets / Startup With Valid Token Enters App Without Sign-In"
+    covers: []
+  - test_id: '283734-010'
+    title: "283734-010: Shared MAUI Authentication and Session Management / Windows 11 / Startup Without Token Requires Sign-In And Opens System Browser"
+    covers: []
+  - test_id: '283734-015'
+    title: "283734-015: Shared MAUI Authentication and Session Management / Tablets / Startup Without Token Requires Sign-In And Opens System Browser"
+    covers: []
+  - test_id: '283734-020'
+    title: "283734-020: Shared MAUI Authentication and Session Management / Windows 11 / Startup With Expired Token Renews Successfully"
+    covers: []
+  - test_id: '283734-025'
+    title: "283734-025: Shared MAUI Authentication and Session Management / Tablets / Startup With Expired Token Renews Successfully"
+    covers: []
+  - test_id: '283734-040'
+    title: "283734-040: Shared MAUI Authentication and Session Management / Windows 11 / Offline Startup With Previous Session Allows Offline Mode"
+    covers: []
+  - test_id: '283734-045'
+    title: "283734-045: Shared MAUI Authentication and Session Management / Tablets / Offline Startup With Previous Session Allows Offline Mode"
+    covers: []
+  - test_id: '283734-050'
+    title: "283734-050: Shared MAUI Authentication and Session Management / Windows 11 / Offline Startup Without Previous Session Blocks Access"
+    covers: []
+  - test_id: '283734-055'
+    title: "283734-055: Shared MAUI Authentication and Session Management / Tablets / Offline Startup Without Previous Session Blocks Access"
+    covers: []
+  - test_id: '283734-060'
+    title: "283734-060: Shared MAUI Authentication and Session Management / Windows 11 / Logout Clears Local Session And Requires Sign-In On Next Access"
+    covers: []
+  - test_id: '283734-065'
+    title: "283734-065: Shared MAUI Authentication and Session Management / Tablets / Logout Clears Local Session And Requires Sign-In On Next Access"
+    covers: []
+  - test_id: '283734-070'
+    title: "283734-070: Shared MAUI Authentication and Session Management / Windows 11 / Diagnostic Logs Record Authentication Events Without Sensitive Data"
+    covers: []
+  - test_id: '283734-075'
+    title: "283734-075: Shared MAUI Authentication and Session Management / Tablets / Diagnostic Logs Record Authentication Events Without Sensitive Data"
+    covers: []

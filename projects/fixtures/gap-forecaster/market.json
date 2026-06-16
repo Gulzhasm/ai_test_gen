@@ -1,0 +1,9 @@
+{
+  "clock_et": "2026-06-16T08:45:00-04:00",
+  "clock_date": "2026-06-16",
+  "session": "PRE",
+  "session_label": "Pre-market",
+  "spy": { "symbol": "SPY", "change_pct": 0.32 },
+  "qqq": { "symbol": "QQQ", "change_pct": 0.51 },
+  "market_bias": "RISK_ON"
+}

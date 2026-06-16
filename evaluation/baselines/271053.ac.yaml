@@ -1,0 +1,97 @@
+# AC-coverage baseline for story 271053
+# ACs (10) and tests (19) seeded from Azure DevOps.
+# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
+# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+
+story_id: '271053'
+
+acceptance_criteria:
+  - id: AC1
+    text: "The application captures and records unexpected exceptions across UI and background layers (including unhandled exceptions)."
+    in_scope: true
+  - id: AC2
+    text: "For critical crashes (including UI-thread crashes where the OS terminates the app), the application cannot display a dialog at the moment of failure; instead, it persists a “last crash” report and shows a recovery dialog on the next startup."
+    in_scope: true
+  - id: AC3
+    text: "The crash recovery dialog provides two options: Continue (resume using the application), or Share with support (generate and share a diagnostic package using the system share UI)."
+    in_scope: true
+  - id: AC4
+    text: "Detailed diagnostic information is recorded locally in structured logs (JSON), including timestamp (UTC), error level, unique error code (e.g., ERR-101), exception type, message/stack trace, device context (device model, OS version, app version, and application-scoped Device ID)."
+    in_scope: true
+  - id: AC5
+    text: "Log retention policy: log files are rolled daily and automatically retained for the last 14 days."
+    in_scope: true
+  - id: AC6
+    text: "The user can manually export logs via Menu → Help → Share System Logs, which: Creates a ZIP diagnostic package containing recent logs (within the 14-day retention window), and Includes the “last crash” report file if it exists; otherwise it is omitted. Opens the system share dialog for sending the package through available channels (email, chat, etc.)."
+    in_scope: true
+  - id: AC7
+    text: "After the crash recovery dialog is shown and the user chooses to continue (or after sharing is initiated), the stored “last crash” report is cleared."
+    in_scope: true
+  - id: AC8
+    text: "The application continues running normally after non-fatal errors are logged (no forced restart)."
+    in_scope: true
+  - id: AC9
+    text: "Logs must comply with security and privacy principles:"
+    in_scope: true
+  - id: AC10
+    text: "On Windows, warnings and errors (Warning, Error, Fatal) are also written to the Windows Event Viewer under Windows Logs → Application (using an existing event source; no elevated permissions or custom event source creation is required)."
+    in_scope: true
+
+test_labels:
+  - test_id: '271053-AC1'
+    title: "271053-AC1: Error Handling / Crash Recovery / Crash Recovery Dialog Appears After Critical Crash"
+    covers: []
+  - test_id: '271053-015'
+    title: "271053-015: Error Handling – Unexpected Technical Errors & Logging / Crash Recovery / Crash Recovery Dialog Options Are Present"
+    covers: []
+  - test_id: '271053-020'
+    title: "271053-020: Error Handling – Unexpected Technical Errors & Logging / Crash Recovery / Share With Support Option Opens System Share Ui"
+    covers: []
+  - test_id: '271053-025'
+    title: "271053-025: Error Handling / Logging / Log File Contains Correct Json Structure And Metadata"
+    covers: []
+  - test_id: '271053-030'
+    title: "271053-030: Error Handling – Unexpected Technical Errors & Logging / Logging / Log Contains Device Context Information (Os Version)"
+    covers: []
+  - test_id: '271053-035'
+    title: "271053-035: Error Handling – Unexpected Technical Errors & Logging / Logging / Log Contains Device Context Information (Device Id)"
+    covers: []
+  - test_id: '271053-040'
+    title: "271053-040: Error Handling – Unexpected Technical Errors & Logging / Logging / Logs Are Rolled Daily"
+    covers: []
+  - test_id: '271053-045'
+    title: "271053-045: Error Handling – Unexpected Technical Errors & Logging / Logging / Logs Older Than 14 Days Are Purged"
+    covers: []
+  - test_id: '271053-050'
+    title: "271053-050: Error Handling – Unexpected Technical Errors & Logging / Help Menu - Hamburger Menu / Share System Logs Option Is Available"
+    covers: []
+  - test_id: '271053-055'
+    title: "271053-055: Error Handling – Unexpected Technical Errors & Logging / Help Menu - Hamburger Menu / Share System Logs Creates Zip With Recent Logs And Crash Report"
+    covers: []
+  - test_id: '271053-060'
+    title: "271053-060: Error Handling – Unexpected Technical Errors & Logging / Help Menu - Hamburger Menu / Share System Logs Creates Zip With Recent Logs Without Crash Report"
+    covers: []
+  - test_id: '271053-065'
+    title: "271053-065: Error Handling – Unexpected Technical Errors & Logging / Crash Recovery / Last Crash Report Cleared After Share"
+    covers: []
+  - test_id: '271053-070'
+    title: "271053-070: Error Handling – Unexpected Technical Errors & Logging / Non-Fatal Errors / Application Continues Running After Non-Fatal Error"
+    covers: []
+  - test_id: '271053-075'
+    title: "271053-075: Error Handling – Unexpected Technical Errors & Logging / Event Viewer / Warning Level Events Are Logged To Event Viewer (Windows 11)"
+    covers: []
+  - test_id: '271053-080'
+    title: "271053-080: Error Handling / Event Viewer / Error Level Events Logged To Event Viewer Using Existing Source (Windows 11)"
+    covers: []
+  - test_id: '271053-085'
+    title: "271053-085: Error Handling – Unexpected Technical Errors & Logging / Accessibility / Keyboard Navigation Of Crash Recovery Dialog (Windows 11)"
+    covers: []
+  - test_id: '271053-090'
+    title: "271053-090: Error Handling – Unexpected Technical Errors & Logging / Log Security / Verify No Personally Identifiable Information In Logs"
+    covers: []
+  - test_id: '271053-095'
+    title: "271053-095: Error Handling – Unexpected Technical Errors & Logging / Log Security / Verify No Sensitive System Information In Error Logs"
+    covers: []
+  - test_id: '271053-086'
+    title: "271053-086: Error Handling / Event Viewer / Fatal Level Events Logged To Event Viewer (Windows 11)"
+    covers: []
