@@ -716,24 +716,34 @@ class GenericTestGenerator:
             if entry_point == "Properties Panel" or story_type == StoryType.PROPERTIES:
                 steps.extend(self._get_object_setup_steps())
 
+        # Behavioral/automatic features (save/restore, persistence, defaults) are
+        # NOT invoked via a menu command — do not fabricate "Select the <feature>
+        # command". Ground AC1 in the primary acceptance criterion instead.
+        primary_ac = (getattr(self, '_all_criteria', None) or [ac_bullet])[0] or ac_bullet
+        if self._is_behavioral_feature(feature_name, story_data):
+            main_action = self._extract_main_action(primary_ac, feature_name)
+            steps.append({"action": main_action, "expected": ""})
+            steps.append(self._grounded_verify_step(primary_ac, feature_name))
+            objective = f"Verify that <b>{self._humanize_objective(primary_ac, feature_name)}</b>"
+            steps.append(self._get_close_step())
+            return {'id': test_id, 'title': title, 'steps': steps, 'objective': objective}
+
         # Generate steps based on entry point type
         # Unlike the old availability test, AC1 now EXECUTES the feature and VERIFIES behavior
         if entry_point == "Properties Panel":
             steps.extend([
                 {"action": f"Navigate to the {entry_point} on the right side of the screen.",
                  "expected": f"{entry_point} is displayed showing options for the selected object."},
-                {"action": f"Apply the {feature_name} setting in the {entry_point}.",
-                 "expected": f"{feature_name} is applied to the selected object."},
-                {"action": f"Verify: {feature_name} is applied to selected object(s)",
-                 "expected": f"{feature_name} is applied to selected object(s)."},
+                {"action": f"Locate and apply the {feature_name} controls in the {entry_point}.",
+                 "expected": f"The {feature_name} controls are available and take effect."},
+                self._grounded_verify_step(primary_ac, feature_name),
             ])
             objective = f"Verify that <b>{feature_name}</b> can be applied from <b>{entry_point}</b> and works correctly"
         elif 'Toolbar' in entry_point:
             steps.extend([
                 {"action": f"Click the {feature_name} icon in the {entry_point}.",
                  "expected": f"{feature_name} is activated."},
-                {"action": f"Verify: {feature_name} is applied to selected object(s)",
-                 "expected": f"{feature_name} is applied to selected object(s)."},
+                self._grounded_verify_step(primary_ac, feature_name),
             ])
             objective = f"Verify that <b>{feature_name}</b> can be activated from <b>{entry_point}</b> and works correctly"
         else:
@@ -742,8 +752,7 @@ class GenericTestGenerator:
                 {"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens displaying available commands."},
                 {"action": f"Select the {feature_name} command.",
                  "expected": f"The {feature_name} feature is activated."},
-                {"action": f"Verify: {feature_name} is applied to selected object(s)",
-                 "expected": f"{feature_name} is applied to selected object(s)."},
+                self._grounded_verify_step(primary_ac, feature_name),
             ])
             objective = f"Verify that <b>{feature_name}</b> command is accessible from <b>{entry_point}</b> and works correctly"
 
@@ -938,6 +947,11 @@ class GenericTestGenerator:
             if action_match:
                 action = action_match.group(1).capitalize()
                 steps.append({"action": f"Select '{action}'.", "expected": f"The {feature_name} dialog opens."})
+            elif re.search(r'\b(draw(?:ing)?|file|document|canvas|project)\b', ac_lower):
+                # Behavioral: a drawing/file/canvas (re)opens — this is NOT a UI
+                # command or dialog, so don't fabricate "Select the <feature> command".
+                steps.append({"action": "Open the previously saved drawing.",
+                              "expected": "The drawing opens and behaves as described in the acceptance criteria."})
             else:
                 steps.append({"action": f"Select the {feature_name} command.", "expected": f"The {feature_name} dialog opens."})
 
@@ -1530,12 +1544,21 @@ class GenericTestGenerator:
                     {"action": f"Use the Tab key to navigate through label controls in the {entry_point}.",
                      "expected": "Focus cycles through all label visibility and positioning controls."},
                 ])
+            elif self._is_behavioral_feature(feature_name, story_data):
+                # Behavioral/automatic feature has no menu command or dialog to open;
+                # verify the underlying action is operable by keyboard instead.
+                steps.extend([
+                    {"action": "Navigate the application using only the keyboard (Tab / Shift+Tab / arrow keys).",
+                     "expected": "Focus moves logically through interactive elements with a visible focus indicator."},
+                    {"action": "Trigger the feature's primary action using the keyboard (e.g. Ctrl+S to Save).",
+                     "expected": "The action completes via keyboard, consistent with the acceptance criteria."},
+                ])
             else:
                 steps.extend([
                     {"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens displaying available commands."},
-                    {"action": f"Select the {feature_name} command.", "expected": "The in-app viewer opens displaying the manual content." if story_type == StoryType.HELP_DOCUMENTATION else f"The {feature_name} dialog opens."},
-                    {"action": f"Use the Tab key to navigate through controls in the viewer.",
-                     "expected": "Focus cycles through all interactive elements within the viewer."},
+                    {"action": f"Select the {feature_name} command.", "expected": "The in-app viewer opens displaying the manual content." if story_type == StoryType.HELP_DOCUMENTATION else f"The {feature_name} feature is activated."},
+                    {"action": f"Use the Tab key to navigate through the available controls.",
+                     "expected": "Focus cycles through all interactive elements with a visible focus indicator."},
                 ])
             steps.append(self._get_close_step())
 
@@ -1815,7 +1838,54 @@ class GenericTestGenerator:
                     title = title.replace(prefix, '').strip()
                 break
 
+        # Strip trailing status brackets and parenthetical qualifiers so the
+        # feature name does not leak title noise into step text, e.g.
+        # "Full Screen Mode (OS native full screen)" -> "Full Screen Mode",
+        # "Label Repositioning [2 tests left...]" -> "Label Repositioning".
+        title = re.sub(r'\s*\[[^\]]*\]\s*$', '', title).strip()
+        title = re.sub(r'\s*\([^)]*\)\s*$', '', title).strip()
+
         return title
+
+    def _is_behavioral_feature(self, feature_name: str, story_data: Dict) -> bool:
+        """True when the feature is automatic/behavioral/state rather than an
+        explicitly invoked command, menu item, button, or toggle.
+
+        Behavioral features (save/restore state, persistence, defaults,
+        automatic behavior) must NOT be tested as "Select the <feature>
+        command" — that fabricates UI that does not exist. For these, AC1 is
+        grounded in the acceptance criteria instead of a fake menu command.
+        """
+        text = " ".join([
+            feature_name,
+            story_data.get('description', '') or "",
+            " ".join(getattr(self, '_all_criteria', []) or []),
+        ]).lower()
+
+        behavioral_signals = [
+            'persist', 'remember', 'restore', 'reopen', 're-open', 'preserve',
+            'retain', 'automatically', 'last saved', 'opens at', 'opens using',
+            'default opening', 'default behavior', 'without errors', 'across all',
+            'consistently', 'saved with', 'is saved when',
+        ]
+        command_signals = [
+            'menu', 'button', 'toolbar', 'click ', 'icon', 'toggle', 'dialog',
+            'press ', 'shortcut', ' tool ', 'command', 'select the',
+        ]
+        behavioral = sum(1 for s in behavioral_signals if s in text)
+        command = sum(1 for s in command_signals if s in text)
+        # Behavioral only when persistence/automatic signals clearly dominate.
+        return behavioral >= 2 and behavioral > command
+
+    def _grounded_verify_step(self, ac_bullet: str, feature_name: str) -> Dict[str, str]:
+        """Build a verification step grounded in the AC's observable outcome.
+
+        Replaces the hardcoded "applied to selected object(s)" assertion, which
+        is wrong for any feature that does not manipulate objects.
+        """
+        verification = self._extract_verification(ac_bullet, feature_name)
+        return {"action": f"Verify: {verification}",
+                "expected": self._format_expected_result(verification)}
 
     def _validate_and_fix_title(self, title: str, feature_name: str) -> str:
         """
