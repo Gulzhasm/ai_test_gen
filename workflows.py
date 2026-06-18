@@ -212,6 +212,9 @@ class GenerateWorkflow(IWorkflow):
                 acceptance_criteria=acceptance_criteria
             )
 
+        # Drop fabricated filler tests and duplicates regardless of source layer
+        test_cases = self._filter_irrelevant_tests(test_cases, acceptance_criteria)
+
         # Step 3: Save outputs
         print("\n[3/3] Saving outputs...")
         output_files = self._save_outputs(
@@ -285,6 +288,74 @@ class GenerateWorkflow(IWorkflow):
         except Exception as e:
             print(f"  LLM correction failed: {e}, using rule-based output")
             return test_cases
+
+    def _filter_irrelevant_tests(
+        self,
+        test_cases: List[Dict],
+        acceptance_criteria: List[str],
+    ) -> List[Dict]:
+        """Drop fabricated 'unsupported feature is absent' filler tests and exact duplicates.
+
+        The LLM-correction layer sometimes invents negative tests that verify a
+        capability is NOT present (e.g. "No Multi-Object Selection Available",
+        "No Unsupported Features Available"). These are hallucinations unless an
+        acceptance criterion actually constrains that capability. This is a
+        framework-wide net that catches such filler regardless of which layer
+        produced it, plus near-identical duplicate test cases.
+        """
+        import re as _re
+
+        ac_text = " ".join(acceptance_criteria).lower()
+
+        # Phrases that mark a test as "verify an unsupported feature is absent".
+        absence_markers = [
+            "unsupported feature", "no unsupported", "not available", "no multi-object",
+            "multi-object selection", "multi object selection", "batch", "cloud",
+            "absence of", "is not present", "are not present", "no longer available",
+        ]
+        # Concepts the AC must reference for such a test to be legitimate.
+        concept_keywords = ["multi-object", "multi object", "multi-select", "batch",
+                            "cloud", "unsupported", "not available", "only when"]
+
+        def _is_absence_filler(tc: Dict) -> bool:
+            blob = (tc.get("title", "") + " " + tc.get("objective", "")).lower()
+            steps_blob = " ".join(
+                s.get("action", "") + " " + s.get("expected", "")
+                for s in tc.get("steps", [])
+            ).lower()
+            full = blob + " " + steps_blob
+            if not any(m in full for m in absence_markers):
+                return False
+            # Legitimate only if some AC references the same concept.
+            justified = any(k in ac_text for k in concept_keywords)
+            return not justified
+
+        def _step_signature(tc: Dict) -> tuple:
+            return tuple(
+                _re.sub(r"\s+", " ", s.get("action", "").strip().lower())
+                for s in tc.get("steps", [])
+            )
+
+        kept: List[Dict] = []
+        seen_signatures = set()
+        dropped_filler = []
+        dropped_dupes = []
+        for tc in test_cases:
+            if _is_absence_filler(tc):
+                dropped_filler.append(tc.get("id", "?"))
+                continue
+            sig = _step_signature(tc)
+            if sig in seen_signatures:
+                dropped_dupes.append(tc.get("id", "?"))
+                continue
+            seen_signatures.add(sig)
+            kept.append(tc)
+
+        if dropped_filler:
+            print(f"  Filter: dropped {len(dropped_filler)} unsupported-feature filler test(s): {', '.join(dropped_filler)}")
+        if dropped_dupes:
+            print(f"  Filter: dropped {len(dropped_dupes)} duplicate test(s): {', '.join(dropped_dupes)}")
+        return kept
 
     def _apply_self_judge(
         self,
@@ -369,10 +440,28 @@ class GenerateWorkflow(IWorkflow):
                 print("  Judge: LLM provider unavailable, skipping validation")
                 return test_cases
 
+            # Fixes are applied by the CORRECTOR LLM (the one that authored the
+            # content), not the judge — this keeps evaluate/fix on different models
+            # so the judge re-validates fixes it didn't write. Falls back to the
+            # judge LLM if the corrector provider can't be created.
+            fixer_provider = None
+            correction_provider_type = getattr(config, 'llm_provider', None) or os.getenv("LLM_PROVIDER", "openai")
+            try:
+                corrector_api_key = EnvironmentConfig.get_llm_api_key(correction_provider_type)
+                if corrector_api_key and corrector_api_key != "your-api-key-here":
+                    fixer_provider = create_llm_provider(
+                        provider_type=correction_provider_type,
+                        model=config.llm_model,
+                        api_key=corrector_api_key,
+                    )
+            except Exception as e:
+                print(f"  Judge: corrector fixer unavailable ({e}), judge LLM will fix")
+
             judge = LLMJudge(
                 llm_provider=judge_provider,
                 max_rounds=config.judge_max_rounds,
                 auto_fix=config.judge_auto_fix,
+                fixer_provider=fixer_provider,
             )
 
             print(f"\n  Judge: Validating {len(test_cases)} test cases with {config.judge_provider}/{config.judge_model}")

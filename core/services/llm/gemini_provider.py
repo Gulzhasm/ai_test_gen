@@ -207,6 +207,8 @@ class GeminiProvider:
             system_instruction=system_prompt or "",
             temperature=temperature,
             max_output_tokens=max_tokens,
+            # Disable thinking so it doesn't eat the output-token budget (see generate_json).
+            thinking_config=genai.types.ThinkingConfig(thinking_budget=0),
         )
 
         # Try primary model with retries
@@ -285,6 +287,10 @@ class GeminiProvider:
             temperature=temperature,
             max_output_tokens=max_tokens,
             response_mime_type="application/json",
+            # Disable "thinking" for structured JSON: on gemini-2.5 models thinking
+            # consumes the output-token budget (e.g. ~3.9k/4k), truncating the JSON
+            # and yielding an empty/invalid response. JSON judging needs no thinking.
+            thinking_config=genai.types.ThinkingConfig(thinking_budget=0),
         )
 
         models_to_try = [self._model] + self._fallback_models

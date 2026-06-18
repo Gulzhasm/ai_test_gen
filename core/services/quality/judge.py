@@ -43,8 +43,14 @@ class LLMJudge(IJudge):
         llm_provider: ILLMProvider,
         max_rounds: int = 2,
         auto_fix: bool = True,
+        fixer_provider: Optional[ILLMProvider] = None,
     ):
+        # Cross-validation: the judge LLM evaluates; a SEPARATE LLM (the corrector,
+        # which authored the content) applies fixes. Keeping evaluate and fix on
+        # different models preserves independence — the judge never grades its own
+        # fix. Falls back to the judge LLM only if no fixer is provided.
         self.llm = llm_provider
+        self.fixer = fixer_provider or llm_provider
         self.max_rounds = max_rounds
         self.auto_fix = auto_fix
 
@@ -115,7 +121,7 @@ class LLMJudge(IJudge):
         )
 
         try:
-            response = self.llm.generate_json(
+            response = self.fixer.generate_json(
                 prompt=prompt,
                 system_prompt=JUDGE_FIX_SYSTEM_PROMPT,
                 temperature=0.1,
@@ -159,9 +165,12 @@ class LLMJudge(IJudge):
                 verdict.corrected_test_cases = current_tests
                 return verdict
 
-            # Fix if auto_fix enabled and not the last round
-            if self.auto_fix and round_num < self.max_rounds:
-                print(f"  Judge: Fixing {len(verdict.issues)} issues...")
+            # Apply fixes whenever auto_fix is on and issues remain. Fixing on the
+            # final round still improves the saved output; fixing on earlier rounds
+            # gets independently re-validated by the next round's evaluate().
+            if self.auto_fix:
+                fixer_name = "corrector" if self.fixer is not self.llm else "judge"
+                print(f"  Judge: Fixing {len(verdict.issues)} issues via {fixer_name} LLM...")
                 current_tests = self.fix_issues(
                     current_tests, verdict, story_data, acceptance_criteria, app_config
                 )
