@@ -62,6 +62,12 @@ def load_project_config(project_id: str) -> ProjectConfig:
     if config_path.exists():
         return ProjectConfig.load_from_yaml(str(config_path))
     elif project_id == "env-quickdraw":
+        print(
+            f"WARNING: project '{project_id}' resolved from built-in defaults — "
+            f"no YAML found at projects/configs/{project_id}.yaml; "
+            f"built-ins may be stale. Create the YAML to silence this.",
+            file=sys.stderr
+        )
         return get_env_quickdraw_config()
     else:
         raise ValueError(f"Project config not found: {project_id}")
@@ -186,7 +192,9 @@ def _apply_llm_correction(
             provider_type=provider_type,
         )
 
-        embedder = TestStepEmbedder()
+        embedder = TestStepEmbedder(
+            collection_name=f"test_steps_{config.project_id}"
+        )
         reference_steps = embedder.get_reference_steps(title, n_results=10)
         if reference_steps:
             print(f"  Found {len(reference_steps)} reference steps for correction")
@@ -851,7 +859,7 @@ if MCP_AVAILABLE:
             ),
             Tool(
                 name="create_bug",
-                description="WORKFLOW 4: Create a formatted bug report from a structured .txt file. Formats to ENV Drawing Bug Template and optionally uploads to ADO.",
+                description="WORKFLOW 4: Create a formatted bug report from a structured .txt file. Formats to the configured project's bug report template and optionally uploads to ADO.",
                 inputSchema={
                     "type": "object",
                     "properties": {

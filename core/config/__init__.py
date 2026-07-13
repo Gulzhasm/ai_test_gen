@@ -42,10 +42,12 @@ class ADOConfig:
     @classmethod
     def from_env(cls) -> 'ADOConfig':
         """Create config from environment variables."""
-        org = os.getenv("ADO_ORG", "cdpinc")
-        project = os.getenv("ADO_PROJECT", "Env")
+        # No silent client-specific defaults: empty means "not configured".
+        org = os.getenv("ADO_ORG", "")
+        project = os.getenv("ADO_PROJECT", "")
         pat = os.getenv("ADO_PAT")
-        area_path = os.getenv("ADO_AREA_PATH", "Env\\ENV Kanda")
+        # No silent project-specific default: empty means "not configured".
+        area_path = os.getenv("ADO_AREA_PATH", "")
         base_url = f"https://dev.azure.com/{org}/{project}"
         return cls(org=org, project=project, pat=pat, area_path=area_path, base_url=base_url)
 
@@ -64,7 +66,7 @@ class TestCaseConfig:
     def default(cls) -> 'TestCaseConfig':
         """Create default test case configuration."""
         return cls(
-            assigned_to=os.getenv("TEST_ASSIGNED_TO", "Gulzhas Mailybayeva <gulzhas.mailybayeva@kandasoft.com>"),
+            assigned_to=os.getenv("TEST_ASSIGNED_TO", ""),
             default_state=os.getenv("TEST_DEFAULT_STATE", "Design"),
             forbidden_words=[
                 'or / OR', 'if available', 'if supported', 'ambiguous'
@@ -72,10 +74,10 @@ class TestCaseConfig:
             forbidden_area_terms=[
                 'Functionality', 'Accessibility', 'Behavior', 'Validation', 'General', 'System'
             ],
+            # Generic placeholders only — project-specific UI surfaces must come
+            # from the project YAML config (rules.allowed_areas).
             allowed_areas=[
-                'File Menu', 'Edit Menu', 'Tools Menu', 'Properties Panel',
-                'Dimensions Panel', 'Canvas', 'Dialog Window', 'Modal Window',
-                'Top Action Toolbar'
+                'Main Menu', 'Toolbar', 'Dialog Window'
             ],
             objective_key_terms=[]  # Will be populated dynamically based on feature
         )

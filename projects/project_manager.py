@@ -22,6 +22,9 @@ class ProjectManager:
     def __init__(self):
         self._projects: Dict[str, ProjectConfig] = {}
         self._active_project_id: Optional[str] = None
+        # Project IDs whose config came from hardcoded Python built-ins
+        # (not from a YAML file in projects/configs/).
+        self._builtin_ids: set = set()
 
         # Ensure configs directory exists
         self.CONFIGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -31,9 +34,30 @@ class ProjectManager:
 
     def _load_builtin_configs(self):
         """Load built-in project configurations."""
-        # ENV QuickDraw is the original project
+        # Original project kept as a built-in fallback only.
         env_config = get_env_quickdraw_config()
         self._projects[env_config.project_id] = env_config
+        self._builtin_ids.add(env_config.project_id)
+
+    def _warn_if_builtin_shadow(self, config: Optional[ProjectConfig]) -> None:
+        """Warn loudly when a config resolves from built-in Python defaults
+        and no corresponding YAML file exists in projects/configs/.
+
+        Built-ins silently shadowing a missing YAML has hidden accidental
+        YAML deletions in the past; this makes that state visible.
+        """
+        if config is None:
+            return
+        project_id = config.project_id
+        if project_id not in self._builtin_ids:
+            return
+        yaml_path = self.CONFIGS_DIR / f"{project_id}.yaml"
+        if not yaml_path.exists():
+            print(
+                f"WARNING: project '{project_id}' resolved from built-in defaults — "
+                f"no YAML found at projects/configs/{project_id}.yaml; "
+                f"built-ins may be stale. Create the YAML to silence this."
+            )
 
     def load_from_directory(self, directory: str = None) -> int:
         """
@@ -55,6 +79,7 @@ class ProjectManager:
             try:
                 config = ProjectConfig.load_from_yaml(str(yaml_file))
                 self._projects[config.project_id] = config
+                self._builtin_ids.discard(config.project_id)
                 loaded += 1
                 print(f"  Loaded project config: {config.project_id}")
             except Exception as e:
@@ -74,11 +99,14 @@ class ProjectManager:
         """
         config = ProjectConfig.load_from_yaml(yaml_path)
         self._projects[config.project_id] = config
+        self._builtin_ids.discard(config.project_id)
         return config
 
     def get_project(self, project_id: str) -> Optional[ProjectConfig]:
         """Get a project configuration by ID."""
-        return self._projects.get(project_id)
+        config = self._projects.get(project_id)
+        self._warn_if_builtin_shadow(config)
+        return config
 
     def set_active_project(self, project_id: str) -> bool:
         """
@@ -99,11 +127,15 @@ class ProjectManager:
     def active_project(self) -> Optional[ProjectConfig]:
         """Get the currently active project configuration."""
         if self._active_project_id:
-            return self._projects.get(self._active_project_id)
+            config = self._projects.get(self._active_project_id)
+            self._warn_if_builtin_shadow(config)
+            return config
         # Default to first project if none active
         if self._projects:
             first_id = next(iter(self._projects))
-            return self._projects[first_id]
+            config = self._projects[first_id]
+            self._warn_if_builtin_shadow(config)
+            return config
         return None
 
     def list_projects(self) -> List[str]:
@@ -113,6 +145,7 @@ class ProjectManager:
     def register_project(self, config: ProjectConfig) -> None:
         """Register a new project configuration."""
         self._projects[config.project_id] = config
+        self._builtin_ids.discard(config.project_id)
 
     def save_project(self, project_id: str, path: str = None) -> str:
         """

@@ -15,7 +15,7 @@ from core.domain.models import SummaryPlan, UserStory, TestCase, TestStep
 # This is Markdown that renders in ADO description fields with bold, bullets, and sub-bullets.
 QA_SUMMARY_TEMPLATE = """**QA Planning Summary for this Work Item**
 
-This work item introduces the Basic Shape Tools—Line, Rectangle, and Circle—into ENV QuickDraw across iPadOS, Android tablets, and **Windows 11**. These tools are core drafting features used to create fundamental geometric shapes with CAD-like precision.
+This work item introduces the Basic Shape Tools—Line, Rectangle, and Circle—into the application across iPadOS, Android tablets, and **Windows 11**. These tools are core drafting features used to create fundamental geometric shapes with CAD-like precision.
 
 Testing will validate tool availability, user interactions, drawing behaviors, editing capabilities, and accessibility compliance. Shape creation must behave consistently across all platforms and input methods, including **mouse** (Windows 11) and **touch/stylus** (iPadOS/Android), with UI responsiveness and coordinate accuracy verified under each.
 
@@ -53,15 +53,16 @@ class QASummaryGenerator:
         'as expected'
     ]
 
-    # Valid UI surfaces (only mention if in evidence)
+    # Valid UI surfaces (only mention if in evidence).
+    # Generic placeholders only — pass the project's real surfaces via the
+    # `ui_surfaces` constructor arg (e.g. config.rules.allowed_areas).
     VALID_UI_SURFACES = [
-        'File Menu', 'Edit Menu', 'Tools Menu', 'Help Menu',
-        'Properties Panel', 'Dimensions Panel', 'Canvas',
-        'Dialog Window', 'Modal Window', 'Top Action Toolbar'
+        'Main Menu', 'Toolbar', 'Dialog Window', 'Modal Window'
     ]
 
     def __init__(self, api_key: str = None, model: str = "gpt-4o-mini", debug: bool = False,
-                 provider_type: str = None):
+                 provider_type: str = None, ui_surfaces: Optional[List[str]] = None,
+                 app_name: str = None, platforms: Optional[List[str]] = None):
         """Initialize generator.
 
         Args:
@@ -69,12 +70,21 @@ class QASummaryGenerator:
             model: LLM model to use for summary generation.
             debug: Enable debug mode to print extraction details.
             provider_type: LLM provider type (openai, gemini, anthropic, ollama).
+            ui_surfaces: Project-specific UI surface names (e.g. from
+                config.rules.allowed_areas). Falls back to generic placeholders.
+            app_name: Application name from project config; "the application"
+                when not provided.
+            platforms: Supported platforms from project config; used to scope
+                the summary to what QA actually covers.
         """
         self._provider_type = (provider_type or os.getenv("LLM_PROVIDER", "openai")).lower()
         self.model = model
         self.debug = debug
         self._provider = None
         self._api_key = api_key
+        self.valid_ui_surfaces = list(ui_surfaces) if ui_surfaces else list(self.VALID_UI_SURFACES)
+        self.app_name = app_name or "the application"
+        self.platforms = list(platforms) if platforms else []
 
     @property
     def provider(self):
@@ -183,6 +193,15 @@ class QASummaryGenerator:
             tc_summary.append(f"- {tc_title}")
         tc_block = '\n'.join(tc_summary)
 
+        # Scope platform mentions to what the project actually covers
+        if self.platforms:
+            platform_rule = (
+                f"Only mention platforms the project tests on: "
+                f"{', '.join(self.platforms)}. Do NOT mention any other platform."
+            )
+        else:
+            platform_rule = "Do NOT name specific platforms unless the story or acceptance criteria mention them."
+
         prompt = f"""Write a QA Planning Summary for the following user story. The output MUST be valid Markdown that renders correctly in Azure DevOps description fields.
 
 Follow the EXACT Markdown format, font styling, bullet structure, and tone of this reference template:
@@ -205,7 +224,9 @@ FORMATTING RULES (CRITICAL — match the reference template exactly):
 12. Do NOT invent features or behaviors not in the story description or acceptance criteria.
 13. Do NOT add "=====" or any decorative separators.
 14. Do NOT use `#` heading syntax. Use **bold** for headers instead.
-15. Do NOT mention macOS. The application is tested on Windows 11, iPad, and Android Tablet ONLY.
+15. {platform_rule}
+
+APPLICATION UNDER TEST: {self.app_name}
 
 USER STORY:
 Title: {title}
@@ -545,7 +566,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
         entry_points = []
         
         # Check each valid UI surface - must be exact match in evidence
-        for surface in self.VALID_UI_SURFACES:
+        for surface in self.valid_ui_surfaces:
             surface_lower = surface.lower()
             # Check exact match in evidence (word boundary)
             pattern = r'\b' + re.escape(surface_lower) + r'\b'
@@ -564,13 +585,9 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
 
     def _build_intro_second_sentence(self, capability_desc: str, evidence_text: str) -> str:
         """Build a context-appropriate second sentence for the intro paragraph."""
-        evidence_lower = evidence_text.lower() if evidence_text else ''
-
         # Toggle/visibility features
         if 'toggling' in capability_desc or 'visibility' in capability_desc:
-            if 'canvas' in evidence_lower:
-                return "The feature allows users to customize their workspace by controlling which visual helpers are displayed on the Canvas."
-            return "The feature allows users to customize their workspace by controlling element visibility."
+            return "The feature allows users to customize their workspace by controlling which visual helpers are displayed."
 
         # Tool/manipulation features
         if any(word in capability_desc for word in ['rotating', 'moving', 'flipping', 'mirroring', 'manipulating']):
@@ -633,17 +650,17 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
                 # Per-element toggle behavior
                 for elem in toggle_elements:
                     professional_bullets.append(
-                        f"Correct toggle behavior for {elem}, confirming that the option enables or disables the corresponding element on the Canvas"
+                        f"Correct toggle behavior for {elem}, confirming that the option enables or disables the corresponding element in the workspace"
                     )
 
                 # Enabled state rendering
                 professional_bullets.append(
-                    "Accurate rendering of each visual element on the Canvas when its corresponding option is enabled"
+                    "Accurate rendering of each visual element in the workspace when its corresponding option is enabled"
                 )
 
                 # Disabled state removal
                 professional_bullets.append(
-                    "Complete removal of each visual element from the Canvas when its corresponding option is disabled"
+                    "Complete removal of each visual element from the workspace when its corresponding option is disabled"
                 )
 
                 # Independent operation
@@ -1347,7 +1364,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
             errors.append("Contains 'implements Description' phrase")
         
         # Check for invented UI surfaces
-        for surface in self.VALID_UI_SURFACES:
+        for surface in self.valid_ui_surfaces:
             surface_lower = surface.lower()
             if surface_lower in summary_lower:
                 # Check if it's in evidence (word boundary match)

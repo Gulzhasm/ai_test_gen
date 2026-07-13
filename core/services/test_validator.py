@@ -9,6 +9,8 @@ from typing import Dict, List, Tuple, Optional, Protocol
 from dataclasses import dataclass
 from enum import Enum
 
+from core.services.test_rules import ACCESSIBILITY_TOOL_NAMES
+
 
 class ValidationSeverity(Enum):
     """Severity levels for validation errors."""
@@ -56,18 +58,17 @@ class TestCaseValidator:
         'no issues found',
     ]
 
-    # Default setup step patterns (actions that should have blank expected)
+    # Default setup step patterns (actions that should have blank expected).
+    # Generic on purpose — project-specific patterns come via config.
     DEFAULT_SETUP_PATTERNS = [
-        'pre-req:',
+        'pre-req',
         'launch',
         'close/exit',
-        'draw a shape',
-        'select the shape',
-        'open properties panel',
-        'open dimensions panel',
-        'select another drawing tool',
-        'hold shift key',
-        'click and drag',
+        'open',
+        'select',
+        'navigate to',
+        'click',
+        'hold',
     ]
 
     def __init__(
@@ -81,12 +82,15 @@ class TestCaseValidator:
 
         Args:
             config: Validation configuration object
-            prereq_pattern: Pattern for prerequisite step (e.g., "PRE-REQ: App is installed")
-            close_pattern: Pattern for close step (e.g., "Close the application")
+            prereq_pattern: Substring identifying the prerequisite step (e.g., "PRE-REQ")
+            close_pattern: Substring identifying the close step (e.g., "Close")
         """
         self._config = config
-        self._prereq_pattern = prereq_pattern or (config.prereq_pattern if config else "PRE-REQ:")
+        self._prereq_pattern = prereq_pattern or (config.prereq_pattern if config else "Pre-req")
         self._close_pattern = close_pattern or (config.close_pattern if config else "Close")
+        self._setup_patterns = list(
+            getattr(config, 'setup_patterns', None) or self.DEFAULT_SETUP_PATTERNS
+        )
 
     @property
     def forbidden_words(self) -> List[str]:
@@ -223,9 +227,8 @@ class TestCaseValidator:
 
             # Check for accessibility tool prerequisite
             has_tool_prereq = any(
-                'pre-req:' in step.get('action', '').lower() and
-                any(tool in step.get('action', '') for tool in
-                    ['Accessibility Insights', 'VoiceOver', 'Accessibility Scanner', 'TalkBack'])
+                self._prereq_pattern.lower() in step.get('action', '').lower() and
+                any(tool in step.get('action', '') for tool in ACCESSIBILITY_TOOL_NAMES)
                 for step in tc.get('steps', [])
             )
             if not has_tool_prereq:
@@ -240,20 +243,23 @@ class TestCaseValidator:
             has_object_ops = any(
                 keyword in step.get('action', '').lower()
                 for step in tc.get('steps', [])
-                for keyword in ['draw', 'shape', 'object', 'select the', 'modify', 'rotate', 'move', 'transform']
+                for keyword in ['object', 'select the', 'modify', 'rotate', 'move', 'transform']
             )
 
             if has_object_ops:
-                has_draw = any('draw a shape' in step.get('action', '').lower() for step in tc.get('steps', []))
-                has_select = any(
-                    'select' in step.get('action', '').lower() and
-                    any(w in step.get('action', '').lower() for w in ['shape', 'object', 'drawn'])
+                has_setup = any(
+                    any(w in step.get('action', '').lower() for w in ['create', 'add', 'open', 'draw'])
                     for step in tc.get('steps', [])
                 )
-                if not has_draw:
-                    errors.append(f"{tc_id}: Missing 'Draw a shape' step for object interaction")
+                has_select = any(
+                    'select' in step.get('action', '').lower() and
+                    any(w in step.get('action', '').lower() for w in ['object', 'record', 'item', 'drawn', 'created'])
+                    for step in tc.get('steps', [])
+                )
+                if not has_setup:
+                    errors.append(f"{tc_id}: Missing object setup step for object interaction")
                 if not has_select:
-                    errors.append(f"{tc_id}: Missing 'Select the shape' step for object interaction")
+                    errors.append(f"{tc_id}: Missing object selection step for object interaction")
 
         return errors
 
@@ -306,7 +312,7 @@ class TestCaseValidator:
 
     def _is_setup_step(self, action: str) -> bool:
         """Determine if action is a setup step."""
-        return any(pattern in action for pattern in self.DEFAULT_SETUP_PATTERNS)
+        return any(pattern in action for pattern in self._setup_patterns)
 
     def _get_warnings(self, tc: Dict) -> List[str]:
         """Get non-critical warnings for a test case."""

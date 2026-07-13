@@ -47,8 +47,9 @@ class EnvironmentConfig:
     # Gemini Configuration
     GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY")
 
-    # Default Project (for backward compatibility)
-    DEFAULT_PROJECT: str = os.getenv("DEFAULT_PROJECT", "env-quickdraw")
+    # Default Project (for backward compatibility).
+    # Empty means "not configured" — set DEFAULT_PROJECT in .env to select one.
+    DEFAULT_PROJECT: str = os.getenv("DEFAULT_PROJECT", "")
 
     @classmethod
     def validate(cls) -> bool:

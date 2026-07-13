@@ -41,6 +41,20 @@ class IApplicationConfig(Protocol):
     def requires_object_interaction(self, text: str) -> bool: ...
 
 
+# Generic platform -> accessibility tooling map. These are industry-standard
+# assistive technologies per platform (domain knowledge, not project-specific).
+PLATFORM_ACCESSIBILITY_TOOLS = {
+    "Windows 11": ("Accessibility Insights for Windows", "keyboard and mouse", True),
+    "iPad": ("VoiceOver", "touch", False),
+    "Android Tablet": ("Accessibility Scanner and TalkBack", "touch", False),
+}
+
+# Individual tool names, for detecting accessibility-tool mentions in step text.
+ACCESSIBILITY_TOOL_NAMES = [
+    "Accessibility Insights", "VoiceOver", "Accessibility Scanner", "TalkBack"
+]
+
+
 class TestRules:
     """Centralized rules for test generation with configurable templates."""
 
@@ -119,7 +133,7 @@ class TestRules:
         """Get prerequisite step template."""
         if self._app_config:
             return self._app_config.prereq_template
-        return "Pre-req: Application is installed"
+        return "Pre-req: The application is set up and accessible"
 
     @property
     def launch_template(self) -> str:
@@ -155,11 +169,18 @@ class TestRules:
         return {"action": self.close_template, "expected": ""}
 
     def get_object_setup_steps(self) -> List[Dict[str, str]]:
-        """Return standard object setup steps."""
+        """Return object setup steps (config-driven when available)."""
+        if self._app_config is not None:
+            getter = getattr(self._app_config, 'get_object_setup_steps', None)
+            if callable(getter):
+                steps = getter()
+                if steps:
+                    return [
+                        {"action": s.get("action", ""), "expected": s.get("expected", "")}
+                        for s in steps
+                    ]
         return [
-            {"action": "Create a new drawing.", "expected": ""},
-            {"action": "Draw a shape (e.g., arrow, circle, triangle, rectangle) on the Canvas.", "expected": ""},
-            {"action": "Select the drawn object.", "expected": ""}
+            {"action": "Create or open the object/record required for this test.", "expected": ""}
         ]
 
     def get_undo_redo_steps(
@@ -253,9 +274,17 @@ class TestRules:
             True if this is a routine step that doesn't need expected result
         """
         routine_keywords = [
-            'launch', 'open', 'create a new drawing', 'draw a shape', 'select the',
+            'launch', 'open', 'create a new', 'select the',
             'enable', 'disable', 'activate', 'trigger', 'close', 'navigate to', 'click'
         ]
+        # Project-specific object-setup actions are also routine steps.
+        if self._app_config is not None:
+            getter = getattr(self._app_config, 'get_object_setup_steps', None)
+            if callable(getter):
+                routine_keywords.extend(
+                    s.get('action', '').strip().lower()
+                    for s in getter() if s.get('action', '').strip()
+                )
         action_lower = action.lower()
         return any(kw in action_lower for kw in routine_keywords) and 'verify' not in action_lower
 
@@ -280,12 +309,7 @@ class TestRules:
         Returns:
             Tuple of (tool_name, interaction_model, requires_keyboard)
         """
-        device_tools = {
-            "Windows 11": ("Accessibility Insights for Windows", "keyboard and mouse", True),
-            "iPad": ("VoiceOver", "touch", False),
-            "Android Tablet": ("Accessibility Scanner and TalkBack", "touch", False),
-        }
-        return device_tools.get(device, ("assistive technologies", "mixed", True))
+        return PLATFORM_ACCESSIBILITY_TOOLS.get(device, ("assistive technologies", "mixed", True))
 
     def extract_feature_name(self, story_title: str) -> str:
         """Extract the core feature name from story title."""

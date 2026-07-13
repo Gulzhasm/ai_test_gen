@@ -52,6 +52,11 @@ class ApplicationConfig:
     create_file_step: str = "Create a new file/document."
     create_file_expected: str = "A new blank file is created."
 
+    # Object setup steps — injected before object-interaction tests so a
+    # workable record/object exists. Domain-specific: a drawing app draws a
+    # shape, a records system opens a record. List of {action, expected}.
+    object_setup_steps: List[Dict[str, str]] = field(default_factory=list)
+
     close_step: str = "Close the {app_name}."
 
     # Feature constraints - CRITICAL for accurate test generation
@@ -115,6 +120,21 @@ class ApplicationConfig:
     def get_launch_step(self) -> str:
         """Get formatted launch step for this application."""
         return self.launch_step.format(app_name=self.name)
+
+    def get_object_setup_steps(self) -> List[Dict[str, str]]:
+        """Get object setup steps ({action, expected} dicts) for this application.
+
+        Falls back to the create-file step when no explicit setup steps are
+        configured, so every project gets a sensible domain-appropriate default.
+        """
+        if self.object_setup_steps:
+            return [
+                {"action": s.get("action", ""), "expected": s.get("expected", "")}
+                for s in self.object_setup_steps
+            ]
+        return [
+            {"action": self.create_file_step, "expected": self.create_file_expected},
+        ]
 
     def get_create_file_step(self) -> str:
         """Get the create file/drawing step for this application."""
@@ -482,6 +502,7 @@ class ProjectConfig:
             # Create file step - menus require a file/drawing to be open first
             create_file_step=app_data.get('create_file_step', 'Create a new file/document.'),
             create_file_expected=app_data.get('create_file_expected', 'A new blank file is created.'),
+            object_setup_steps=app_data.get('object_setup_steps', []),
             close_step=app_data.get('close_step', 'Close the {app_name}.'),
             main_ui_surfaces=app_data.get('ui_surfaces', []),
             entry_point_mappings=app_data.get('entry_point_mappings', {}),
@@ -661,6 +682,7 @@ class ProjectConfig:
                 'prereq_template': self.application.prereq_template,
                 'launch_step': self.application.launch_step,
                 'launch_expected': self.application.launch_expected,
+                'object_setup_steps': self.application.object_setup_steps,
                 'close_step': self.application.close_step,
                 'ui_surfaces': self.application.main_ui_surfaces,
                 'entry_point_mappings': self.application.entry_point_mappings,
@@ -757,6 +779,12 @@ def get_env_quickdraw_config() -> ProjectConfig:
             prereq_template="Pre-req: The {app_name} App is installed",
             launch_step="Launch the {app_name} application.",
             launch_expected="Model space(Gray) and Canvas(white) space should be displayed",
+            object_setup_steps=[
+                {"action": "Draw an object/shape on the canvas (e.g., circle, rectangle, or any measurable shape).",
+                 "expected": "Object is created and displayed on the canvas."},
+                {"action": "Select the created object.",
+                 "expected": "Object is selected and selection handles are visible."},
+            ],
             close_step="Close the {app_name} App",
             # FEATURE CONSTRAINTS - Critical for accurate test generation
             unavailable_features=[

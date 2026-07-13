@@ -268,7 +268,9 @@ class GenerateWorkflow(IWorkflow):
                 provider_type=provider_type
             )
 
-            embedder = TestStepEmbedder()
+            embedder = TestStepEmbedder(
+                collection_name=f"test_steps_{config.project_id}"
+            )
             reference_steps = embedder.get_reference_steps(title, n_results=10)
             if reference_steps:
                 print(f"  Found {len(reference_steps)} reference steps for correction")
@@ -555,7 +557,10 @@ class GenerateWorkflow(IWorkflow):
             summary_generator = QASummaryGenerator(
                 api_key=llm_api_key,
                 model=config.llm_model if hasattr(config, 'llm_model') else "gpt-4o-mini",
-                provider_type=llm_provider
+                provider_type=llm_provider,
+                ui_surfaces=config.rules.allowed_areas,
+                app_name=config.application.name,
+                platforms=config.application.supported_platforms
             )
             summary_text = summary_generator.generate_summary(story_data, test_cases)
             summary_path = summary_generator.save_summary(

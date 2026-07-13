@@ -49,9 +49,9 @@ Current step (needs improvement):
 - Expected: {expected}
 
 Write a better version that:
-1. Uses specific UI element names (Edit Menu, Properties Panel, Canvas, etc.)
-2. Describes the exact user action ("Select Rotate from the Edit Menu")
-3. States what the tester will observe ("Object rotates 90° clockwise, rotation handles appear")
+1. Uses specific UI element names ({ui_surface_examples})
+2. Describes the exact user action ("Select 'CommandName' from the 'MenuName' menu")
+3. States what the tester will observe ("The dialog closes and the updated value appears in the list")
 
 Return JSON only: {{"action": "improved action text", "expected": "improved expected result"}}"""
 
@@ -66,10 +66,10 @@ Title requirements:
 - Action-oriented (what is being verified)
 - Specific to this AC, not generic
 - Examples of good titles:
-  - "Rotate rotates selected objects 90°"
-  - "Mirror flips object horizontally"
+  - "Save stores the current changes"
+  - "Delete removes the selected item"
   - "Commands disabled without selection"
-  - "Touch gestures apply transformation"
+  - "Search returns matching results"
 
 Return ONLY the title text, no quotes or explanation."""
 
@@ -77,7 +77,8 @@ Return ONLY the title text, no quotes or explanation."""
         self,
         llm_provider: ILLMProvider,
         cache_manager: Optional[Any] = None,
-        quality_threshold: float = 0.6
+        quality_threshold: float = 0.6,
+        ui_surfaces: Optional[List[str]] = None
     ):
         """
         Initialize test corrector.
@@ -86,10 +87,13 @@ Return ONLY the title text, no quotes or explanation."""
             llm_provider: LLM provider for generating corrections
             cache_manager: Optional cache manager for deterministic results
             quality_threshold: Minimum quality score (0-1) to skip correction
+            ui_surfaces: Optional valid UI surface names from the project config,
+                used as examples in enhancement prompts
         """
         self.llm = llm_provider
         self.cache = cache_manager
         self.quality_threshold = quality_threshold
+        self.ui_surfaces = ui_surfaces or []
 
     def correct_test_case(
         self,
@@ -179,7 +183,13 @@ Return ONLY the title text, no quotes or explanation."""
             if cached:
                 return cached
 
+        ui_surface_examples = (
+            ", ".join(self.ui_surfaces)
+            if self.ui_surfaces
+            else "menus, panels, dialogs, buttons, fields — as named in the application"
+        )
         prompt = self.STEP_ENHANCEMENT_PROMPT.format(
+            ui_surface_examples=ui_surface_examples,
             feature_name=feature_name,
             context=step_context or "General test step",
             action=action,

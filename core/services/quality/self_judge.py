@@ -68,8 +68,8 @@ toggling it should HIDE it first, not show it again).
    Descriptive "or" in expected results (e.g., "no errors or warnings") is fine.
 
 8. UNNECESSARY SETUP STEPS (Minor)
-   If a test does NOT interact with canvas objects, it should NOT include \
-"Draw a circle" / "Select the object" steps.  Flag bloated setup.
+   If a test does NOT interact with application objects, it should NOT include \
+object-creation / object-selection setup steps.  Flag bloated setup.
 
 IMPORTANT:
 - Be AGGRESSIVE about removing hallucinated/out-of-scope tests. It is better to have \
@@ -91,7 +91,7 @@ do NOT include that test case in the output at all.  This is the most important 
 - For missing AC coverage: add steps to an existing test case, do NOT create new tests.
 - Fix logic-flow errors (correct toggle order).
 - Remove forbidden language by splitting ambiguous actions into separate steps.
-- Remove unnecessary setup steps (draw/select object) from tests that don't need them.
+- Remove unnecessary setup steps (object creation/selection) from tests that don't need them.
 - Preserve test case IDs for tests you keep.
 - Return ONLY valid JSON matching the schema.
 - The output "test_cases" array must contain ONLY the tests that should survive. \

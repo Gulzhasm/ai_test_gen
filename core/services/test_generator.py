@@ -28,9 +28,9 @@ from core.services.embeddings.test_step_embedder import TestStepEmbedder
 class DescriptionContext:
     """Parsed context from story description."""
     menu_path: str = ""  # e.g., "Help → User Manual"
-    user_flow: List[str] = field(default_factory=list)  # e.g., ["User selects Help → User Manual", "QuickDraw opens the built-in manual viewer"]
+    user_flow: List[str] = field(default_factory=list)  # e.g., ["User selects Help → User Manual", "the app opens the built-in manual viewer"]
     key_features: List[str] = field(default_factory=list)  # e.g., ["offline access", "in-app viewer", "PDF manuals"]
-    main_purpose: str = ""  # e.g., "provides users with direct access to official QuickDraw documentation"
+    main_purpose: str = ""  # e.g., "provides users with direct access to official documentation"
     raw_description: str = ""
 
 
@@ -234,7 +234,7 @@ except ImportError:
 class GenericTestGenerator:
     """
     Generates test cases using project configuration.
-    Replaces hardcoded ENV QuickDraw references with configurable templates.
+    All application-specific text comes from configurable templates.
     Integrates quality enhancement for high-quality output.
     """
 
@@ -258,7 +258,11 @@ class GenericTestGenerator:
         self.app = config.application
         self.rules = config.rules
         self.test_id_counter = config.rules.test_id_increment
-        self.embedder = TestStepEmbedder()
+        # Per-project collection: reference steps from one project must never
+        # be retrieved as few-shot examples for another (cross-contamination).
+        self.embedder = TestStepEmbedder(
+            collection_name=f"test_steps_{config.project_id}"
+        )
 
         # Quality enhancement
         self.enable_quality_enhancement = enable_quality_enhancement and QUALITY_SERVICES_AVAILABLE
@@ -323,6 +327,11 @@ class GenericTestGenerator:
             qa_prep_content or "",
             description=description
         )
+        # PROPERTIES flow derives Properties-Panel-specific steps; only valid
+        # for apps that actually have that surface (config-driven guard).
+        if (self.story_type == StoryType.PROPERTIES
+                and "Properties Panel" not in self.app.main_ui_surfaces):
+            self.story_type = StoryType.UNKNOWN
         print(f"  Story type classified as: {self.story_type.value}")
 
         # Parse QA Prep or generate equivalent
@@ -341,7 +350,9 @@ class GenericTestGenerator:
         # This is important for stories where features are accessed via Properties Panel
         combined_text = (description + ' ' + ' '.join(criteria)).lower()
         properties_panel_detected = False
-        if 'properties panel' in combined_text or 'properties' in combined_text and 'panel' in combined_text:
+        if "Properties Panel" in self.app.main_ui_surfaces and (
+                'properties panel' in combined_text
+                or 'properties' in combined_text and 'panel' in combined_text):
             # Check if description/ACs explicitly mention Properties panel as control point
             properties_patterns = [
                 r'(?:controlled?|access(?:ed|ible)?|available|configur(?:ed?|able)|manag(?:ed?|able)|set|adjust(?:ed|able)?)\s+(?:via|through|from|in|using)\s+(?:the\s+)?properties\s*panel',
@@ -522,7 +533,8 @@ class GenericTestGenerator:
                     self._test_corrector = LLMTestCorrector(
                         self.llm_provider,
                         cache_manager=cache,
-                        quality_threshold=self.quality_threshold
+                        quality_threshold=self.quality_threshold,
+                        ui_surfaces=self.app.main_ui_surfaces
                     )
 
                 if self._test_corrector:
@@ -625,18 +637,31 @@ class GenericTestGenerator:
             steps.append(self._get_create_file_step())
         return steps
 
+    def _story_type_entry_point(self, feature_name: str, entry_points: List[str]) -> str:
+        """Resolve entry point honoring story type — but only via surfaces this app has.
+
+        Conventional surfaces like "Help Menu" / "Properties Panel" are used only
+        when the project config declares them; otherwise fall back to the
+        config-driven entry point mapping.
+        """
+        story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
+        surfaces = self.app.main_ui_surfaces
+        if story_type == StoryType.HELP_DOCUMENTATION and "Help Menu" in surfaces:
+            return "Help Menu"
+        if (story_type == StoryType.PROPERTIES or 'Properties Panel' in entry_points) \
+                and "Properties Panel" in surfaces:
+            return "Properties Panel"
+        return self.app.determine_entry_point(feature_name, entry_points)
+
     def _get_object_setup_steps(self) -> List[Dict[str, str]]:
         """Get object interaction setup steps (after file is created).
 
         These steps should be added AFTER the standard setup steps which
-        already include file creation.
+        already include file creation. Sourced from project config so each
+        application gets domain-appropriate setup (draw a shape, open a
+        record, select an establishment, ...).
         """
-        return [
-            {"action": "Draw an object/shape on the canvas (e.g., circle, rectangle, or any measurable shape).",
-             "expected": "Object is created and displayed on the canvas."},
-            {"action": "Select the created object.",
-             "expected": "Object is selected and selection handles are visible."}
-        ]
+        return self.app.get_object_setup_steps()
 
     # Test Generation Methods
 
@@ -693,14 +718,9 @@ class GenericTestGenerator:
         """
         entry_points = qa_details.get('entry_points', [])
 
-        # For Help/Documentation stories, always use Help Menu
+        # For Help/Documentation stories, prefer the Help Menu when the app has one
         story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
-        if story_type == StoryType.HELP_DOCUMENTATION:
-            entry_point = "Help Menu"
-        elif story_type == StoryType.PROPERTIES or 'Properties Panel' in entry_points:
-            entry_point = "Properties Panel"
-        else:
-            entry_point = self.app.determine_entry_point(feature_name, entry_points)
+        entry_point = self._story_type_entry_point(feature_name, entry_points)
 
         # Generate title — overall acceptance, not just access
         scenario = self._generate_ac1_title(feature_name, entry_point, ac_bullet)
@@ -866,13 +886,8 @@ class GenericTestGenerator:
         story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
         entry_points = qa_details.get('entry_points', [])
 
-        # Determine entry point based on story type
-        if story_type == StoryType.HELP_DOCUMENTATION:
-            entry_point = "Help Menu"
-        elif story_type == StoryType.PROPERTIES or 'Properties Panel' in entry_points:
-            entry_point = "Properties Panel"
-        else:
-            entry_point = self.app.determine_entry_point(feature_name, entry_points)
+        # Determine entry point based on story type (config-aware)
+        entry_point = self._story_type_entry_point(feature_name, entry_points)
 
         scenario = self._extract_scenario_from_ac(ac_bullet, feature_name)
         title = f"{test_id}: {feature_name} / {entry_point} / {scenario}"
@@ -1091,10 +1106,10 @@ class GenericTestGenerator:
             })
 
         elif 'remain' in ac_lower and ('open' in ac_lower or 'behind' in ac_lower):
-            # AC: QuickDraw remains open behind the viewer
+            # AC: the application remains open behind the viewer
             steps.append({
-                "action": "Verify the QuickDraw workspace is visible behind the viewer.",
-                "expected": "QuickDraw application remains accessible behind the viewer."
+                "action": f"Verify the {self.app.name} workspace is visible behind the viewer.",
+                "expected": f"{self.app.name} application remains accessible behind the viewer."
             })
 
         elif 'browser' in ac_lower or 'external' in ac_lower:
@@ -1277,8 +1292,8 @@ class GenericTestGenerator:
         edge_type = edge_case['type']
         story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
 
-        # For Help/Documentation stories, always use Help Menu
-        if story_type == StoryType.HELP_DOCUMENTATION:
+        # For Help/Documentation stories, prefer the Help Menu when the app has one
+        if story_type == StoryType.HELP_DOCUMENTATION and "Help Menu" in self.app.main_ui_surfaces:
             entry_point = "Help Menu"
         else:
             entry_point = edge_case.get('entry_point', 'Application Menu')
@@ -1360,13 +1375,8 @@ class GenericTestGenerator:
         story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
         entry_points = qa_details.get('entry_points', [])
 
-        # Determine entry point based on story type
-        if story_type == StoryType.HELP_DOCUMENTATION:
-            entry_point = "Help Menu"
-        elif story_type == StoryType.PROPERTIES or 'Properties Panel' in entry_points:
-            entry_point = "Properties Panel"
-        else:
-            entry_point = self.app.determine_entry_point(feature_name, entry_points)
+        # Determine entry point based on story type (config-aware)
+        entry_point = self._story_type_entry_point(feature_name, entry_points)
 
         # Check for touch platforms - separate tablets and phones
         tablet_platforms = [p for p in platforms if p in ['iPad', 'Android Tablet']]
@@ -1393,12 +1403,7 @@ class GenericTestGenerator:
                     story_type == StoryType.PROPERTIES
                 )
                 if needs_object:
-                    steps.extend([
-                        {"action": "Draw an object/shape on the canvas using touch gestures.",
-                         "expected": "Object is created and displayed on the canvas."},
-                        {"action": "Select the object using touch.",
-                         "expected": "Object is selected and selection handles are visible."},
-                    ])
+                    steps.extend(self._get_object_setup_steps())
 
             steps.extend([
                 {"action": f"Navigate to {entry_point} using touch.", "expected": f"{entry_point} opens."},
@@ -1431,12 +1436,7 @@ class GenericTestGenerator:
                     story_type == StoryType.PROPERTIES
                 )
                 if needs_object:
-                    steps.extend([
-                        {"action": "Draw an object/shape on the canvas using touch gestures.",
-                         "expected": "Object is created and displayed on the canvas."},
-                        {"action": "Select the object using touch.",
-                         "expected": "Object is selected and selection handles are visible."},
-                    ])
+                    steps.extend(self._get_object_setup_steps())
 
             steps.extend([
                 {"action": f"Navigate to {entry_point} using touch.", "expected": f"{entry_point} opens."},
@@ -1469,12 +1469,7 @@ class GenericTestGenerator:
                     story_type == StoryType.PROPERTIES
                 )
                 if needs_object:
-                    steps.extend([
-                        {"action": "Draw an object/shape on the canvas using touch gestures.",
-                         "expected": "Object is created and displayed on the canvas."},
-                        {"action": "Select the object using touch.",
-                         "expected": "Object is selected and selection handles are visible."},
-                    ])
+                    steps.extend(self._get_object_setup_steps())
 
             steps.extend([
                 {"action": f"Navigate to {entry_point} using touch.", "expected": f"{entry_point} opens."},
@@ -1502,13 +1497,8 @@ class GenericTestGenerator:
         story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
         entry_points = qa_details.get('entry_points', [])
 
-        # Determine entry point based on story type
-        if story_type == StoryType.HELP_DOCUMENTATION:
-            entry_point = "Help Menu"
-        elif story_type == StoryType.PROPERTIES or 'Properties Panel' in entry_points:
-            entry_point = "Properties Panel"
-        else:
-            entry_point = self.app.determine_entry_point(feature_name, entry_points)
+        # Determine entry point based on story type (config-aware)
+        entry_point = self._story_type_entry_point(feature_name, entry_points)
 
         # Helper: should we include create file step?
         include_create_file = story_type != StoryType.HELP_DOCUMENTATION
@@ -1583,11 +1573,8 @@ class GenericTestGenerator:
 
             # Add object setup for Properties Panel features
             if needs_object_setup:
+                steps.extend(self._get_object_setup_steps())
                 steps.extend([
-                    {"action": "Draw an object/shape on the canvas using touch gestures.",
-                     "expected": "Object is created and displayed on the canvas."},
-                    {"action": "Select the object using touch.",
-                     "expected": "Object is selected and selection handles are visible."},
                     {"action": f"Navigate to the {entry_point} on the right side of the screen.",
                      "expected": f"{entry_point} is displayed showing options for the selected object."},
                     {"action": "Activate VoiceOver and navigate through the label controls.",
@@ -1623,11 +1610,8 @@ class GenericTestGenerator:
 
             # Add object setup for Properties Panel features
             if needs_object_setup:
+                steps.extend(self._get_object_setup_steps())
                 steps.extend([
-                    {"action": "Draw an object/shape on the canvas using touch gestures.",
-                     "expected": "Object is created and displayed on the canvas."},
-                    {"action": "Select the object using touch.",
-                     "expected": "Object is selected and selection handles are visible."},
                     {"action": f"Navigate to the {entry_point} on the right side of the screen.",
                      "expected": f"{entry_point} is displayed showing options for the selected object."},
                     {"action": "Run Accessibility Scanner on the Properties Panel.",
@@ -1646,7 +1630,9 @@ class GenericTestGenerator:
 
         # Web browser accessibility (for web apps)
         if self.app.app_type == 'web':
-            web_platforms = [p for p in platforms if p in ['Chrome', 'Firefox', 'Safari', 'Edge']]
+            # Substring match so entries like "Chrome (Windows 11)" still count
+            web_platforms = [p for p in platforms
+                             if any(b in p.lower() for b in ['chrome', 'firefox', 'safari', 'edge'])]
             if web_platforms:
                 test_id = f"{story_id}-{self.test_id_counter:03d}"
                 self.test_id_counter += self.rules.test_id_increment
@@ -1771,13 +1757,8 @@ class GenericTestGenerator:
         story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
         entry_points = qa_details.get('entry_points', [])
 
-        # Determine entry point based on story type
-        if story_type == StoryType.HELP_DOCUMENTATION:
-            entry_point = "Help Menu"
-        elif story_type == StoryType.PROPERTIES or 'Properties Panel' in entry_points:
-            entry_point = "Properties Panel"
-        else:
-            entry_point = self.app.determine_entry_point(feature_name, entry_points)
+        # Determine entry point based on story type (config-aware)
+        entry_point = self._story_type_entry_point(feature_name, entry_points)
 
         # Help/Documentation stories should NEVER have object-related edge cases
         if story_type == StoryType.HELP_DOCUMENTATION:
@@ -2148,7 +2129,7 @@ class GenericTestGenerator:
                 'viewer': "In-app viewer displays content correctly",
                 'offline': "Content is accessible without internet connection",
                 'browser': "No external browser is launched",
-                'remain': "QuickDraw application remains open behind the viewer",
+                'remain': f"{self.app.name} application remains open behind the viewer",
                 'close': f"{feature_name} viewer closes",
             }
             for keyword, outcome in help_outcomes.items():
@@ -2324,7 +2305,7 @@ class GenericTestGenerator:
              'No external browser launched when viewing'),
 
             # Application remains open patterns
-            (r'remain.*open|open.*behind|quickdraw.*remain|behind.*viewer',
+            (r'remain.*open|open.*behind|behind.*viewer',
              'Application remains open behind viewer'),
 
             # Unsupported features patterns
@@ -2430,7 +2411,7 @@ class GenericTestGenerator:
             return f"Verify that the <b>{feature_name}</b> viewer displays content <b>without requiring an internet connection</b>"
 
         elif 'remain' in ac_lower and ('open' in ac_lower or 'behind' in ac_lower):
-            return f"Verify that <b>QuickDraw remains open</b> behind the <b>{feature_name}</b> viewer"
+            return f"Verify that <b>{self.app.name} remains open</b> behind the <b>{feature_name}</b> viewer"
 
         elif 'browser' in ac_lower or 'external' in ac_lower:
             return f"Verify that <b>no external browser</b> or online hosting is used for <b>{feature_name}</b>"

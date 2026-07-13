@@ -21,26 +21,26 @@ You check for these 12 categories of defects (in priority order):
 
 2. HALLUCINATED CONTENT (Critical): Flag when:
    a) A test step references a specific UI element (menu, button, panel, dialog) that does NOT exist in the APPLICATION CONFIG ui_surfaces list AND is NOT mentioned in the story description or acceptance criteria. Generic terms like "dialog", "button", "checkbox" do not need to match the ui_surfaces list.
-   b) A test step references a feature, option, or behavior WITHIN a valid UI surface that is NOT described in the story or ACs. Example: "Properties Panel" may be valid, but "Multiple Object Selection options in the Properties Panel" is hallucinated if the story never says such options exist there.
+   b) A test step references a feature, option, or behavior WITHIN a valid UI surface that is NOT described in the story or ACs. Example: a panel from the ui_surfaces list may be valid, but "Multiple Object Selection options" inside that panel is hallucinated if the story never says such options exist there.
    c) A test step describes an interaction that is physically impossible given the feature's mechanism. Example: if the feature is mouse-based (click + drag), testing "negative width/height" or "invalid dimensions" via typed input is hallucinated — you cannot type dimensions into a mouse drag operation.
    d) A test step references keyboard shortcuts, hotkeys, or keyboard-based feature interactions that are NOT mentioned in the story or ACs. (Note: accessibility keyboard navigation is separate and valid when required by the project.)
    e) Any terms from the FORBIDDEN UI TERMS list are used.
 
 3. LOGICAL CONTRADICTION (Major): Steps must not contradict each other or the acceptance criteria. Flag only clear logical impossibilities, not minor wording differences.
 
-4. MISSING AC COVERAGE (Major): Flag if an acceptance criterion is NOT fully covered by actual test STEPS (not just title or objective text). Pay special attention to COMPOUND ACs that contain multiple distinct behaviors joined by semicolons or commas (e.g., "'Create' initializes a new canvas; 'Close' exits without creating" requires BOTH "Create" AND "Close" to have dedicated test steps). If a test title mentions both behaviors but steps only exercise one, that is STILL a gap — flag the missing part. Check the steps array, not the title.
+4. MISSING AC COVERAGE (Major): Flag if an acceptance criterion is NOT fully covered by actual test STEPS (not just title or objective text). Pay special attention to COMPOUND ACs that contain multiple distinct behaviors joined by semicolons or commas (e.g., "'Create' initializes a new item; 'Close' exits without creating" requires BOTH "Create" AND "Close" to have dedicated test steps). If a test title mentions both behaviors but steps only exercise one, that is STILL a gap — flag the missing part. Check the steps array, not the title.
 
 5. DUPLICATE / OVERLAPPING TESTS (Minor): Flag only test cases with nearly identical step sequences. Different tests for the same feature from different angles are NOT duplicates.
 
 6. MISSING SETUP / PRECONDITION (Minor): Flag only when a test performs object manipulation (rotate, move, delete, resize, transform, flip, mirror) WITHOUT any prior step that creates or selects an object. Do NOT flag if a setup step exists earlier in the sequence.
 
-7. INCONSISTENT TERMINOLOGY (Minor): Flag only when the exact same UI element is called by different names across test cases (e.g., "Tools Menu" vs "Tool Menu"). Minor phrasing differences are acceptable.
+7. INCONSISTENT TERMINOLOGY (Minor): Flag only when the exact same UI element is called by different names across test cases (e.g., "Options Menu" vs "Option Menu"). Minor phrasing differences are acceptable.
 
-8. INCONSISTENT STEP STRUCTURE (Major): All test cases must follow the same step pattern. Flag test cases that are missing standard steps that other tests consistently include. For example, if most tests have a "Pre-req" step, a "Launch" step, and a "Close" step, flag any test that skips the Launch step or combines multiple actions into one step (e.g., "Navigate to File → New" instead of separate "Launch app" + "Open File Menu" + "Select command" steps).
+8. INCONSISTENT STEP STRUCTURE (Major): All test cases must follow the same step pattern. Flag test cases that are missing standard steps that other tests consistently include. For example, if most tests have a "Pre-req" step, a "Launch" step, and a "Close" step, flag any test that skips the Launch step or combines multiple actions into one step (e.g., "Navigate to the menu and select the command" instead of separate "Launch app" + "Open the menu" + "Select the command" steps).
 
 9. EMPTY EXPECTED RESULT (Major): Flag middle steps (not step 1 Pre-req, not final Close step) that have an empty or missing expected result. Every action step between setup and teardown MUST describe what the tester observes. This is a Major issue, not Minor.
 
-10. VERIFY IN ACTION STEP (Major): Flag any action step that starts with "Verify", "Confirm", "Validate", or "Check". Action steps describe WHAT THE TESTER DOES (click, select, observe, navigate), never a verification instruction. "Verify" belongs only in Expected Result. Example violation: action "Verify the Design Panel is visible" should be "Observe the right side of the screen." with expected "The Design Panel is visible."
+10. VERIFY IN ACTION STEP (Major): Flag any action step that starts with "Verify", "Confirm", "Validate", or "Check". Action steps describe WHAT THE TESTER DOES (click, select, observe, navigate), never a verification instruction. "Verify" belongs only in Expected Result. Example violation: action "Verify the panel is visible" should be "Observe the application window." with expected "The panel is visible."
 
 11. MISSING CREATE FILE STEP (Major): Flag any test case that is missing the "Create File" step after Launch. The mandatory step sequence is: Pre-req → Launch → Create File → feature steps → Close. The only exception is tests that explicitly test the Home Screen before file creation. If a test has Launch but no Create File step immediately after, flag it.
 
@@ -62,7 +62,7 @@ Rules:
 - Add missing setup steps (object creation, file creation) where needed
 - Standardize terminology to match the app config and the MANDATORY STEP PATTERN
 - Fix inconsistent step structure: expand combined steps into separate steps matching the MANDATORY STEP PATTERN (Pre-req → Launch → Create File → Navigate → Actions → Close)
-- Fix inconsistent terminology: use the exact wording from other test cases (e.g., "File Menu opens." not "File menu should be displayed.")
+- Fix inconsistent terminology: use the exact wording from other test cases (e.g., "MenuName opens." not "MenuName should be displayed.")
 - Add expected results to middle steps that have empty expected results
 - Replace "Verify/Confirm/Validate/Check" at the START of action steps with concrete tester actions (e.g., "Observe", "Note", "Click"). Move the verification to the Expected Result.
 - For missing Create File step: insert the Create File step (from MANDATORY STEP PATTERN) immediately after the Launch step
@@ -100,14 +100,14 @@ def build_evaluation_prompt(
     unavailable = getattr(app_config, 'unavailable_features', [])
     object_keywords = getattr(app_config, 'object_interaction_keywords', [])
 
-    # Step templates for structure validation
+    # Step templates for structure validation (all from project config)
     app_name = getattr(app_config, 'name', 'App')
-    prereq = getattr(app_config, 'prereq_template', 'Pre-req: The {app_name} App is installed').format(app_name=app_name)
-    launch = getattr(app_config, 'launch_step', 'Launch the {app_name} application.').format(app_name=app_name)
+    prereq = app_config.get_prereq_step()
+    launch = app_config.get_launch_step()
     launch_exp = getattr(app_config, 'launch_expected', '') or ''
     create_file = getattr(app_config, 'create_file_step', '') or ''
     create_file_exp = getattr(app_config, 'create_file_expected', '') or ''
-    close = f"Close the {app_name} App"
+    close = app_config.get_close_step()
 
     app_section = f"""## APPLICATION CONFIG
 - App Name: {app_name}
@@ -121,7 +121,7 @@ def build_evaluation_prompt(
 - Step 1: "{prereq}" (empty expected)
 - Step 2: "{launch}" (expected: "{launch_exp}")
 - Step 3: "{create_file}" (expected: "{create_file_exp}") — MANDATORY for ALL tests except Home Screen tests
-- Step 4+: Navigate to feature via exact menu paths (e.g., "Select 'File' > 'Save'." not "Navigate to File Menu and select Save")
+- Step 4+: Navigate to feature via exact menu paths (e.g., "Select 'MenuName' > 'CommandName'." not "Navigate to the menu and select the command")
 - Middle steps: Feature-specific actions with deterministic expected results (NEVER empty). Action steps must NEVER start with "Verify", "Confirm", "Validate", or "Check".
 - Last step: "{close}" (empty expected)
 IMPORTANT: Steps must NOT combine multiple actions. Undo and Redo must be in SEPARATE test cases."""
@@ -193,14 +193,13 @@ def build_fix_prompt(
 ) -> str:
     """Build the fix prompt with issues and test cases."""
 
-    # Compact story context with step templates for structure fixes
-    app_name_val = getattr(app_config, 'name', 'App')
-    prereq = getattr(app_config, 'prereq_template', 'Pre-req: The {app_name} App is installed').format(app_name=app_name_val)
-    launch = getattr(app_config, 'launch_step', 'Launch the {app_name} application.').format(app_name=app_name_val)
+    # Compact story context with step templates for structure fixes (all from project config)
+    prereq = app_config.get_prereq_step()
+    launch = app_config.get_launch_step()
     launch_exp = getattr(app_config, 'launch_expected', '') or ''
     create_file = getattr(app_config, 'create_file_step', '') or ''
     create_file_exp = getattr(app_config, 'create_file_expected', '') or ''
-    close = getattr(app_config, 'close_step', 'Close the {app_name} App').format(app_name=app_name_val) if hasattr(app_config, 'close_step') else f"Close the {app_name_val} App"
+    close = app_config.get_close_step()
 
     story_section = f"""## CONTEXT
 - Story: {story_data.get('story_id', '')} - {story_data.get('title', '')}
@@ -212,7 +211,7 @@ def build_fix_prompt(
 - Step 1: "{prereq}" (empty expected)
 - Step 2: "{launch}" (expected: "{launch_exp}")
 - Step 3: "{create_file}" (expected: "{create_file_exp}") — MANDATORY
-- Step 4+: Navigate to the feature using exact menu paths (e.g., "Select 'Tools' > 'Mirror Horizontal'.")
+- Step 4+: Navigate to the feature using exact menu paths (e.g., "Select 'MenuName' > 'CommandName'.")
 - Middle steps: Feature-specific actions with deterministic expected results (NEVER empty, NEVER start with "Verify")
 - Last step: "{close}" (empty expected)"""
 
