@@ -1,133 +1,189 @@
-# AC-coverage baseline for story 270739
-# ACs (9) and tests (32) seeded from Azure DevOps.
-# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
-# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+# AC-coverage baseline for story 270739 — Properties Panel – Design
+# Ground truth per evaluation/ANNOTATION_PROTOCOL.md.
+# Labels drafted from full step text (ADO, 8 Jul 2026) by AI annotator;
+# pending review by the researcher (annotator of record).
+# AC4 (Rotation) restored: the June seeding dropped the entire Rotation block
+# (numeric −180..+180 field, 90° buttons, mirror buttons). AC count 9 → 10;
+# ACs renumbered in source-document order.
 
 story_id: '270739'
+difficulty: hard   # composite ACs, instant-update couplings, unit conversion (rubric §4)
 
 acceptance_criteria:
   - id: AC1
     text: "The Design tab is visible only when an object is selected."
     in_scope: true
   - id: AC2
-    text: "If nothing is selected, a message “Select an object to view properties” appears."
+    text: "If nothing is selected, a message 'Select an object to view properties' appears."
     in_scope: true
   - id: AC3
-    text: "Coordinates:"
+    text: "Coordinates: Latitude/Longitude fields (N/W) allow decimal input; validation required for valid ranges. Tied to 'GPS Input and Mapping' story."
     in_scope: true
   - id: AC4
-    text: "Dimensions (W/H):"
+    text: "Rotation: numeric field for free rotation (−180° to +180°); buttons for 90° rotation left/right and for mirroring horizontally/vertically."
     in_scope: true
   - id: AC5
-    text: "Fill: color picker and opacity slider update the object instantly."
+    text: "Dimensions (W/H): displayed in current units (ft/m or in/cm); fractional values supported."
     in_scope: true
   - id: AC6
-    text: "Stroke: color picker and Weight (thickness) field update the object instantly."
+    text: "Fill: color picker and opacity slider update the object instantly."
     in_scope: true
   - id: AC7
-    text: "All edits support Undo/Redo."
+    text: "Stroke: color picker and Weight (thickness) field update the object instantly."
     in_scope: true
   - id: AC8
-    text: "Unit or Scale changes automatically update displayed units without changing real-world size."
+    text: "All edits support Undo/Redo."
     in_scope: true
   - id: AC9
-    text: "Must comply with Section 508 / WCAG 2.1 AA accessibility standards (focus, color contrast, visible labels)."
+    text: "Unit or Scale changes automatically update displayed units without changing real-world size."
+    in_scope: true
+  - id: AC10
+    text: "Must comply with Section 508 / WCAG 2.1 AA accessibility standards (focus, color contrast, visible labels). Out of scope (Phase 1): tooltips and hotkeys."
     in_scope: true
 
 test_labels:
   - test_id: '270739-AC1'
     title: "270739-AC1: Properties Panel – Design / Properties Panel / Design Tab Visibility"
-    covers: []
+    covers: [AC1]
+    confidence: high
+    note: "Tab appears on selection; final step lists all sections (incl. Rotation) — presence-level surface of AC3–AC7."
   - test_id: '270739-005'
     title: "270739-005: Properties Panel – Design / Properties Panel / Design Tab Hidden When No Object Selected"
-    covers: []
+    covers: [AC1, AC2]
+    confidence: high
   - test_id: '270739-010'
     title: "270739-010: Properties Panel – Design / Properties Panel / Design Tab Hides On Deselection"
-    covers: []
+    covers: [AC1, AC2]
+    confidence: high
+    note: "Deselection state-variation (rule 6)."
   - test_id: '270739-015'
     title: "270739-015: Properties Panel – Design / Design Tab Displays All UI Sections And Controls"
-    covers: []
+    covers: [AC1]
+    confidence: medium
+    note: "Presence-only sweep of sections; behaviour ACs verified by later tests. Naming inconsistency: asserts 'X'/'Y' coordinate fields where AC3 specifies N/W."
   - test_id: '270739-020'
     title: "270739-020: Properties Panel – Design / Coordinates / Update N Coordinate With Whole Number"
-    covers: []
+    covers: [AC3]
+    confidence: medium
+    note: "Whole-number subset of AC3; decimal input and range validation untested across the suite."
   - test_id: '270739-025'
     title: "270739-025: Properties Panel – Design / Coordinates / Update W Coordinate With Whole Number"
-    covers: []
+    covers: [AC3]
+    confidence: medium
   - test_id: '270739-030'
     title: "270739-030: Properties Panel – Design / Coordinates / Overwrite N Coordinate Value"
-    covers: []
+    covers: [AC3]
+    confidence: medium
+    note: "Defect: expected result says object moves HORIZONTALLY for an N (vertical) change."
   - test_id: '270739-035'
     title: "270739-035: Properties Panel – Design / Undo And Redo Coordinate Changes"
-    covers: []
+    covers: [AC8]
+    confidence: high
+    note: "Undo/redo of a coordinate edit. Same N-axis defect as -030 in one expected result."
   - test_id: '270739-040'
     title: "270739-040: Properties Panel – Design / Dimensions / Update Width With Whole Number"
-    covers: []
+    covers: [AC5]
+    confidence: medium
+    note: "Edit-behaviour of the W field; fractional-value support (explicit in AC5) untested across the suite."
   - test_id: '270739-045'
     title: "270739-045: Properties Panel – Design / Dimensions / Update Height With Whole Number"
-    covers: []
+    covers: [AC5]
+    confidence: medium
   - test_id: '270739-050'
     title: "270739-050: Properties Panel – Design / Dimensions / Overwrite Width Value"
-    covers: []
+    covers: [AC5]
+    confidence: medium
   - test_id: '270739-055'
     title: "270739-055: Properties Panel – Design / Undo And Redo Dimension Changes"
-    covers: []
+    covers: [AC8]
+    confidence: high
   - test_id: '270739-060'
     title: "270739-060: Properties Panel – Design / Fill / Change Fill Color Instantly Updates Object"
-    covers: []
+    covers: [AC6]
+    confidence: high
   - test_id: '270739-065'
     title: "270739-065: Properties Panel – Design / Fill / Adjust Opacity Slider Instantly Updates Object"
-    covers: []
+    covers: [AC6]
+    confidence: high
   - test_id: '270739-070'
     title: "270739-070: Properties Panel – Design / Fill / Undo Redo Fill Color Change"
-    covers: []
+    covers: [AC8]
+    confidence: high
   - test_id: '270739-075'
     title: "270739-075: Properties Panel – Design / Fill / Undo Redo Opacity Change"
-    covers: []
+    covers: [AC8]
+    confidence: high
   - test_id: '270739-076'
     title: "270739-076: Properties Panel – Design / Fill / Undo From Edit Menu(Windows)"
-    covers: []
+    covers: [AC8]
+    confidence: medium
+    note: "Defect: expected results misaligned with actions ('Change the Fill color' step expects the revert)."
   - test_id: '270739-077'
     title: "270739-077: Properties Panel – Design / Fill / Redo From Edit Menu(Windows)"
-    covers: []
+    covers: [AC8]
+    confidence: medium
+    note: "Defect: 'Click Edit → Undo' step expects 'the undone action is reapplied' (redo semantics on the undo step)."
   - test_id: '270739-080'
     title: "270739-080: Properties Panel – Design / Stroke / Change Stroke Weight With Whole Number"
-    covers: []
+    covers: [AC7]
+    confidence: high
   - test_id: '270739-085'
     title: "270739-085: Properties Panel – Design / Stroke / Overwrite Stroke Weight Value"
-    covers: []
+    covers: [AC7]
+    confidence: high
   - test_id: '270739-090'
     title: "270739-090: Properties Panel – Design / Stroke / Undo Redo Stroke Color Change"
-    covers: []
+    covers: [AC8]
+    confidence: high
   - test_id: '270739-095'
     title: "270739-095: Properties Panel – Design / Stroke / Undo Redo Stroke Weight Change"
-    covers: []
+    covers: [AC8]
+    confidence: high
   - test_id: '270739-100'
     title: "270739-100: Properties Panel – Design / Units Display Updates Automatically In Design Panel"
-    covers: []
+    covers: [AC9]
+    confidence: medium
+    note: "Defect: expected 'W: 100' unchanged after m→in unit switch — the displayed number should convert; real-world size (not the numeral) stays constant."
   - test_id: '270739-105'
     title: "270739-105: Properties Panel – Design / Accessibility / Keyboard Navigation (Windows 11)"
-    covers: []
+    covers: [AC10]
+    confidence: high
   - test_id: '270739-120'
     title: "270739-120: Properties Panel – Design / Width And Height Values Display In Design Panel"
-    covers: []
+    covers: [AC5]
+    confidence: medium
+    note: "Display-accuracy half of AC5; current-units display not asserted."
   - test_id: '270739-125'
     title: "270739-125: Properties Panel – Design / Update Width And Height Using Input Fields"
-    covers: []
+    covers: [AC5]
+    confidence: medium
   - test_id: '270739-130'
     title: "270739-130: Properties Panel - Design / Stroke / Change Stroke Color Instantly Updates Object"
-    covers: []
+    covers: [AC7]
+    confidence: high
   - test_id: '270739-135'
     title: "270739-135: Properties Panel - Design / Rotation / Numeric Rotation Field Accepts Valid Angles"
-    covers: []
+    covers: [AC4]
+    confidence: high
+    note: "45 / −90 / 180 accepted; −180..+180 range asserted. (Would be spurious without the restored AC4.)"
   - test_id: '270739-140'
     title: "270739-140: Properties Panel - Design / Rotation / 90 Degree Rotation Buttons"
-    covers: []
+    covers: [AC4]
+    confidence: high
+    note: "Left button only; right-rotation button not exercised."
   - test_id: '270739-145'
     title: "270739-145: Properties Panel - Design / Rotation / Mirror Horizontal And Vertical Buttons"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '270739-150'
     title: "270739-150: Properties Panel - Design / Accessibility / VoiceOver Navigation (iPad)"
-    covers: []
+    covers: [AC10]
+    confidence: high
   - test_id: '270739-155'
     title: "270739-155: Properties Panel - Design / Accessibility / TalkBack And Accessibility Scanner (Android Tablet)"
-    covers: []
+    covers: [AC10]
+    confidence: high
+
+# All 10 ACs covered; 32/32 tests map to real ACs. Known partial-coverage gaps
+# recorded in notes: decimal input + range validation (AC3), fractional values
+# (AC5), 90°-right button (AC4).

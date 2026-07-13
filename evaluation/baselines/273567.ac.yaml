@@ -1,9 +1,11 @@
-# AC-coverage baseline for story 273567
-# ACs (4) and tests (61) seeded from Azure DevOps.
-# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
-# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+# AC-coverage baseline for story 273567 — Interface: Top Menu Toolbar (Desktop)
+# Ground truth per evaluation/ANNOTATION_PROTOCOL.md.
+# Labels drafted from full step text (ADO, 8 Jul 2026) by AI annotator;
+# pending review by the researcher (annotator of record).
+# This is the sample's extreme precision-stress case: 61 tests against 4 broad ACs.
 
 story_id: '273567'
+difficulty: easy   # static interface chrome; broad regression ACs (rubric §4)
 
 acceptance_criteria:
   - id: AC1
@@ -13,193 +15,275 @@ acceptance_criteria:
     text: "Only global actions are present (no drawing tools)."
     in_scope: true
   - id: AC3
-    text: "UI matches the approved design"
+    text: "UI matches the approved design."
     in_scope: true
   - id: AC4
     text: "No changes to existing action logic."
     in_scope: true
 
 test_labels:
+
   - test_id: '273567-AC1'
     title: "273567-AC1: Interface - Top Menu Toolbar / Layout / Toolbar Visible And Matches Design"
-    covers: []
+    covers: [AC1, AC3]
+    confidence: high
+    note: "Toolbar visible and fixed (AC1); spacing/alignment/fonts match approved design (AC3)."
   - test_id: '273567-005'
     title: "273567-005: Interface - Top Menu Toolbar (Desktop) / Visibility / Verify Toolbar Remains Fixed During Canvas Interaction"
-    covers: []
+    covers: [AC1]
+    confidence: high
+    note: "Fixed-position property re-verified during pan/zoom (rule 6)."
   - test_id: '273567-010'
     title: "273567-010: Interface - Top Menu Toolbar (Desktop) / Layout / Verify Toolbar Layout at Minimum Window Width"
-    covers: []
+    covers: [AC3]
+    confidence: medium
+    note: "Min-width layout conforms to approved design; overflow behaviour per design."
   - test_id: '273567-015'
     title: "273567-015: Interface - Top Menu Toolbar (Desktop) / Keyboard / Verify Menu Opens and Navigates via Keyboard"
-    covers: []
+    covers: [AC4]
+    confidence: low
+    note: "REVIEW: keyboard menu navigation; no accessibility AC in story — credited as existing standard menu behaviour (AC4). Strict reading: covers []."
   - test_id: '273567-020'
     title: "273567-020: Interface - Top Menu Toolbar (Desktop) / File Menu / Verify File Menu Contains Required Actions"
-    covers: []
+    covers: [AC2, AC3]
+    confidence: medium
+    note: "Menu composition per approved design (AC3); global-actions-only surface of AC2."
   - test_id: '273567-025'
     title: "273567-025: Interface - Top Menu Toolbar (Desktop) / Edit Menu / Verify Edit Menu Contains Required Actions"
-    covers: []
+    covers: [AC2, AC3]
+    confidence: medium
+    note: "Menu composition per approved design (AC3); global-actions-only surface of AC2."
   - test_id: '273567-030'
     title: "273567-030: Interface - Top Menu Toolbar (Desktop) / View Menu / Verify View Menu Contains Required Actions"
-    covers: []
+    covers: [AC2, AC3]
+    confidence: medium
+    note: "Menu composition per approved design (AC3); global-actions-only surface of AC2."
   - test_id: '273567-035'
     title: "273567-035: Interface - Top Menu Toolbar (Desktop) / Insert Menu / Verify Insert Menu Contains Required Actions"
-    covers: []
+    covers: [AC2, AC3]
+    confidence: medium
+    note: "Menu composition per approved design (AC3); global-actions-only surface of AC2."
   - test_id: '273567-040'
     title: "273567-040: Interface - Top Menu Toolbar (Desktop) / Format Menu / Verify Format Menu Contains Required Actions"
-    covers: []
+    covers: [AC2, AC3]
+    confidence: medium
+    note: "Menu composition per approved design (AC3); global-actions-only surface of AC2."
   - test_id: '273567-045'
     title: "273567-045: Interface - Top Menu Toolbar (Desktop) / Tools Menu / Verify Tools Menu Contains Required Actions"
-    covers: []
+    covers: [AC2, AC3]
+    confidence: medium
+    note: "Menu composition per approved design (AC3); global-actions-only surface of AC2."
   - test_id: '273567-050'
     title: "273567-050: Interface - Top Menu Toolbar (Desktop) / Draw Menu / Verify Draw Menu Contains Required Actions"
-    covers: []
+    covers: [AC2, AC3]
+    confidence: medium
+    note: "Menu composition per approved design (AC3); global-actions-only surface of AC2."
   - test_id: '273567-055'
     title: "273567-055: Interface - Top Menu Toolbar (Desktop) / Dimension Menu / Verify Dimension Menu Contains Required Actions"
-    covers: []
+    covers: [AC2, AC3]
+    confidence: medium
+    note: "Menu composition per approved design (AC3); global-actions-only surface of AC2."
   - test_id: '273567-060'
     title: "273567-060: Interface - Top Menu Toolbar (Desktop) / Window Menu / Verify Window Menu Contains Required Actions"
-    covers: []
+    covers: [AC2, AC3]
+    confidence: medium
+    note: "Menu composition per approved design (AC3); global-actions-only surface of AC2."
   - test_id: '273567-065'
     title: "273567-065: Interface - Top Menu Toolbar (Desktop) / Help Menu / Verify Help Menu Contains Required Actions"
-    covers: []
+    covers: [AC2, AC3]
+    confidence: medium
+    note: "Menu composition per approved design (AC3); global-actions-only surface of AC2."
   - test_id: '273567-070'
     title: "273567-070: Interface - Top Menu Toolbar (Desktop) / File / Verify New Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-075'
     title: "273567-075: Interface - Top Menu Toolbar (Desktop) / File / Verify Open… Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-080'
     title: "273567-080: Interface - Top Menu Toolbar (Desktop) / File / Verify Close Project Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-095'
     title: "273567-095: Interface - Top Menu Toolbar (Desktop) / File / Verify Save Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-100'
     title: "273567-100: Interface - Top Menu Toolbar (Desktop) / File / Verify Save As… Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-110'
     title: "273567-110: Interface - Top Menu Toolbar (Desktop) / File / Verify Print Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-115'
     title: "273567-115: Interface - Top Menu Toolbar (Desktop) / Edit / Verify Undo Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-120'
     title: "273567-120: Interface - Top Menu Toolbar (Desktop) / Edit / Verify Redo Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-125'
     title: "273567-125: Interface - Top Menu Toolbar (Desktop) / Edit / Verify Cut Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-130'
     title: "273567-130: Interface - Top Menu Toolbar (Desktop) / Edit / Verify Copy Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-135'
     title: "273567-135: Interface - Top Menu Toolbar (Desktop) / Edit / Verify Paste Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-140'
     title: "273567-140: Interface - Top Menu Toolbar (Desktop) / Edit / Verify Delete Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-145'
     title: "273567-145: Interface - Top Menu Toolbar (Desktop) / Edit / Verify Select All Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-150'
     title: "273567-150: Interface - Top Menu Toolbar (Desktop) / Edit / Verify Duplicate Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
+    note: "Defect: first step's action/expected are swapped (action text is an expected result)."
   - test_id: '273567-155'
     title: "273567-155: Interface - Top Menu Toolbar (Desktop) / Edit / Verify Lock/Unlock Object Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-160'
     title: "273567-160: Interface - Top Menu Toolbar (Desktop) / View / Verify Zoom In Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-165'
     title: "273567-165: Interface - Top Menu Toolbar (Desktop) / View / Verify Zoom Out Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-170'
     title: "273567-170: Interface - Top Menu Toolbar (Desktop) / View / Verify Show/Hide Rules Action"
-    covers: []
+    covers: [AC4]
+    confidence: medium
+    note: "Defect: Show/Hide RULES expects the LINE OBJECT to hide — should assert rulers visibility."
   - test_id: '273567-175'
     title: "273567-175: Interface - Top Menu Toolbar (Desktop) / View / Verify Show/Hide Scale Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-180'
     title: "273567-180: Interface - Top Menu Toolbar (Desktop) / View / Verify Show/Hide Compass Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-185'
     title: "273567-185: Interface - Top Menu Toolbar (Desktop) / View / Verify Show/Hide Grid Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-190'
     title: "273567-190: Interface - Top Menu Toolbar (Desktop) / View / Verify Full Screen Mode Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-195'
     title: "273567-195: Interface - Top Menu Toolbar (Desktop) / Insert / Verify Insert Image… Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-255'
     title: "273567-255: Interface - Top Menu Toolbar (Desktop) / Tools / Verify Set Coordinates Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-265'
     title: "273567-265: Interface - Top Menu Toolbar (Desktop) / Tools / Verify Mirror Horizontally Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-270'
     title: "273567-270: Interface - Top Menu Toolbar (Desktop) / Tools / Verify Mirror Vertically Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-275'
     title: "273567-275: Interface - Top Menu Toolbar (Desktop) / Tools / Verify Settings Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-280'
     title: "273567-280: Interface - Top Menu Toolbar (Desktop) / Tools/Draw order / Verify Bring to Front Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-285'
     title: "273567-285: Interface - Top Menu Toolbar (Desktop) / Tools/Draw order / Verify Send to Back Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-290'
     title: "273567-290: Interface - Top Menu Toolbar (Desktop) / Tools/Draw order / Verify Bring Forward Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-295'
     title: "273567-295: Interface - Top Menu Toolbar (Desktop) / Tools/Draw order / Verify Send Backward Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-300'
     title: "273567-300: Interface - Top Menu Toolbar (Desktop) / Draw / Verify Select Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-305'
     title: "273567-305: Interface - Top Menu Toolbar (Desktop) / Draw / Verify Line Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-310'
     title: "273567-310: Interface - Top Menu Toolbar (Desktop) / Draw / Verify Rectangle Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-315'
     title: "273567-315: Interface - Top Menu Toolbar (Desktop) / Draw / Verify Circle Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-320'
     title: "273567-320: Interface - Top Menu Toolbar (Desktop) / Draw / Verify Freeform Line (Pen) Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-325'
     title: "273567-325: Interface - Top Menu Toolbar (Desktop) / Draw / Verify Freehand Line (Pencil) Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-330'
     title: "273567-330: Interface - Top Menu Toolbar (Desktop) / Draw / Verify Measurement Line Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-335'
     title: "273567-335: Interface - Top Menu Toolbar (Desktop) / Dimension / Verify Set Scale (reference line) Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-345'
     title: "273567-345: Interface - Top Menu Toolbar (Desktop) / Dimension / Verify Angular Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-350'
     title: "273567-350: Interface - Top Menu Toolbar (Desktop) / Dimension / Verify Radius Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-355'
     title: "273567-355: Interface - Top Menu Toolbar (Desktop) / Dimension / Verify Diameter Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-360'
     title: "273567-360: Interface - Top Menu Toolbar (Desktop) / Window / Verify Show/Hide Properties Panel Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-375'
     title: "273567-375: Interface - Top Menu Toolbar (Desktop) / Help / Verify User Manual / Tutorial Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-390'
     title: "273567-390: Interface - Top Menu Toolbar (Desktop) / Help / Verify Contact Support Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-395'
     title: "273567-395: Interface - Top Menu Toolbar (Desktop) / Help / Verify About App Action"
-    covers: []
+    covers: [AC4]
+    confidence: high
   - test_id: '273567-400'
     title: "273567-400: Interface - Top Menu Toolbar (Desktop) / Accessibility / Verify Top Menu Toolbar Using Accessibility Insights for Windows"
     covers: []
+    confidence: low
+    note: "REVIEW: SPURIOUS under strict protocol — story has no accessibility AC and no functional AC property is asserted (names/roles/focus only)."
+# Recall 4/4. Precision 60/61 (one spurious: -400 accessibility scan with no
+# matching AC). The 46 'Verify <action>' tests are the generator amplifying the
+# broad regression AC4 — high redundancy by design of this stress case.

@@ -50,7 +50,7 @@ def create_llm_provider(
     elif provider == "anthropic" or provider == "claude":
         return AnthropicProvider(
             api_key=api_key or os.getenv("ANTHROPIC_API_KEY"),
-            model=model or "claude-3-5-sonnet",
+            model=model or "claude-sonnet-5",
             timeout=timeout,
             max_retries=max_retries
         )

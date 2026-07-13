@@ -1526,7 +1526,7 @@ def generate_and_correct(
     # Step 3: Correct with LLM (optional)
     if not skip_correction:
         provider_type = getattr(project_config, 'llm_provider', None) or config.LLM_PROVIDER
-        api_key = config.EnvironmentConfig.get_llm_api_key() if hasattr(config, 'EnvironmentConfig') else os.getenv("OPENAI_API_KEY")
+        api_key = config.EnvironmentConfig.get_llm_api_key(provider_type) if hasattr(config, 'EnvironmentConfig') else os.getenv("OPENAI_API_KEY")
         if not api_key or api_key == "your-api-key-here":
             print(f"\n  Warning: API key for {provider_type} not configured, skipping LLM correction")
         else:
