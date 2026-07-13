@@ -1,0 +1,182 @@
+{
+  "story_id": "289188",
+  "title": "Preserve Canvas Position and Zoom Level",
+  "project": "env-quickdraw",
+  "application": "ENV SiteDraft",
+  "source_platform": "ado",
+  "target_platform": "ado",
+  "test_cases": [
+    {
+      "id": "289188-AC1",
+      "title": "289188-AC1: Preserve Canvas Position and Zoom Level / Save & Restore / Canvas Position Is Saved and Restored on Reopen",
+      "steps": [
+        {
+          "action": "Pre-req: The ENV SiteDraft App is installed",
+          "expected": ""
+        },
+        {
+          "action": "Launch the ENV SiteDraft application.",
+          "expected": "Model space(Gray) and Canvas(white) space should be displayed"
+        },
+        {
+          "action": "From the Home screen, select 'New File', press 'Create', select a save location, and press 'Save'.",
+          "expected": "A new blank drawing opens and is displayed on the Canvas."
+        },
+        {
+          "action": "Pan the canvas to a distinct area away from the default view and note the position.",
+          "expected": "The canvas scrolls to the new area and displays it."
+        },
+        {
+          "action": "Perform a Save action on the drawing.",
+          "expected": "The drawing is saved successfully with the current canvas position."
+        },
+        {
+          "action": "Close the drawing.",
+          "expected": "The drawing closes."
+        },
+        {
+          "action": "Reopen the saved drawing.",
+          "expected": "The canvas automatically opens at the last saved position (the same area noted in step 4), with no manual navigation required."
+        },
+        {
+          "action": "Close the ENV SiteDraft App",
+          "expected": ""
+        }
+      ],
+      "objective": "Verify that the current <b>canvas position</b> is saved when the user performs a Save action, and that reopening the drawing automatically restores the last saved position without manual navigation."
+    },
+    {
+      "id": "289188-005",
+      "title": "289188-005: Preserve Canvas Position and Zoom Level / Save & Restore / Zoom Level Is Saved and Restored on Reopen",
+      "steps": [
+        {
+          "action": "Pre-req: The ENV SiteDraft App is installed",
+          "expected": ""
+        },
+        {
+          "action": "Launch the ENV SiteDraft application.",
+          "expected": "Model space(Gray) and Canvas(white) space should be displayed"
+        },
+        {
+          "action": "From the Home screen, select 'New File', press 'Create', select a save location, and press 'Save'.",
+          "expected": "A new blank drawing opens and is displayed on the Canvas."
+        },
+        {
+          "action": "Change the zoom level to a specific, non-default value (for example, zoom in to 200%) and note the value.",
+          "expected": "The canvas is displayed at the selected zoom level."
+        },
+        {
+          "action": "Perform a Save action on the drawing.",
+          "expected": "The drawing is saved successfully with the current zoom level."
+        },
+        {
+          "action": "Close the drawing.",
+          "expected": "The drawing closes."
+        },
+        {
+          "action": "Reopen the saved drawing.",
+          "expected": "The canvas automatically opens using the last saved zoom level (the value noted in step 4), with no manual zoom adjustment required."
+        },
+        {
+          "action": "Close the ENV SiteDraft App",
+          "expected": ""
+        }
+      ],
+      "objective": "Verify that the current <b>zoom level</b> is saved when the user performs a Save action, and that reopening the drawing automatically restores the last saved zoom level without manual adjustment."
+    },
+    {
+      "id": "289188-010",
+      "title": "289188-010: Preserve Canvas Position and Zoom Level / Compatibility / Legacy Drawing Opens Without Errors",
+      "steps": [
+        {
+          "action": "Pre-req: The ENV SiteDraft App is installed",
+          "expected": ""
+        },
+        {
+          "action": "Pre-req: A drawing file created before the Preserve Canvas Position and Zoom Level enhancement is available",
+          "expected": ""
+        },
+        {
+          "action": "Launch the ENV SiteDraft application.",
+          "expected": "Model space(Gray) and Canvas(white) space should be displayed"
+        },
+        {
+          "action": "Open the legacy drawing file created before this enhancement.",
+          "expected": "The drawing opens successfully without any errors or warnings."
+        },
+        {
+          "action": "Close the ENV SiteDraft App",
+          "expected": ""
+        }
+      ],
+      "objective": "Verify that existing drawing files created before this enhancement continue to <b>open successfully without errors</b>."
+    },
+    {
+      "id": "289188-015",
+      "title": "289188-015: Preserve Canvas Position and Zoom Level / Default Behavior / Drawing Without Saved View Uses Default Opening",
+      "steps": [
+        {
+          "action": "Pre-req: The ENV SiteDraft App is installed",
+          "expected": ""
+        },
+        {
+          "action": "Pre-req: A drawing file that does not contain saved position and zoom information is available",
+          "expected": ""
+        },
+        {
+          "action": "Launch the ENV SiteDraft application.",
+          "expected": "Model space(Gray) and Canvas(white) space should be displayed"
+        },
+        {
+          "action": "Open the drawing that does not contain saved position and zoom information.",
+          "expected": "The drawing opens using the application's default opening behavior (default position and default zoom level)."
+        },
+        {
+          "action": "Close the ENV SiteDraft App",
+          "expected": ""
+        }
+      ],
+      "objective": "Verify that drawings which do not contain saved position and zoom information open using the application's <b>default opening behavior</b>."
+    },
+    {
+      "id": "289188-020",
+      "title": "289188-020: Preserve Canvas Position and Zoom Level / Cross-Platform / Position and Zoom Restored Consistently Across Platforms",
+      "steps": [
+        {
+          "action": "Pre-req: The ENV SiteDraft App is installed on the supported platform under test (Windows 11 / iPad / Android Tablet)",
+          "expected": ""
+        },
+        {
+          "action": "Launch the ENV SiteDraft application.",
+          "expected": "Model space(Gray) and Canvas(white) space should be displayed"
+        },
+        {
+          "action": "From the Home screen, select 'New File', press 'Create', select a save location, and press 'Save'.",
+          "expected": "A new blank drawing opens and is displayed on the Canvas."
+        },
+        {
+          "action": "Pan the canvas to a distinct area and set a specific zoom level, then note both values.",
+          "expected": "The canvas displays the new position at the selected zoom level."
+        },
+        {
+          "action": "Perform a Save action on the drawing.",
+          "expected": "The drawing is saved successfully with the current position and zoom level."
+        },
+        {
+          "action": "Close and reopen the saved drawing.",
+          "expected": "The canvas opens at the last saved position and zoom level."
+        },
+        {
+          "action": "Repeat steps 2-6 on each supported platform (Windows 11, iPad, Android Tablet).",
+          "expected": "The save and restore behavior is consistent on every supported platform."
+        },
+        {
+          "action": "Close the ENV SiteDraft App",
+          "expected": ""
+        }
+      ],
+      "objective": "Verify that the save-and-restore of canvas position and zoom level works <b>consistently across all supported platforms</b> (Windows 11, iPad, Android Tablet)."
+    }
+  ],
+  "mode": "hybrid"
+}

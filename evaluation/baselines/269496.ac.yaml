@@ -1,9 +1,10 @@
-# AC-coverage baseline for story 269496
-# ACs (4) and tests (7) seeded from Azure DevOps.
-# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
-# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+# AC-coverage baseline for story 269496 — Model Space and Canvas
+# Ground truth per evaluation/ANNOTATION_PROTOCOL.md.
+# Labels drafted from full step text (ADO, 8 Jul 2026) by AI annotator;
+# pending review by the researcher (annotator of record).
 
 story_id: '269496'
+difficulty: easy   # static display/layout story (rubric §4)
 
 acceptance_criteria:
   - id: AC1
@@ -22,22 +23,36 @@ acceptance_criteria:
 test_labels:
   - test_id: '269496-AC1'
     title: "269496-AC1: Model Space and Canvas / General / Initial Layout Displayed"
-    covers: []
+    covers: [AC1, AC2, AC3]
+    confidence: high
+    note: "Launch step asserts opens-to-initial-layout, gray Model Space, Canvas with dashed border."
   - test_id: '269496-005'
     title: "269496-005: Model Space and Canvas / General / New Blank Drawing Opens And Displays Correctly On Canvas After File Creation"
-    covers: []
+    covers: [AC1, AC2]
+    confidence: medium
+    note: "Verifies Model Space + Canvas display in the file-creation state; dashed border not asserted."
   - test_id: '269496-010'
     title: "269496-010: Model Space and Canvas / Accessibility / Keyboard Navigation (Windows 11)"
-    covers: []
+    covers: [AC4]
+    confidence: high
+    note: "Tab navigation + visible focus indicator = 508/WCAG keyboard requirement."
   - test_id: '269496-025'
     title: "269496-025: Model Space and Canvas / General / Canvas Size And Display"
-    covers: []
+    covers: [AC1, AC2]
+    confidence: high
+    note: "Asserts canvas size/position and dashed-border separation."
   - test_id: '269496-030'
     title: "269496-030: Model Space and Canvas / General / Application Launch Time"
     covers: []
+    confidence: high
+    note: "SPURIOUS: verifies <5s launch time; no AC specifies performance."
   - test_id: '269496-035'
     title: "269496-035: Model Space and Canvas / General / Canvas Display After Minimizing And Restoring"
-    covers: []
+    covers: [AC1, AC2]
+    confidence: high
+    note: "State-variation (rule 6): display property re-verified after minimize/restore."
   - test_id: '269496-040'
     title: "269496-040: Model Space and Canvas / General / Canvas Display After Window Resize"
-    covers: []
+    covers: [AC1, AC2]
+    confidence: high
+    note: "State-variation (rule 6): display property re-verified after resize."

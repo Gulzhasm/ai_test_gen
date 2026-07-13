@@ -1,16 +1,18 @@
-# AC-coverage baseline for story 271053
-# ACs (10) and tests (19) seeded from Azure DevOps.
-# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
-# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+# AC-coverage baseline for story 271053 — Error Handling: Unexpected Technical Errors & Logging
+# Ground truth per evaluation/ANNOTATION_PROTOCOL.md.
+# Labels drafted from full step text (ADO, 8 Jul 2026) by AI annotator;
+# pending review by the researcher (annotator of record).
+# AC9 text restored to full form (sub-bullets dropped by the June seeding).
 
 story_id: '271053'
+difficulty: hard   # system-level crash/logging behaviour, negative paths (rubric §4)
 
 acceptance_criteria:
   - id: AC1
     text: "The application captures and records unexpected exceptions across UI and background layers (including unhandled exceptions)."
     in_scope: true
   - id: AC2
-    text: "For critical crashes (including UI-thread crashes where the OS terminates the app), the application cannot display a dialog at the moment of failure; instead, it persists a “last crash” report and shows a recovery dialog on the next startup."
+    text: "For critical crashes (including UI-thread crashes where the OS terminates the app), the application cannot display a dialog at the moment of failure; instead, it persists a 'last crash' report and shows a recovery dialog on the next startup."
     in_scope: true
   - id: AC3
     text: "The crash recovery dialog provides two options: Continue (resume using the application), or Share with support (generate and share a diagnostic package using the system share UI)."
@@ -22,16 +24,16 @@ acceptance_criteria:
     text: "Log retention policy: log files are rolled daily and automatically retained for the last 14 days."
     in_scope: true
   - id: AC6
-    text: "The user can manually export logs via Menu → Help → Share System Logs, which: Creates a ZIP diagnostic package containing recent logs (within the 14-day retention window), and Includes the “last crash” report file if it exists; otherwise it is omitted. Opens the system share dialog for sending the package through available channels (email, chat, etc.)."
+    text: "The user can manually export logs via Menu → Help → Share System Logs, which: creates a ZIP diagnostic package containing recent logs (within the 14-day retention window); includes the 'last crash' report file if it exists, otherwise it is omitted; opens the system share dialog for sending the package through available channels (email, chat, etc.)."
     in_scope: true
   - id: AC7
-    text: "After the crash recovery dialog is shown and the user chooses to continue (or after sharing is initiated), the stored “last crash” report is cleared."
+    text: "After the crash recovery dialog is shown and the user chooses to continue (or after sharing is initiated), the stored 'last crash' report is cleared."
     in_scope: true
   - id: AC8
     text: "The application continues running normally after non-fatal errors are logged (no forced restart)."
     in_scope: true
   - id: AC9
-    text: "Logs must comply with security and privacy principles:"
+    text: "Logs must comply with security and privacy principles: no sensitive or personal data (credentials, user identifiers, tokens, file contents) are written to logs; only technical context required for debugging is stored."
     in_scope: true
   - id: AC10
     text: "On Windows, warnings and errors (Warning, Error, Fatal) are also written to the Windows Event Viewer under Windows Logs → Application (using an existing event source; no elevated permissions or custom event source creation is required)."
@@ -40,58 +42,95 @@ acceptance_criteria:
 test_labels:
   - test_id: '271053-AC1'
     title: "271053-AC1: Error Handling / Crash Recovery / Crash Recovery Dialog Appears After Critical Crash"
-    covers: []
+    covers: [AC2, AC3]
+    confidence: high
+    note: "Crash → relaunch asserts recovery dialog appears (AC2) with both options (AC3)."
   - test_id: '271053-015'
     title: "271053-015: Error Handling – Unexpected Technical Errors & Logging / Crash Recovery / Crash Recovery Dialog Options Are Present"
-    covers: []
+    covers: [AC3]
+    confidence: high
+    note: "Continue + Share buttons present; Continue dismisses and resumes."
   - test_id: '271053-020'
     title: "271053-020: Error Handling – Unexpected Technical Errors & Logging / Crash Recovery / Share With Support Option Opens System Share Ui"
-    covers: []
+    covers: [AC3]
+    confidence: high
+    note: "Share-with-support half of AC3: system share UI + diagnostic ZIP prepared."
   - test_id: '271053-025'
     title: "271053-025: Error Handling / Logging / Log File Contains Correct Json Structure And Metadata"
-    covers: []
+    covers: [AC4]
+    confidence: high
+    note: "Asserts JSON validity, UTC timestamp, level, error code, exception type, stack trace, device model, app version."
   - test_id: '271053-030'
     title: "271053-030: Error Handling – Unexpected Technical Errors & Logging / Logging / Log Contains Device Context Information (Os Version)"
-    covers: []
+    covers: [AC4]
+    confidence: high
+    note: "OS-version field of AC4's device context. Defect noted: after a NON-fatal error the relaunch step wrongly expects the Crash Recovery dialog."
   - test_id: '271053-035'
     title: "271053-035: Error Handling – Unexpected Technical Errors & Logging / Logging / Log Contains Device Context Information (Device Id)"
-    covers: []
+    covers: [AC4]
+    confidence: high
+    note: "Application-scoped Device ID field of AC4."
   - test_id: '271053-040'
     title: "271053-040: Error Handling – Unexpected Technical Errors & Logging / Logging / Logs Are Rolled Daily"
-    covers: []
+    covers: [AC5]
+    confidence: high
+    note: "Daily-rolling half of AC5 (Day1/Day2 distinct files)."
   - test_id: '271053-045'
     title: "271053-045: Error Handling – Unexpected Technical Errors & Logging / Logging / Logs Older Than 14 Days Are Purged"
-    covers: []
+    covers: [AC5]
+    confidence: high
+    note: "14-day retention half of AC5. Defect noted: 'non-fatal error … application logs the error and crashes' is self-contradictory."
   - test_id: '271053-050'
     title: "271053-050: Error Handling – Unexpected Technical Errors & Logging / Help Menu - Hamburger Menu / Share System Logs Option Is Available"
-    covers: []
+    covers: [AC6]
+    confidence: medium
+    note: "Verifies only the menu entry point of AC6 (option visible/selectable)."
   - test_id: '271053-055'
     title: "271053-055: Error Handling – Unexpected Technical Errors & Logging / Help Menu - Hamburger Menu / Share System Logs Creates Zip With Recent Logs And Crash Report"
-    covers: []
+    covers: [AC6]
+    confidence: medium
+    note: "REVIEW: title promises crash-report inclusion but no step asserts the report is inside the ZIP."
   - test_id: '271053-060'
     title: "271053-060: Error Handling – Unexpected Technical Errors & Logging / Help Menu - Hamburger Menu / Share System Logs Creates Zip With Recent Logs Without Crash Report"
-    covers: []
+    covers: [AC6]
+    confidence: high
+    note: "Asserts 14-day window contents and that the crash report is omitted when absent."
   - test_id: '271053-065'
     title: "271053-065: Error Handling – Unexpected Technical Errors & Logging / Crash Recovery / Last Crash Report Cleared After Share"
-    covers: []
+    covers: [AC7]
+    confidence: high
   - test_id: '271053-070'
     title: "271053-070: Error Handling – Unexpected Technical Errors & Logging / Non-Fatal Errors / Application Continues Running After Non-Fatal Error"
-    covers: []
+    covers: [AC1, AC8]
+    confidence: medium
+    note: "Asserts app stays responsive with no forced restart (AC8); the logged-error assertion partially verifies AC1's recording behaviour."
   - test_id: '271053-075'
     title: "271053-075: Error Handling – Unexpected Technical Errors & Logging / Event Viewer / Warning Level Events Are Logged To Event Viewer (Windows 11)"
-    covers: []
+    covers: [AC10]
+    confidence: high
   - test_id: '271053-080'
     title: "271053-080: Error Handling / Event Viewer / Error Level Events Logged To Event Viewer Using Existing Source (Windows 11)"
-    covers: []
-  - test_id: '271053-085'
-    title: "271053-085: Error Handling – Unexpected Technical Errors & Logging / Accessibility / Keyboard Navigation Of Crash Recovery Dialog (Windows 11)"
-    covers: []
-  - test_id: '271053-090'
-    title: "271053-090: Error Handling – Unexpected Technical Errors & Logging / Log Security / Verify No Personally Identifiable Information In Logs"
-    covers: []
-  - test_id: '271053-095'
-    title: "271053-095: Error Handling – Unexpected Technical Errors & Logging / Log Security / Verify No Sensitive System Information In Error Logs"
-    covers: []
+    covers: [AC10]
+    confidence: high
+    note: "Also asserts existing event source + no elevated permissions (AC10's constraint)."
   - test_id: '271053-086'
     title: "271053-086: Error Handling / Event Viewer / Fatal Level Events Logged To Event Viewer (Windows 11)"
-    covers: []
+    covers: [AC10]
+    confidence: high
+  - test_id: '271053-085'
+    title: "271053-085: Error Handling – Unexpected Technical Errors & Logging / Accessibility / Keyboard Navigation Of Crash Recovery Dialog (Windows 11)"
+    covers: [AC3]
+    confidence: low
+    note: "REVIEW: no accessibility AC exists in this story; credited to AC3 because Enter-on-Continue asserts the Continue behaviour (strict reading: covers [])."
+  - test_id: '271053-090'
+    title: "271053-090: Error Handling – Unexpected Technical Errors & Logging / Log Security / Verify No Personally Identifiable Information In Logs"
+    covers: [AC9]
+    confidence: high
+  - test_id: '271053-095'
+    title: "271053-095: Error Handling – Unexpected Technical Errors & Logging / Log Security / Verify No Sensitive System Information In Error Logs"
+    covers: [AC9]
+    confidence: high
+
+# All 10 ACs covered; 19/19 tests map to real ACs. Step-logic defects observed in
+# -030/-035/-045/-090/-095 setup chains (non-fatal error followed by crash-dialog
+# expectations) are content-quality issues (Study 1 territory), not coverage misses.

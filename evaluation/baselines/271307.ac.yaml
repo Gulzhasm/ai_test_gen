@@ -1,16 +1,17 @@
-# AC-coverage baseline for story 271307
-# ACs (8) and tests (10) seeded from Azure DevOps.
-# For each test below, set covers: [AC1, ...] — the AC id(s) it ACTUALLY tests.
-# Leave covers: [] for a spurious / hallucinated / out-of-scope test.
+# AC-coverage baseline for story 271307 — File – New Document Dialog
+# Ground truth per evaluation/ANNOTATION_PROTOCOL.md.
+# Labels drafted from full step text (ADO, 8 Jul 2026) by AI annotator;
+# pending review by the researcher (annotator of record).
 
 story_id: '271307'
+difficulty: medium   # single modal dialog, bounded states (rubric §4)
 
 acceptance_criteria:
   - id: AC1
     text: "File → New opens the New Document modal dialog."
     in_scope: true
   - id: AC2
-    text: "Default preset = “Letter, 8,5 × 11 in, Portrait.”"
+    text: "Default preset = 'Letter, 8,5 × 11 in, Portrait.'"
     in_scope: true
   - id: AC3
     text: "Fields available: Width, Height, Units (in/cm)."
@@ -19,10 +20,10 @@ acceptance_criteria:
     text: "Unit dropdown follows current Unit of Measure setting."
     in_scope: true
   - id: AC5
-    text: "“Recent Items” section shows the most recently used canvas presets."
+    text: "'Recent Items' section shows the most recently used canvas presets."
     in_scope: true
   - id: AC6
-    text: "“Create” initializes a new canvas; “Close” exits without creating."
+    text: "'Create' initializes a new canvas; 'Close' exits without creating."
     in_scope: true
   - id: AC7
     text: "Orientation = Portrait (Landscape out of scope for Phase 1)."
@@ -34,31 +35,52 @@ acceptance_criteria:
 test_labels:
   - test_id: '271307-AC1'
     title: "271307-AC1: File – New Document Dialog / File Menu / File – New Document Dialog Menu Access"
-    covers: []
+    covers: [AC1]
+    confidence: low
+    note: "REVIEW: asserts the command is visible/enabled in File Menu but never opens the dialog; strict reading of AC1 (dialog opens) would give covers []."
   - test_id: '271307-005'
     title: "271307-005: File – New Document Dialog / File Menu / New Document Modal Dialog Opens With Expected Layout"
-    covers: []
+    covers: [AC1, AC3]
+    confidence: high
+    note: "Asserts dialog opens on File→New (AC1) and Width/Height/Units(in,cm) fields present (AC3)."
   - test_id: '271307-010'
     title: "271307-010: File – New Document Dialog / File Menu / Default Preset = 'Letter, 8.5 × 11 In, Portrait.'"
-    covers: []
+    covers: [AC2]
+    confidence: high
+    note: "Asserts default preset string incl. Portrait (AC7's default orientation shown incidentally; AC7 verified directly by -045)."
   - test_id: '271307-025'
     title: "271307-025: File – New Document Dialog / File Menu / Recent Items Populated After Document Creation"
-    covers: []
+    covers: [AC5]
+    confidence: high
   - test_id: '271307-030'
     title: "271307-030: File – New Document Dialog / File Menu / Recent Items Displays Without Errors When Empty"
-    covers: []
+    covers: [AC5]
+    confidence: high
+    note: "Empty-state edge case of AC5 (rule 5)."
   - test_id: '271307-040'
     title: "271307-040: File – New Document Dialog / File Menu / Close Button Cancels Without Creating New Canvas"
-    covers: []
+    covers: [AC6]
+    confidence: high
+    note: "Verifies the Close half of AC6 (exits without creating, state unchanged)."
   - test_id: '271307-045'
     title: "271307-045: File – New Document Dialog / File Menu / No Landscape Option Available"
-    covers: []
+    covers: [AC7]
+    confidence: high
   - test_id: '271307-050'
     title: "271307-050: File – New Document Dialog / Accessibility / Keyboard Navigation (Windows 11)"
-    covers: []
+    covers: [AC6, AC8]
+    confidence: medium
+    note: "Keyboard focus order + Enter (AC8); the Enter step asserts canvas creation, verifying the Create half of AC6."
   - test_id: '271307-055'
     title: "271307-055: File – New Document Dialog / Accessibility / VoiceOver (iPad)"
-    covers: []
+    covers: [AC6, AC8]
+    confidence: medium
+    note: "VoiceOver labels/roles/focus (AC8); Create-via-double-tap asserts document creation (AC6)."
   - test_id: '271307-060'
     title: "271307-060: File – New Document Dialog / Accessibility / Accessibility Scanner (Android Tablet)"
-    covers: []
+    covers: [AC8]
+    confidence: high
+    note: "Scanner-no-violations assertions (AC8). Defect noted: the 'Press Create' step's expected result wrongly says the dialog opens."
+
+# Uncovered AC: AC4 (unit dropdown follows Unit of Measure setting) — no test
+# exercises the app-wide unit setting's effect on the dialog.

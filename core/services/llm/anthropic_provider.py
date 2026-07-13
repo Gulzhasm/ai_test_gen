@@ -1,6 +1,14 @@
 """
 Anthropic Provider
-LLM provider using Anthropic Claude API (Claude 3.5 Sonnet, Claude 3 Haiku, etc.)
+LLM provider using the Anthropic Claude API (Claude Sonnet 5, Claude Opus 4.8, etc.)
+
+Notes on current Claude models (Sonnet 5 / Opus 4.8 / Haiku 4.5):
+- Sampling parameters (temperature/top_p/top_k) are rejected with a 400 on
+  Sonnet 5 and Opus 4.8, so this provider never sends them. Callers may still
+  pass temperature in kwargs; it is ignored.
+- generate_json() supports native structured outputs: pass schema=<JSON schema>
+  to guarantee valid JSON via output_config.format. Without a schema it falls
+  back to instruction-based JSON with robust extraction.
 """
 import json
 import os
@@ -18,30 +26,35 @@ except ImportError:
 class AnthropicProvider(ILLMProvider):
     """LLM provider using Anthropic Claude API."""
 
-    # Model aliases for convenience
+    # Model aliases for convenience. Legacy Claude 3.x names are remapped to
+    # current equivalents because the 3.x models are retired and would 404.
     MODELS = {
-        "claude-3-5-sonnet": "claude-3-5-sonnet-20241022",
-        "claude-3-sonnet": "claude-3-5-sonnet-20241022",
-        "claude-3-haiku": "claude-3-haiku-20240307",
-        "claude-3-opus": "claude-3-opus-20240229",
-        "sonnet": "claude-3-5-sonnet-20241022",
-        "haiku": "claude-3-haiku-20240307",
-        "opus": "claude-3-opus-20240229",
+        "sonnet": "claude-sonnet-5",
+        "opus": "claude-opus-4-8",
+        "haiku": "claude-haiku-4-5",
+        "claude-sonnet-5": "claude-sonnet-5",
+        "claude-opus-4-8": "claude-opus-4-8",
+        "claude-haiku-4-5": "claude-haiku-4-5",
+        # Legacy aliases (retired models) -> current equivalents
+        "claude-3-5-sonnet": "claude-sonnet-5",
+        "claude-3-sonnet": "claude-sonnet-5",
+        "claude-3-haiku": "claude-haiku-4-5",
+        "claude-3-opus": "claude-opus-4-8",
     }
 
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "claude-3-5-sonnet",
-        timeout: int = 60,
+        model: str = "claude-sonnet-5",
+        timeout: int = 120,
         max_retries: int = 2,
-        max_tokens: int = 4096
+        max_tokens: int = 16000
     ):
         """Initialize Anthropic provider.
 
         Args:
             api_key: Anthropic API key (defaults to ANTHROPIC_API_KEY env var)
-            model: Model name to use (claude-3-5-sonnet, claude-3-haiku, etc.)
+            model: Model name or alias (claude-sonnet-5, claude-opus-4-8, sonnet, opus, haiku)
             timeout: Request timeout in seconds
             max_retries: Maximum number of retries on failure
             max_tokens: Default max tokens for generation
@@ -86,7 +99,9 @@ class AnthropicProvider(ILLMProvider):
         Args:
             prompt: User prompt
             system_prompt: Optional system prompt
-            **kwargs: Additional parameters (temperature, max_tokens)
+            **kwargs: Additional parameters (max_tokens, output_config).
+                temperature is accepted for interface compatibility but NOT
+                sent — current Claude models reject sampling parameters.
 
         Returns:
             LLMResponse with generated content
@@ -104,22 +119,35 @@ class AnthropicProvider(ILLMProvider):
                 "Anthropic client not initialized. Check ANTHROPIC_API_KEY."
             )
 
-        messages = [{"role": "user", "content": prompt}]
+        request: Dict[str, Any] = {
+            "model": self._model,
+            "max_tokens": kwargs.get("max_tokens", self._max_tokens),
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if system_prompt:
+            request["system"] = system_prompt
+        if kwargs.get("output_config"):
+            request["output_config"] = kwargs["output_config"]
 
         try:
-            response = self.client.messages.create(
-                model=self._model,
-                max_tokens=kwargs.get("max_tokens", self._max_tokens),
-                system=system_prompt or "",
-                messages=messages,
-                temperature=kwargs.get("temperature", 0.3)
-            )
+            response = self.client.messages.create(**request)
+
+            if response.stop_reason == "refusal":
+                raise RuntimeError(
+                    "Anthropic API refused the request (stop_reason=refusal)."
+                )
 
             # Extract content (may be multiple content blocks)
             content = ""
             for block in response.content:
-                if hasattr(block, "text"):
+                if getattr(block, "type", None) == "text":
                     content += block.text
+
+            if response.stop_reason == "max_tokens":
+                print(
+                    f"  Warning: Claude hit max_tokens={request['max_tokens']} — "
+                    "output may be truncated."
+                )
 
             # Build usage dict
             usage = {
@@ -142,6 +170,7 @@ class AnthropicProvider(ILLMProvider):
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
+        schema: Optional[Dict[str, Any]] = None,
         **kwargs
     ) -> Dict[str, Any]:
         """Generate JSON response from Claude.
@@ -149,7 +178,11 @@ class AnthropicProvider(ILLMProvider):
         Args:
             prompt: User prompt requesting JSON output
             system_prompt: Optional system prompt
-            **kwargs: Additional parameters
+            schema: Optional JSON schema. When provided, uses Claude's native
+                structured outputs (output_config.format) which guarantees
+                valid JSON matching the schema. Objects in the schema must set
+                additionalProperties: false.
+            **kwargs: Additional parameters (max_tokens; temperature ignored)
 
         Returns:
             Parsed JSON dictionary
@@ -157,7 +190,21 @@ class AnthropicProvider(ILLMProvider):
         Raises:
             ValueError: If response is not valid JSON
         """
-        # Enhance system prompt to request JSON
+        if schema:
+            kwargs["output_config"] = {
+                "format": {"type": "json_schema", "schema": schema}
+            }
+            response = self.generate(prompt, system_prompt, **kwargs)
+            content = response.content.strip()
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    f"Failed to parse structured output from Claude: {e}\n"
+                    f"Response content: {content[:500]}..."
+                )
+
+        # No schema: instruct for JSON and extract robustly
         json_system = system_prompt or ""
         if "json" not in json_system.lower():
             json_system = (
@@ -167,18 +214,7 @@ class AnthropicProvider(ILLMProvider):
             ).strip()
 
         response = self.generate(prompt, json_system, **kwargs)
-
-        # Extract JSON from response
-        content = response.content.strip()
-
-        # Handle markdown code blocks
-        if content.startswith("```json"):
-            content = content[7:]
-        if content.startswith("```"):
-            content = content[3:]
-        if content.endswith("```"):
-            content = content[:-3]
-        content = content.strip()
+        content = self._extract_json_text(response.content)
 
         try:
             return json.loads(content)
@@ -187,6 +223,34 @@ class AnthropicProvider(ILLMProvider):
                 f"Failed to parse JSON from Claude response: {e}\n"
                 f"Response content: {content[:500]}..."
             )
+
+    @staticmethod
+    def _extract_json_text(raw: str) -> str:
+        """Extract a JSON payload from raw model output.
+
+        Handles markdown code fences and surrounding prose by falling back to
+        the outermost brace/bracket span.
+        """
+        content = raw.strip()
+
+        # Strip markdown code fences
+        if content.startswith("```json"):
+            content = content[7:]
+        if content.startswith("```"):
+            content = content[3:]
+        if content.endswith("```"):
+            content = content[:-3]
+        content = content.strip()
+
+        # If it still doesn't look like bare JSON, take the outermost span
+        if not (content.startswith("{") or content.startswith("[")):
+            for open_ch, close_ch in (("{", "}"), ("[", "]")):
+                start = content.find(open_ch)
+                end = content.rfind(close_ch)
+                if start != -1 and end > start:
+                    return content[start:end + 1]
+
+        return content
 
     def is_available(self) -> bool:
         """Check if Anthropic is available and configured.
@@ -214,7 +278,7 @@ class AnthropicProvider(ILLMProvider):
 
         Args:
             prompt: The prompt containing context and text to rewrite
-            temperature: Temperature for generation (lower = more deterministic)
+            temperature: Accepted for interface compatibility; not sent to the API
             max_tokens: Maximum tokens to generate
 
         Returns:
@@ -232,7 +296,6 @@ class AnthropicProvider(ILLMProvider):
             response = self.generate(
                 prompt=prompt,
                 system_prompt=system_prompt,
-                temperature=temperature,
                 max_tokens=max_tokens
             )
 
@@ -246,8 +309,8 @@ class AnthropicProvider(ILLMProvider):
     def count_tokens(self, text: str) -> int:
         """Estimate token count for text.
 
-        Note: This is an approximation. Anthropic doesn't provide
-        a public tokenizer, so we use a rough estimate.
+        Note: This is a local approximation (~4 chars/token). For exact counts
+        use client.messages.count_tokens, which costs an API round-trip.
 
         Args:
             text: Text to count tokens for
@@ -255,5 +318,4 @@ class AnthropicProvider(ILLMProvider):
         Returns:
             Estimated token count
         """
-        # Rough estimate: ~4 characters per token for English text
         return len(text) // 4
