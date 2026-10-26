@@ -7,7 +7,6 @@ Generates a traceability matrix JSON mapping test cases to automation artifacts
 import json
 import os
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
 
 
 class TraceabilityGenerator:
@@ -17,12 +16,12 @@ class TraceabilityGenerator:
         self,
         story_id: str,
         story_title: str,
-        test_cases: List[Dict],
-        output_files: Dict[str, str],
-        playwright_script: Optional[str] = None,
-        postman_collection: Optional[Dict] = None,
-        output_file: Optional[str] = None
-    ) -> Dict:
+        test_cases: list[dict],
+        output_files: dict[str, str],
+        playwright_script: str | None = None,
+        postman_collection: dict | None = None,
+        output_file: str | None = None
+    ) -> dict:
         """Generate traceability matrix and optionally save to file."""
         matrix = self._build_matrix(
             story_id, story_title, test_cases,
@@ -38,11 +37,11 @@ class TraceabilityGenerator:
         self,
         story_id: str,
         story_title: str,
-        test_cases: List[Dict],
-        output_files: Dict[str, str],
-        playwright_script: Optional[str],
-        postman_collection: Optional[Dict]
-    ) -> Dict:
+        test_cases: list[dict],
+        output_files: dict[str, str],
+        playwright_script: str | None,
+        postman_collection: dict | None
+    ) -> dict:
         """Build the traceability matrix dict."""
         artifacts = {}
 
@@ -101,7 +100,7 @@ class TraceabilityGenerator:
         }
 
     @staticmethod
-    def _count_postman_requests(collection: Optional[Dict]) -> int:
+    def _count_postman_requests(collection: dict | None) -> int:
         """Count total requests in a Postman collection (including nested folders)."""
         if not collection:
             return 0

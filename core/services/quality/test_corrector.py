@@ -3,17 +3,16 @@ LLM-based Test Corrector - Uses LLMs to enhance test case quality.
 
 Provides deterministic, cached corrections for poor quality test cases.
 """
-import json
 import hashlib
-from typing import Dict, Optional, List, Any
+import json
+from typing import Any
 
+from core.interfaces.llm_provider import ILLMProvider
 from core.interfaces.quality_standards import (
+    CorrectionResult,
     ITestCorrector,
     TestCaseQualityMetrics,
-    CorrectionResult,
-    QualityLevel,
 )
-from core.interfaces.llm_provider import ILLMProvider
 
 
 class LLMTestCorrector(ITestCorrector):
@@ -49,9 +48,9 @@ Current step (needs improvement):
 - Expected: {expected}
 
 Write a better version that:
-1. Uses specific UI element names (Edit Menu, Properties Panel, Canvas, etc.)
-2. Describes the exact user action ("Select Rotate from the Edit Menu")
-3. States what the tester will observe ("Object rotates 90° clockwise, rotation handles appear")
+1. Uses specific UI element names ({ui_surface_examples})
+2. Describes the exact user action ("Select 'CommandName' from the 'MenuName' menu")
+3. States what the tester will observe ("The dialog closes and the updated value appears in the list")
 
 Return JSON only: {{"action": "improved action text", "expected": "improved expected result"}}"""
 
@@ -66,18 +65,19 @@ Title requirements:
 - Action-oriented (what is being verified)
 - Specific to this AC, not generic
 - Examples of good titles:
-  - "Rotate rotates selected objects 90°"
-  - "Mirror flips object horizontally"
+  - "Save stores the current changes"
+  - "Delete removes the selected item"
   - "Commands disabled without selection"
-  - "Touch gestures apply transformation"
+  - "Search returns matching results"
 
 Return ONLY the title text, no quotes or explanation."""
 
     def __init__(
         self,
         llm_provider: ILLMProvider,
-        cache_manager: Optional[Any] = None,
-        quality_threshold: float = 0.6
+        cache_manager: Any | None = None,
+        quality_threshold: float = 0.6,
+        ui_surfaces: list[str] | None = None
     ):
         """
         Initialize test corrector.
@@ -86,16 +86,19 @@ Return ONLY the title text, no quotes or explanation."""
             llm_provider: LLM provider for generating corrections
             cache_manager: Optional cache manager for deterministic results
             quality_threshold: Minimum quality score (0-1) to skip correction
+            ui_surfaces: Optional valid UI surface names from the project config,
+                used as examples in enhancement prompts
         """
         self.llm = llm_provider
         self.cache = cache_manager
         self.quality_threshold = quality_threshold
+        self.ui_surfaces = ui_surfaces or []
 
     def correct_test_case(
         self,
-        test_case: Dict,
+        test_case: dict,
         quality_metrics: TestCaseQualityMetrics,
-        feature_context: Optional[str] = None
+        feature_context: str | None = None
     ) -> CorrectionResult:
         """Correct a test case using LLM."""
         # Check if correction is needed
@@ -165,8 +168,8 @@ Return ONLY the title text, no quotes or explanation."""
         action: str,
         expected: str,
         feature_name: str,
-        step_context: Optional[str] = None
-    ) -> Dict[str, str]:
+        step_context: str | None = None
+    ) -> dict[str, str]:
         """Enhance a single step using LLM."""
         # Check if enhancement is needed
         if not self._needs_enhancement(action, expected):
@@ -179,7 +182,13 @@ Return ONLY the title text, no quotes or explanation."""
             if cached:
                 return cached
 
+        ui_surface_examples = (
+            ", ".join(self.ui_surfaces)
+            if self.ui_surfaces
+            else "menus, panels, dialogs, buttons, fields — as named in the application"
+        )
         prompt = self.STEP_ENHANCEMENT_PROMPT.format(
+            ui_surface_examples=ui_surface_examples,
             feature_name=feature_name,
             context=step_context or "General test step",
             action=action,
@@ -214,7 +223,7 @@ Return ONLY the title text, no quotes or explanation."""
         feature_name: str,
         ac_text: str,
         test_focus: str = "functionality"
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate a humanistic, balanced title for a test case using LLM.
 
         Args:
@@ -269,9 +278,9 @@ Return ONLY the title text, no quotes or explanation."""
 
     def _build_correction_prompt(
         self,
-        test_case: Dict,
+        test_case: dict,
         metrics: TestCaseQualityMetrics,
-        context: Optional[str]
+        context: str | None
     ) -> str:
         """Build the correction prompt for LLM."""
         issues = []
@@ -313,7 +322,7 @@ Return corrected test case as JSON with same structure:
 }}"""
         return prompt
 
-    def _merge_correction(self, original: Dict, correction: Dict) -> Dict:
+    def _merge_correction(self, original: dict, correction: dict) -> dict:
         """Merge LLM correction with original test case."""
         corrected = original.copy()
 
@@ -353,7 +362,7 @@ Return corrected test case as JSON with same structure:
 
         return corrected
 
-    def _identify_changes(self, original: Dict, corrected: Dict) -> List[str]:
+    def _identify_changes(self, original: dict, corrected: dict) -> list[str]:
         """Identify changes made during correction."""
         changes = []
 
@@ -388,7 +397,7 @@ Return corrected test case as JSON with same structure:
         text = (action + " " + expected).lower()
         return any(pattern in text for pattern in generic_patterns)
 
-    def _get_cache_key(self, test_case: Dict) -> str:
+    def _get_cache_key(self, test_case: dict) -> str:
         """Generate cache key for test case."""
         content = json.dumps(test_case, sort_keys=True)
         return f"tc_correction_{hashlib.sha256(content.encode()).hexdigest()[:16]}"
@@ -422,9 +431,9 @@ class BatchTestCorrector:
 
     def correct_test_cases(
         self,
-        test_cases: List[Dict],
-        feature_context: Optional[str] = None
-    ) -> List[CorrectionResult]:
+        test_cases: list[dict],
+        feature_context: str | None = None
+    ) -> list[CorrectionResult]:
         """
         Correct multiple test cases.
 
@@ -467,7 +476,7 @@ class BatchTestCorrector:
 
         return results
 
-    def get_quality_report(self, results: List[CorrectionResult]) -> Dict:
+    def get_quality_report(self, results: list[CorrectionResult]) -> dict:
         """Generate quality improvement report."""
         total = len(results)
         corrected = sum(1 for r in results if r.changes_made)

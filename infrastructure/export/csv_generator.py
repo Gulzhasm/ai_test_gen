@@ -6,8 +6,8 @@ Supports dependency injection for project-specific settings.
 """
 import csv
 import io
-from typing import Dict, List, Optional, Protocol
 from dataclasses import dataclass
+from typing import Protocol
 
 
 @dataclass
@@ -41,7 +41,7 @@ class CSVGenerator:
         'Step Action', 'Step Expected', 'Area Path', 'AssignedTo', 'State'
     ]
 
-    def __init__(self, config: Optional[ICSVConfig] = None):
+    def __init__(self, config: ICSVConfig | None = None):
         """
         Initialize CSV generator with optional configuration.
 
@@ -68,7 +68,7 @@ class CSVGenerator:
         """Get default test case state."""
         return self._default_state
 
-    def generate_csv(self, test_cases: List[Dict], output_file: str) -> None:
+    def generate_csv(self, test_cases: list[dict], output_file: str) -> None:
         """
         Generate ADO-ready CSV with exact column structure.
 
@@ -91,7 +91,7 @@ class CSVGenerator:
             for tc in test_cases:
                 self._write_test_case(f, tc)
 
-    def generate_csv_string(self, test_cases: List[Dict]) -> str:
+    def generate_csv_string(self, test_cases: list[dict]) -> str:
         """
         Generate CSV content as a string.
 
@@ -112,7 +112,7 @@ class CSVGenerator:
 
         return output.getvalue()
 
-    def _write_test_case(self, f, tc: Dict) -> None:
+    def _write_test_case(self, f, tc: dict) -> None:
         """Write a single test case to file."""
         # Header row for test case
         clean_title = self._clean_text(tc.get('title', ''))
@@ -148,7 +148,7 @@ class CSVGenerator:
             formatted_row = [self._format_csv_value(val) for val in step_row]
             f.write(','.join(formatted_row) + '\n')
 
-    def _write_test_case_to_stream(self, output: io.StringIO, tc: Dict) -> None:
+    def _write_test_case_to_stream(self, output: io.StringIO, tc: dict) -> None:
         """Write a single test case to string stream."""
         # Header row
         clean_title = self._clean_text(tc.get('title', ''))

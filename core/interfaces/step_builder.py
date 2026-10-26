@@ -4,7 +4,6 @@ Step builder interfaces for test case construction.
 Abstracts the step building logic to enable different strategies.
 """
 from abc import ABC, abstractmethod
-from typing import List, Dict, Optional
 from dataclasses import dataclass
 
 
@@ -16,55 +15,51 @@ class StepContext:
     story_id: int
     ac_text: str = ""
     requires_object: bool = False
-    platform: Optional[str] = None
-    qa_details: Optional[Dict] = None
+    platform: str | None = None
+    qa_details: dict | None = None
 
 
 class IStepTemplate(ABC):
     """Interface for step templates."""
 
     @abstractmethod
-    def get_prereq_step(self) -> Dict[str, str]:
+    def get_prereq_step(self) -> dict[str, str]:
         """Get prerequisite step.
 
         Returns:
             Dict with 'action' and 'expected' keys
         """
-        pass
 
     @abstractmethod
-    def get_launch_step(self) -> Dict[str, str]:
+    def get_launch_step(self) -> dict[str, str]:
         """Get application launch step.
 
         Returns:
             Dict with 'action' and 'expected' keys
         """
-        pass
 
     @abstractmethod
-    def get_close_step(self) -> Dict[str, str]:
+    def get_close_step(self) -> dict[str, str]:
         """Get application close step.
 
         Returns:
             Dict with 'action' and 'expected' keys
         """
-        pass
 
     @abstractmethod
-    def get_object_setup_steps(self) -> List[Dict[str, str]]:
+    def get_object_setup_steps(self) -> list[dict[str, str]]:
         """Get steps for object/entity setup.
 
         Returns:
             List of step dicts
         """
-        pass
 
 
 class IStepBuilder(ABC):
     """Interface for building test steps."""
 
     @abstractmethod
-    def build_setup_steps(self, context: StepContext) -> List[Dict[str, str]]:
+    def build_setup_steps(self, context: StepContext) -> list[dict[str, str]]:
         """Build setup steps (prereq, launch, object setup if needed).
 
         Args:
@@ -73,10 +68,9 @@ class IStepBuilder(ABC):
         Returns:
             List of step dicts
         """
-        pass
 
     @abstractmethod
-    def build_navigation_step(self, entry_point: str) -> Dict[str, str]:
+    def build_navigation_step(self, entry_point: str) -> dict[str, str]:
         """Build navigation step to entry point.
 
         Args:
@@ -85,10 +79,9 @@ class IStepBuilder(ABC):
         Returns:
             Step dict
         """
-        pass
 
     @abstractmethod
-    def build_action_step(self, action: str) -> Dict[str, str]:
+    def build_action_step(self, action: str) -> dict[str, str]:
         """Build main action step.
 
         Args:
@@ -97,14 +90,13 @@ class IStepBuilder(ABC):
         Returns:
             Step dict
         """
-        pass
 
     @abstractmethod
     def build_verification_step(
         self,
         verification: str,
         expected: str
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Build verification step.
 
         Args:
@@ -114,16 +106,14 @@ class IStepBuilder(ABC):
         Returns:
             Step dict
         """
-        pass
 
     @abstractmethod
-    def build_teardown_steps(self) -> List[Dict[str, str]]:
+    def build_teardown_steps(self) -> list[dict[str, str]]:
         """Build teardown steps (close application).
 
         Returns:
             List of step dicts
         """
-        pass
 
     @abstractmethod
     def build_undo_redo_steps(
@@ -131,7 +121,7 @@ class IStepBuilder(ABC):
         action: str,
         post_state: str,
         pre_state: str
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """Build undo/redo verification steps.
 
         Args:
@@ -142,14 +132,13 @@ class IStepBuilder(ABC):
         Returns:
             List of step dicts
         """
-        pass
 
     @abstractmethod
     def build_accessibility_prereq(
         self,
         platform: str,
         tool: str
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Build accessibility tool prerequisite step.
 
         Args:
@@ -159,4 +148,3 @@ class IStepBuilder(ABC):
         Returns:
             Step dict
         """
-        pass

@@ -6,7 +6,6 @@ Provides structured metrics collection for monitoring and optimization.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
 from enum import Enum
 
 
@@ -41,7 +40,7 @@ class GenerationMetrics:
     estimated_cost_usd: float
     cache_hit: bool = False
     success: bool = True
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
     @property
     def duration_seconds(self) -> float:
@@ -86,7 +85,6 @@ class IMetricsCollector(ABC):
         Args:
             metrics: Generation metrics to record
         """
-        pass
 
     @abstractmethod
     def record_parsing(
@@ -104,7 +102,6 @@ class IMetricsCollector(ABC):
             success: Whether parsing succeeded
             confidence: Confidence score (0-1)
         """
-        pass
 
     @abstractmethod
     def record_cache_hit(self, cache_type: str, provider: str, model: str) -> None:
@@ -115,7 +112,6 @@ class IMetricsCollector(ABC):
             provider: LLM provider name
             model: Model name
         """
-        pass
 
     @abstractmethod
     def record_cache_miss(self, cache_type: str, provider: str, model: str) -> None:
@@ -126,25 +122,22 @@ class IMetricsCollector(ABC):
             provider: LLM provider name
             model: Model name
         """
-        pass
 
     @abstractmethod
-    def get_summary(self) -> Dict:
+    def get_summary(self) -> dict:
         """Get aggregated metrics summary.
 
         Returns:
             Dictionary with metrics summary
         """
-        pass
 
     @abstractmethod
-    def get_cost_report(self) -> Dict:
+    def get_cost_report(self) -> dict:
         """Get cost breakdown report.
 
         Returns:
             Dictionary with cost breakdown by model/provider
         """
-        pass
 
     @abstractmethod
     def export(self, format: str = "json") -> str:
@@ -156,9 +149,7 @@ class IMetricsCollector(ABC):
         Returns:
             Formatted metrics string
         """
-        pass
 
     @abstractmethod
     def reset(self) -> None:
         """Reset all collected metrics."""
-        pass

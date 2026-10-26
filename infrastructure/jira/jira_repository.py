@@ -3,12 +3,14 @@ Jira repository implementations.
 
 Implements repository interfaces for Jira data access.
 """
-from typing import Optional, List, Dict, Any
 import re
+from typing import Any
+
 from bs4 import BeautifulSoup
 
 from core.domain.story import UserStory
 from core.interfaces.repository import IStoryRepository
+
 from .http_client import JiraHttpClient
 
 
@@ -38,7 +40,7 @@ class JiraHtmlParser:
         return JiraHtmlParser._parse_html(content)
 
     @staticmethod
-    def _parse_adf(adf: Dict) -> str:
+    def _parse_adf(adf: dict) -> str:
         """Parse Atlassian Document Format to plain text."""
         if not isinstance(adf, dict):
             return str(adf) if adf else ""
@@ -127,7 +129,7 @@ class JiraHtmlParser:
         return '\n'.join(lines)
 
     @staticmethod
-    def parse_acceptance_criteria(ac_text: str) -> List[str]:
+    def parse_acceptance_criteria(ac_text: str) -> list[str]:
         """Parse acceptance criteria text into list of AC bullets.
 
         Args:
@@ -222,7 +224,7 @@ class JiraStoryRepository(IStoryRepository):
         email: str,
         api_token: str,
         project_key: str,
-        ac_field_name: Optional[str] = None,
+        ac_field_name: str | None = None,
         is_cloud: bool = True
     ):
         """Initialize repository with Jira configuration.
@@ -246,7 +248,7 @@ class JiraStoryRepository(IStoryRepository):
         self._ac_field_id = None  # Will be discovered if not provided
         self._parser = JiraHtmlParser()
 
-    def _discover_ac_field(self) -> Optional[str]:
+    def _discover_ac_field(self) -> str | None:
         """Discover the custom field ID for Acceptance Criteria."""
         if self._ac_field_id:
             return self._ac_field_id
@@ -273,7 +275,7 @@ class JiraStoryRepository(IStoryRepository):
 
         return None
 
-    def get_story(self, story_id: int) -> Optional[UserStory]:
+    def get_story(self, story_id: int) -> UserStory | None:
         """Retrieve a user story by ID.
 
         Note: story_id is expected to be the numeric part of the issue key,
@@ -355,7 +357,7 @@ class JiraStoryRepository(IStoryRepository):
 
         return ""
 
-    def get_qa_prep(self, story_id: int) -> Optional[str]:
+    def get_qa_prep(self, story_id: int) -> str | None:
         """Retrieve QA Prep content for a story.
 
         In Jira, QA Prep might be:

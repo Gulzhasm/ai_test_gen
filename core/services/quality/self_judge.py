@@ -7,17 +7,15 @@ forbidden language that slipped through correction, and hallucinated objectives.
 Architecture:  Generate → LLM Correct → **Self-Judge** → Gemini Judge → CSV
 """
 import json
-from typing import List, Dict
 
 from core.interfaces.judge import (
-    JudgeVerdict,
-    JudgeIssue,
+    CATEGORY_SEVERITY,
     IssueCategory,
     IssueSeverity,
-    CATEGORY_SEVERITY,
+    JudgeIssue,
+    JudgeVerdict,
 )
 from core.interfaces.llm_provider import ILLMProvider
-
 
 # ── Prompt templates ────────────────────────────────────────────────
 
@@ -68,8 +66,8 @@ toggling it should HIDE it first, not show it again).
    Descriptive "or" in expected results (e.g., "no errors or warnings") is fine.
 
 8. UNNECESSARY SETUP STEPS (Minor)
-   If a test does NOT interact with canvas objects, it should NOT include \
-"Draw a circle" / "Select the object" steps.  Flag bloated setup.
+   If a test does NOT interact with application objects, it should NOT include \
+object-creation / object-selection setup steps.  Flag bloated setup.
 
 IMPORTANT:
 - Be AGGRESSIVE about removing hallucinated/out-of-scope tests. It is better to have \
@@ -91,7 +89,7 @@ do NOT include that test case in the output at all.  This is the most important 
 - For missing AC coverage: add steps to an existing test case, do NOT create new tests.
 - Fix logic-flow errors (correct toggle order).
 - Remove forbidden language by splitting ambiguous actions into separate steps.
-- Remove unnecessary setup steps (draw/select object) from tests that don't need them.
+- Remove unnecessary setup steps (object creation/selection) from tests that don't need them.
 - Preserve test case IDs for tests you keep.
 - Return ONLY valid JSON matching the schema.
 - The output "test_cases" array must contain ONLY the tests that should survive. \
@@ -99,8 +97,8 @@ Omitted tests are considered removed."""
 
 
 def build_self_eval_prompt(
-    test_cases: List[Dict],
-    acceptance_criteria: List[str],
+    test_cases: list[dict],
+    acceptance_criteria: list[str],
     story_title: str,
     story_description: str = "",
 ) -> str:
@@ -148,9 +146,9 @@ For "ac_coverage" use 1-based AC index → boolean."""
 
 
 def build_self_fix_prompt(
-    test_cases: List[Dict],
-    issues: List[Dict],
-    acceptance_criteria: List[str],
+    test_cases: list[dict],
+    issues: list[dict],
+    acceptance_criteria: list[str],
 ) -> str:
     """Build a compact fix prompt for self-judge."""
 
@@ -199,8 +197,8 @@ class SelfJudge:
 
     def evaluate_and_fix(
         self,
-        test_cases: List[Dict],
-        acceptance_criteria: List[str],
+        test_cases: list[dict],
+        acceptance_criteria: list[str],
         story_title: str,
         story_description: str = "",
     ) -> JudgeVerdict:
@@ -259,8 +257,8 @@ class SelfJudge:
 
     def _evaluate(
         self,
-        test_cases: List[Dict],
-        acceptance_criteria: List[str],
+        test_cases: list[dict],
+        acceptance_criteria: list[str],
         story_title: str,
         story_description: str,
     ) -> JudgeVerdict:
@@ -286,10 +284,10 @@ class SelfJudge:
 
     def _fix(
         self,
-        test_cases: List[Dict],
-        issues: List[Dict],
-        acceptance_criteria: List[str],
-    ) -> Dict:
+        test_cases: list[dict],
+        issues: list[dict],
+        acceptance_criteria: list[str],
+    ) -> dict:
         prompt = build_self_fix_prompt(test_cases, issues, acceptance_criteria)
         try:
             response = self.llm.generate_json(
@@ -308,7 +306,7 @@ class SelfJudge:
 
         return response
 
-    def _parse_verdict(self, response: Dict) -> JudgeVerdict:
+    def _parse_verdict(self, response: dict) -> JudgeVerdict:
         issues = []
         for raw in response.get("issues", []):
             category = _CATEGORY_MAP.get(raw.get("category", ""))
@@ -345,7 +343,7 @@ class SelfJudge:
             duplicate_groups=response.get("duplicate_groups", []),
         )
 
-    def _merge_fixes(self, response: Dict, originals: List[Dict], removal_ids: set = None) -> List[Dict]:
+    def _merge_fixes(self, response: dict, originals: list[dict], removal_ids: set = None) -> list[dict]:
         removal_ids = removal_ids or set()
         fixed_tests = response.get("test_cases", [])
 

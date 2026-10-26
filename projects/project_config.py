@@ -2,15 +2,24 @@
 Project configuration data classes for multi-project support.
 Defines the structure for application-specific configurations.
 """
-from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Any
-from pathlib import Path
-import yaml
 import os
 import re
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Optional
+
+import yaml
+
+
+def _word_in(keyword: str, text_lower: str, stem: bool = False) -> bool:
+    """Whole-word (or word-prefix when stem=True) match of keyword in lowercase text."""
+    k = re.escape(keyword.lower().strip())
+    return bool(re.search(rf"\b{k}" + ("" if stem else r"\b"), text_lower))
+
 
 
 @dataclass
+
 class UIExtractionConfig:
     """
     Configuration for live UI element extraction (selector grounding).
@@ -23,8 +32,8 @@ class UIExtractionConfig:
     enabled: bool = False
     inventory_path: str = ""                                   # where inventory.json is read/written
     backend_url: str = ""                                      # informational: app's backend origin
-    page_states: List[Dict[str, Any]] = field(default_factory=list)
-    api_mocks: List[Dict[str, Any]] = field(default_factory=list)
+    page_states: list[dict[str, Any]] = field(default_factory=list)
+    api_mocks: list[dict[str, Any]] = field(default_factory=list)
     # Optional POM (Page Object Model) standalone project generation
     pom_project_path: str = ""                                 # sibling dir for the generated UI-automation project
     pom_run_after_generate: bool = False                       # run `npx playwright test` after generating
@@ -33,7 +42,7 @@ class UIExtractionConfig:
 @dataclass
 class ApplicationConfig:
     """Configuration for the application under test."""
-    name: str  # e.g., "ENV QuickDraw", "MediaPedia", "MyApp"
+    name: str  # e.g., "SiteDraft", "MediaPedia", "MyApp"
     description: str = ""
     app_type: str = "desktop"  # desktop, web, mobile, hybrid
 
@@ -43,7 +52,7 @@ class ApplicationConfig:
     # Live UI element extraction config (selector grounding)
     ui_extraction: Optional['UIExtractionConfig'] = None
 
-    # Step templates (these replace hardcoded ENV QuickDraw references)
+    # Step templates (these replace hardcoded app-name references)
     prereq_template: str = "Pre-req: The {app_name} is installed"
     launch_step: str = "Launch the {app_name}."
     launch_expected: str = "Application loads successfully."
@@ -52,33 +61,38 @@ class ApplicationConfig:
     create_file_step: str = "Create a new file/document."
     create_file_expected: str = "A new blank file is created."
 
+    # Object setup steps — injected before object-interaction tests so a
+    # workable record/object exists. Domain-specific: a drawing app draws a
+    # shape, a records system opens a record. List of {action, expected}.
+    object_setup_steps: list[dict[str, str]] = field(default_factory=list)
+
     close_step: str = "Close the {app_name}."
 
     # Feature constraints - CRITICAL for accurate test generation
     # Features that DO NOT exist in this application (prevents generating impossible tests)
-    unavailable_features: List[str] = field(default_factory=list)
+    unavailable_features: list[str] = field(default_factory=list)
     # Example: ["multi-object selection", "batch processing", "cloud sync"]
 
     # INCORRECT UI TERMS - terminology that does NOT exist in the app
     # LLM should NEVER use these terms in generated tests
-    forbidden_ui_terms: List[str] = field(default_factory=list)
+    forbidden_ui_terms: list[str] = field(default_factory=list)
     # Example: ["Left Toolbar", "Side Panel"] - these UI elements don't exist
 
     # Feature aliases - map AC terminology to actual feature names
-    feature_aliases: Dict[str, str] = field(default_factory=dict)
+    feature_aliases: dict[str, str] = field(default_factory=dict)
     # Example: {"multi-select": "single object selection only", "GPS": "Set Base Coordinates"}
 
     # Feature notes - warnings/notes about feature limitations
-    feature_notes: Dict[str, str] = field(default_factory=dict)
+    feature_notes: dict[str, str] = field(default_factory=dict)
     # Example: {"rotate": "Only 90-degree rotations supported"}
 
     # UI-specific configuration
-    main_ui_surfaces: List[str] = field(default_factory=lambda: [
+    main_ui_surfaces: list[str] = field(default_factory=lambda: [
         'Main Menu', 'Toolbar', 'Canvas', 'Properties Panel', 'Dialog Window'
     ])
 
     # Entry point mappings (feature keywords -> UI locations)
-    entry_point_mappings: Dict[str, str] = field(default_factory=lambda: {
+    entry_point_mappings: dict[str, str] = field(default_factory=lambda: {
         'import': 'File Menu',
         'export': 'File Menu',
         'save': 'File Menu',
@@ -97,12 +111,29 @@ class ApplicationConfig:
     })
 
     # Platform support
-    supported_platforms: List[str] = field(default_factory=lambda: [
+    supported_platforms: list[str] = field(default_factory=lambda: [
         'Windows 11', 'iPad', 'Android Tablet'
     ])
 
+    # Extra phrases that refer to a platform in story text, e.g.
+    # {"iPad": ["field tablet"]}. Built-in aliases already cover iOS/App Store,
+    # Android/Google Play, Windows/Microsoft Store and browsers
+    # (core.services.platform_scope).
+    platform_aliases: dict[str, list[str]] = field(default_factory=dict)
+
+    # Accessibility tool per platform, overriding the defaults chosen by
+    # core.services.platform_scope.accessibility_profile.
+    accessibility_tools: dict[str, str] = field(default_factory=dict)
+
+    # When the context setup step (create_file_step) must appear in a test:
+    #   always      - every test (desktop apps whose menus need an open file)
+    #   when_needed - only tests whose feature needs that context (web apps:
+    #                 sign-in, home and navigation tests need no record open)
+    #   never       - the project has no context setup step
+    setup_step_policy: str = "always"
+
     # Object interaction keywords (determines if object setup is needed)
-    object_interaction_keywords: List[str] = field(default_factory=lambda: [
+    object_interaction_keywords: list[str] = field(default_factory=lambda: [
         'rotate', 'move', 'delete', 'select', 'resize', 'modify', 'edit',
         'transform', 'flip', 'mirror', 'duplicate', 'copy', 'scale', 'reposition',
         'label', 'labels', 'properties panel', 'object boundary'
@@ -116,6 +147,21 @@ class ApplicationConfig:
         """Get formatted launch step for this application."""
         return self.launch_step.format(app_name=self.name)
 
+    def get_object_setup_steps(self) -> list[dict[str, str]]:
+        """Get object setup steps ({action, expected} dicts) for this application.
+
+        Falls back to the create-file step when no explicit setup steps are
+        configured, so every project gets a sensible domain-appropriate default.
+        """
+        if self.object_setup_steps:
+            return [
+                {"action": s.get("action", ""), "expected": s.get("expected", "")}
+                for s in self.object_setup_steps
+            ]
+        return [
+            {"action": self.create_file_step, "expected": self.create_file_expected},
+        ]
+
     def get_create_file_step(self) -> str:
         """Get the create file/drawing step for this application."""
         return self.create_file_step
@@ -128,7 +174,7 @@ class ApplicationConfig:
         """Get formatted close step for this application."""
         return self.close_step.format(app_name=self.name)
 
-    def determine_entry_point(self, feature_name: str, hints: List[str] = None) -> str:
+    def determine_entry_point(self, feature_name: str, hints: list[str] = None) -> str:
         """Determine the most appropriate entry point for a feature.
 
         Priority order:
@@ -182,11 +228,11 @@ class ApplicationConfig:
                 return False
         return True
 
-    def get_feature_warning(self, feature_text: str) -> Optional[str]:
+    def get_feature_warning(self, feature_text: str) -> str | None:
         """Get any warnings/notes about a feature."""
         text_lower = feature_text.lower()
         for feature_key, note in self.feature_notes.items():
-            if feature_key.lower() in text_lower:
+            if _word_in(feature_key, text_lower, stem=True):
                 return note
         return None
 
@@ -194,12 +240,12 @@ class ApplicationConfig:
         """Replace AC terminology with actual feature names if aliases exist."""
         result = ac_text
         for alias, actual in self.feature_aliases.items():
-            if alias.lower() in ac_text.lower():
+            if _word_in(alias, ac_text.lower()):
                 # Add note about the alias
                 result = result + f" [Note: {alias} → {actual}]"
         return result
 
-    def check_ac_feasibility(self, ac_text: str) -> Dict[str, Any]:
+    def check_ac_feasibility(self, ac_text: str) -> dict[str, Any]:
         """
         Check if an AC can be tested with this application's capabilities.
 
@@ -216,8 +262,10 @@ class ApplicationConfig:
         text_lower = ac_text.lower()
 
         # Check for unavailable features
+        # Whole-word matching: a plain substring test dropped every AC containing
+        # "associated" because "sso" is an unavailable feature.
         for unavailable in self.unavailable_features:
-            if unavailable.lower() in text_lower:
+            if _word_in(unavailable, text_lower):
                 result['feasible'] = False
                 result['blocked_reasons'].append(
                     f"Feature '{unavailable}' is not available in {self.name}"
@@ -225,12 +273,12 @@ class ApplicationConfig:
 
         # Check for feature notes/warnings
         for feature_key, note in self.feature_notes.items():
-            if feature_key.lower() in text_lower:
+            if _word_in(feature_key, text_lower, stem=True):
                 result['warnings'].append(note)
 
         # Check for aliases
         for alias, actual in self.feature_aliases.items():
-            if alias.lower() in text_lower:
+            if _word_in(alias, text_lower):
                 result['notes'].append(f"'{alias}' maps to '{actual}'")
 
         return result
@@ -269,7 +317,7 @@ class ADOProjectConfig:
     organization: str  # e.g., "cdpinc", "contoso"
     project: str  # e.g., "Env", "MediaPedia"
     area_path: str  # e.g., "Env\\ENV Kanda", "MediaPedia\\US Team"
-    pat: Optional[str] = None  # Personal Access Token (from env var)
+    pat: str | None = None  # Personal Access Token (from env var)
 
     # User assignment
     assigned_to: str = ""
@@ -279,18 +327,18 @@ class ADOProjectConfig:
     test_suite_pattern: str = "{story_id} : {story_name}"
 
     # QA Prep task naming pattern (None means no QA Prep exists)
-    qa_prep_pattern: Optional[str] = "Story {story_id}: QA Prep"
+    qa_prep_pattern: str | None = "Story {story_id}: QA Prep"
 
     # Team name for board column queries (e.g., "ENV Kanda")
     team: str = ""
 
     # Board columns to include in fetch_board_stories queries
-    board_columns: List[str] = field(default_factory=lambda: [
+    board_columns: list[str] = field(default_factory=lambda: [
         'Most Wanted', 'Development', 'Quality Assurance'
     ])
 
     # Integration platform config (for URL customization)
-    integration: Optional[IntegrationConfig] = None
+    integration: IntegrationConfig | None = None
 
     @property
     def base_url(self) -> str:
@@ -310,17 +358,17 @@ class JiraProjectConfig:
     base_url: str  # e.g., "https://company.atlassian.net"
     project_key: str  # e.g., "PROJ", "TEST"
     email: str  # User email for authentication
-    api_token: Optional[str] = None  # API token (from env var)
+    api_token: str | None = None  # API token (from env var)
 
     # Jira Cloud vs Server
     is_cloud: bool = True
 
     # Custom field for Acceptance Criteria (None to auto-discover)
-    ac_field_name: Optional[str] = None
+    ac_field_name: str | None = None
 
     # QA Prep configuration - subtask type or linked issue type
-    qa_prep_issue_type: Optional[str] = "Sub-task"
-    qa_prep_label: Optional[str] = "qa-prep"
+    qa_prep_issue_type: str | None = "Sub-task"
+    qa_prep_label: str | None = "qa-prep"
 
     @property
     def organization(self) -> str:
@@ -336,18 +384,18 @@ class TestRailConfig:
     """TestRail configuration."""
     base_url: str  # e.g., "https://company.testrail.io"
     email: str  # User email for authentication
-    api_key: Optional[str] = None  # API key (from env var)
+    api_key: str | None = None  # API key (from env var)
 
     # TestRail project and suite IDs
     project_id: int = 0
-    suite_id: Optional[int] = None  # None for single-suite projects
+    suite_id: int | None = None  # None for single-suite projects
 
     # Default section for new test cases (None to create per story)
-    default_section_id: Optional[int] = None
+    default_section_id: int | None = None
 
     # Test case defaults
     default_priority_id: int = 2  # 1=Low, 2=Medium, 3=High, 4=Critical
-    default_type_id: Optional[int] = None  # Test type
+    default_type_id: int | None = None  # Test type
 
     @property
     def organization(self) -> str:
@@ -361,23 +409,23 @@ class TestRailConfig:
 class TestRulesConfig:
     """Test case generation rules configuration."""
     # Forbidden words that must not appear in test output
-    forbidden_words: List[str] = field(default_factory=lambda: [
+    forbidden_words: list[str] = field(default_factory=lambda: [
         'or / OR', 'if available', 'if supported', 'ambiguous'
     ])
 
     # Generic area terms that should not be used as scenarios
-    forbidden_area_terms: List[str] = field(default_factory=lambda: [
+    forbidden_area_terms: list[str] = field(default_factory=lambda: [
         'Functionality', 'Accessibility', 'Behavior', 'Validation', 'General', 'System'
     ])
 
     # Allowed area terms (UI surfaces)
-    allowed_areas: List[str] = field(default_factory=lambda: [
+    allowed_areas: list[str] = field(default_factory=lambda: [
         'File Menu', 'Edit Menu', 'Tools Menu', 'View Menu', 'Help Menu',
         'Properties Panel', 'Canvas', 'Dialog Window', 'Modal Window', 'Toolbar'
     ])
 
     # Cancelled/out-of-scope indicators
-    cancelled_indicators: List[str] = field(default_factory=lambda: [
+    cancelled_indicators: list[str] = field(default_factory=lambda: [
         'cancelled', 'out of scope', 'to be cancelled', 'removed', 'not implemented',
         'deprecated', 'superseded', 'will not be implemented'
     ])
@@ -385,6 +433,41 @@ class TestRulesConfig:
     # Test ID configuration
     first_test_id: str = "AC1"  # ID for the first test case
     test_id_increment: int = 5  # Increment for subsequent test IDs (005, 010, 015...)
+
+
+@dataclass
+class QARulesSettings:
+    """Source-grounding and reviewer-rule settings (all off by default).
+
+    strict_grounding switches the generator to source-only writing: requirement
+    documents and the reviewer rules go into the prompt, open-ended edge-case
+    brainstorming and derived scenarios with invented values are dropped, unknown
+    details become open questions, and a deterministic rule checker runs inside the
+    judge loop.
+    """
+    strict_grounding: bool = False
+    # QA Prep tasks can hold earlier, unreviewed text; only treat them as a source when trusted.
+    use_qa_prep_as_source: bool = True
+    # ChromaDB "reference steps" from earlier runs (can carry another project's wording).
+    rag_reference_steps: bool = True
+    # Add one accessibility test per platform even when no AC asks for accessibility.
+    auto_accessibility_tests: bool = True
+    # Retry the LLM until a computed minimum test count is reached.
+    enforce_min_test_count: bool = True
+    # Write an LLM QA summary into the ADO QA Prep task when none exists.
+    write_qa_prep_summary: bool = True
+    # Old-system terms that must not appear unless a source contains them.
+    legacy_terms: list[str] = field(default_factory=list)
+    # Banned synonym -> project term.
+    synonyms: dict[str, str] = field(default_factory=dict)
+    # Project glossary: term -> meaning (sent to the generator and judge).
+    glossary: dict[str, str] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: dict | None) -> 'QARulesSettings':
+        data = data or {}
+        known = {f for f in cls.__dataclass_fields__}
+        return cls(**{k: v for k, v in data.items() if k in known})
 
 
 @dataclass
@@ -404,8 +487,8 @@ class ProjectConfig:
     rules: TestRulesConfig = field(default_factory=TestRulesConfig)
 
     # Platform configurations (optional - for Jira/TestRail integration)
-    jira: Optional[JiraProjectConfig] = None  # Source: Jira stories
-    testrail: Optional[TestRailConfig] = None  # Target: TestRail test cases
+    jira: JiraProjectConfig | None = None  # Source: Jira stories
+    testrail: TestRailConfig | None = None  # Target: TestRail test cases
 
     # Source platform for fetching stories: "ado" or "jira"
     source_platform: str = "ado"
@@ -436,8 +519,12 @@ class ProjectConfig:
     playwright_enabled: bool = False
     postman_enabled: bool = False
 
+    # Source grounding: reviewer rules and requirement documents (opt-in)
+    qa_rules: QARulesSettings = field(default_factory=QARulesSettings)
+    requirement_docs: dict = field(default_factory=dict)
+
     # Objective formatting - key terms to bold
-    objective_key_term_patterns: List[str] = field(default_factory=lambda: [
+    objective_key_term_patterns: list[str] = field(default_factory=lambda: [
         # UI Surfaces
         r'\b(?:File|Edit|Tools|View|Help|Insert|Format|Window) Menu\b',
         r'\bProperties Panel\b',
@@ -468,7 +555,7 @@ class ProjectConfig:
         return cls.from_dict(data)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ProjectConfig':
+    def from_dict(cls, data: dict[str, Any]) -> 'ProjectConfig':
         """Create ProjectConfig from a dictionary."""
         # Extract application config
         app_data = data.get('application', {})
@@ -482,10 +569,14 @@ class ProjectConfig:
             # Create file step - menus require a file/drawing to be open first
             create_file_step=app_data.get('create_file_step', 'Create a new file/document.'),
             create_file_expected=app_data.get('create_file_expected', 'A new blank file is created.'),
+            object_setup_steps=app_data.get('object_setup_steps', []),
             close_step=app_data.get('close_step', 'Close the {app_name}.'),
             main_ui_surfaces=app_data.get('ui_surfaces', []),
             entry_point_mappings=app_data.get('entry_point_mappings', {}),
             supported_platforms=app_data.get('platforms', ['Windows 11']),
+            platform_aliases=app_data.get('platform_aliases', {}) or {},
+            accessibility_tools=app_data.get('accessibility_tools', {}) or {},
+            setup_step_policy=app_data.get('setup_step_policy', 'always') or 'always',
             object_interaction_keywords=app_data.get('object_keywords', []),
             # Feature constraints - critical for accurate test generation
             unavailable_features=app_data.get('unavailable_features', []),
@@ -583,7 +674,7 @@ class ProjectConfig:
                             pass
                 return default
 
-            def safe_optional_int(value, env_var: str = None) -> Optional[int]:
+            def safe_optional_int(value, env_var: str = None) -> int | None:
                 """Safely convert value to int, returning None if not valid."""
                 if value is not None and value != '':
                     try:
@@ -647,6 +738,8 @@ class ProjectConfig:
             judge_timeout=int(os.getenv('JUDGE_TIMEOUT', str(data.get('judge_timeout', 120)))),
             playwright_enabled=data.get('playwright_enabled', False),
             postman_enabled=data.get('postman_enabled', False),
+            qa_rules=QARulesSettings.from_dict(data.get('qa_rules')),
+            requirement_docs=data.get('requirement_docs') or {},
             objective_key_term_patterns=data.get('objective_patterns', [])
         )
 
@@ -661,6 +754,7 @@ class ProjectConfig:
                 'prereq_template': self.application.prereq_template,
                 'launch_step': self.application.launch_step,
                 'launch_expected': self.application.launch_expected,
+                'object_setup_steps': self.application.object_setup_steps,
                 'close_step': self.application.close_step,
                 'ui_surfaces': self.application.main_ui_surfaces,
                 'entry_point_mappings': self.application.entry_point_mappings,
@@ -747,16 +841,25 @@ class ProjectConfig:
 
 # Predefined configurations for known projects
 def get_env_quickdraw_config() -> ProjectConfig:
-    """Get the default ENV QuickDraw configuration (current project)."""
+    """Get the default SiteDraft (formerly ENV QuickDraw) configuration."""
     return ProjectConfig(
         project_id="env-quickdraw",
         application=ApplicationConfig(
-            name="ENV QuickDraw",
+            name="SiteDraft",
             description="Drawing and dimensioning application",
             app_type="desktop",
-            prereq_template="Pre-req: The {app_name} App is installed",
+            prereq_template=(
+                "Pre-req: The {app_name} App is installed and the tester is signed in "
+                "to CDP Identity in the default browser"
+            ),
             launch_step="Launch the {app_name} application.",
-            launch_expected="Model space(Gray) and Canvas(white) space should be displayed",
+            launch_expected="The SiteDraft Home Screen is displayed.",
+            object_setup_steps=[
+                {"action": "Draw an object/shape on the canvas (e.g., circle, rectangle, or any measurable shape).",
+                 "expected": "Object is created and displayed on the canvas."},
+                {"action": "Select the created object.",
+                 "expected": "Object is selected and selection handles are visible."},
+            ],
             close_step="Close the {app_name} App",
             # FEATURE CONSTRAINTS - Critical for accurate test generation
             unavailable_features=[

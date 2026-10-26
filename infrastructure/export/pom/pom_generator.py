@@ -5,16 +5,15 @@ ensure_project() (idempotent, once per run): inventory -> buckets -> determinist
 page objects -> scaffold + fixtures. generate_spec() (per story): LLM writes a spec
 against the page-object API, validated for method grounding (no raw selectors).
 """
-import os
-from typing import List, Dict, Optional
 
 from core.domain.ui_element import ElementInventory
 from infrastructure.export.pom.element_bucketer import bucket_elements
-from infrastructure.export.pom.page_object_generator import generate_all, PageObjectAPI
-from infrastructure.export.pom.project_scaffolder import ProjectScaffolder
+from infrastructure.export.pom.page_object_generator import PageObjectAPI, generate_all
 from infrastructure.export.pom.pom_spec_prompt_builder import (
-    PomSpecPromptBuilder, analyze_method_grounding,
+    PomSpecPromptBuilder,
+    analyze_method_grounding,
 )
+from infrastructure.export.pom.project_scaffolder import ProjectScaffolder
 
 
 def _safe_title(title: str, maxlen: int = 50) -> str:
@@ -28,11 +27,11 @@ class PomGenerator:
         project_path: str,
         app_name: str,
         inventory_path: str,
-        tab_names: Optional[List[str]] = None,
-        api_mocks: Optional[List[Dict[str, str]]] = None,
-        provider_type: Optional[str] = None,
-        model: Optional[str] = None,
-        api_key: Optional[str] = None,
+        tab_names: list[str] | None = None,
+        api_mocks: list[dict[str, str]] | None = None,
+        provider_type: str | None = None,
+        model: str | None = None,
+        api_key: str | None = None,
     ):
         self.project_path = project_path
         self.app_name = app_name
@@ -44,12 +43,12 @@ class PomGenerator:
         self._api_key = api_key
 
         self.scaffolder = ProjectScaffolder(project_path, app_name)
-        self._apis: Optional[List[PageObjectAPI]] = None
+        self._apis: list[PageObjectAPI] | None = None
         self._provider = None
         self._ready = False
 
     @property
-    def apis(self) -> List[PageObjectAPI]:
+    def apis(self) -> list[PageObjectAPI]:
         return self._apis or []
 
     @property
@@ -66,7 +65,7 @@ class PomGenerator:
                 print(f"  Warning: could not create LLM provider for POM specs: {e}")
         return self._provider
 
-    def ensure_project(self) -> List[PageObjectAPI]:
+    def ensure_project(self) -> list[PageObjectAPI]:
         """Scaffold (once) + regenerate page objects & fixtures from the inventory."""
         if self._ready:
             return self._apis
@@ -86,7 +85,7 @@ class PomGenerator:
               f"({len(generated)} page objects: {', '.join(g.class_name for g in generated)})")
         return self._apis
 
-    def generate_spec(self, test_cases: List[Dict], story_id: str, feature_name: str) -> Optional[str]:
+    def generate_spec(self, test_cases: list[dict], story_id: str, feature_name: str) -> str | None:
         """Generate one POM spec for a story; write into tests/. Returns spec content."""
         self.ensure_project()
         # Drop accessibility cases (handled by separate Axe tooling)
@@ -118,7 +117,7 @@ class PomGenerator:
             print(f"  POM spec: {path}")
         return spec
 
-    def _invoke_llm(self, builder: PomSpecPromptBuilder, test_cases: List[Dict]) -> Optional[str]:
+    def _invoke_llm(self, builder: PomSpecPromptBuilder, test_cases: list[dict]) -> str | None:
         try:
             result = self.provider.generate(
                 prompt=builder.build_user_prompt(test_cases),

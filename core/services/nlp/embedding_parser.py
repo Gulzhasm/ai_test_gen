@@ -5,13 +5,12 @@ Uses embedding similarity to match input text against canonical patterns,
 enabling recognition of novel phrasings and synonyms.
 """
 import os
-from typing import List, Optional, Tuple
 
 from core.interfaces.semantic_parser import ISemanticParser, SemanticComponents
 from core.services.embeddings import (
-    IEmbeddingProvider,
     EmbeddingCache,
     EmbeddingPatternIndex,
+    IEmbeddingProvider,
     SemanticMatcher,
     SimilarityMatch,
     create_embedding_provider,
@@ -36,9 +35,9 @@ class EmbeddingSemanticParser(ISemanticParser):
 
     def __init__(
         self,
-        provider: Optional[IEmbeddingProvider] = None,
-        cache: Optional[EmbeddingCache] = None,
-        pattern_index: Optional[EmbeddingPatternIndex] = None,
+        provider: IEmbeddingProvider | None = None,
+        cache: EmbeddingCache | None = None,
+        pattern_index: EmbeddingPatternIndex | None = None,
         threshold: float = 0.80,
         patterns_file: str = "patterns/ac_patterns.json"
     ):
@@ -174,7 +173,7 @@ class EmbeddingSemanticParser(ISemanticParser):
     def extract_action_target_outcome(
         self,
         text: str
-    ) -> Tuple[str, str, str]:
+    ) -> tuple[str, str, str]:
         """Extract action-target-outcome triple.
 
         Args:
@@ -186,7 +185,7 @@ class EmbeddingSemanticParser(ISemanticParser):
         result = self.parse(text)
         return result.to_action_target_outcome()
 
-    def extract_entities(self, text: str) -> List[str]:
+    def extract_entities(self, text: str) -> list[str]:
         """Extract entities (not supported by embedding parser).
 
         Args:
@@ -199,8 +198,8 @@ class EmbeddingSemanticParser(ISemanticParser):
 
     def _calculate_confidence(
         self,
-        action_match: Optional[SimilarityMatch],
-        outcome_match: Optional[SimilarityMatch]
+        action_match: SimilarityMatch | None,
+        outcome_match: SimilarityMatch | None
     ) -> float:
         """Calculate overall confidence from matches.
 
@@ -234,7 +233,7 @@ class EmbeddingSemanticParser(ISemanticParser):
 
     def _extract_action_verb(
         self,
-        action_match: Optional[SimilarityMatch]
+        action_match: SimilarityMatch | None
     ) -> str:
         """Extract action verb from matched pattern.
 
@@ -258,8 +257,8 @@ class EmbeddingSemanticParser(ISemanticParser):
 
     def _detect_negation(
         self,
-        action_match: Optional[SimilarityMatch],
-        outcome_match: Optional[SimilarityMatch]
+        action_match: SimilarityMatch | None,
+        outcome_match: SimilarityMatch | None
     ) -> bool:
         """Detect if this is a negative scenario.
 

@@ -3,26 +3,25 @@ Repository factory for platform-agnostic data access.
 
 Creates the appropriate repository implementations based on configuration.
 """
-from typing import Optional, Tuple
 
 from core.interfaces.repository import (
     IStoryRepository,
+    ITestCaseRepository,
     ITestSuiteRepository,
-    ITestCaseRepository
 )
-from projects.project_config import ProjectConfig
 
 # Import platform-specific implementations
 from infrastructure.ado.ado_repository import (
     ADOStoryRepository,
+    ADOTestCaseRepository,
     ADOTestSuiteRepository,
-    ADOTestCaseRepository
 )
 from infrastructure.jira.jira_repository import JiraStoryRepository
 from infrastructure.testrail.testrail_repository import (
+    TestRailTestCaseRepository,
     TestRailTestSuiteRepository,
-    TestRailTestCaseRepository
 )
+from projects.project_config import ProjectConfig
 
 
 class RepositoryFactory:
@@ -77,7 +76,7 @@ class RepositoryFactory:
     @staticmethod
     def create_test_repositories(
         config: ProjectConfig
-    ) -> Tuple[ITestSuiteRepository, ITestCaseRepository]:
+    ) -> tuple[ITestSuiteRepository, ITestCaseRepository]:
         """
         Create test suite and test case repositories based on target platform.
 
@@ -129,7 +128,7 @@ class RepositoryFactory:
     @staticmethod
     def create_all_repositories(
         config: ProjectConfig
-    ) -> Tuple[IStoryRepository, ITestSuiteRepository, ITestCaseRepository]:
+    ) -> tuple[IStoryRepository, ITestSuiteRepository, ITestCaseRepository]:
         """
         Create all repositories needed for the full workflow.
 
@@ -151,6 +150,6 @@ def get_story_repository(config: ProjectConfig) -> IStoryRepository:
 
 def get_test_repositories(
     config: ProjectConfig
-) -> Tuple[ITestSuiteRepository, ITestCaseRepository]:
+) -> tuple[ITestSuiteRepository, ITestCaseRepository]:
     """Convenience function to get test repositories."""
     return RepositoryFactory.create_test_repositories(config)

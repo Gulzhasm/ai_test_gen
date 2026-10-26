@@ -7,15 +7,14 @@ Supports: OpenAI, Gemini, Anthropic, Ollama.
 """
 import os
 import re
-from typing import Dict, List, Tuple, Optional, Set
-from core.domain.models import SummaryPlan, UserStory, TestCase, TestStep
 
+from core.domain.models import SummaryPlan, TestCase, TestStep, UserStory
 
 # Reference template for LLM prompt — based on reviewer-approved QA Planning Summary
 # This is Markdown that renders in ADO description fields with bold, bullets, and sub-bullets.
 QA_SUMMARY_TEMPLATE = """**QA Planning Summary for this Work Item**
 
-This work item introduces the Basic Shape Tools—Line, Rectangle, and Circle—into ENV QuickDraw across iPadOS, Android tablets, and **Windows 11**. These tools are core drafting features used to create fundamental geometric shapes with CAD-like precision.
+This work item introduces the Basic Shape Tools—Line, Rectangle, and Circle—into the application across iPadOS, Android tablets, and **Windows 11**. These tools are core drafting features used to create fundamental geometric shapes with CAD-like precision.
 
 Testing will validate tool availability, user interactions, drawing behaviors, editing capabilities, and accessibility compliance. Shape creation must behave consistently across all platforms and input methods, including **mouse** (Windows 11) and **touch/stylus** (iPadOS/Android), with UI responsiveness and coordinate accuracy verified under each.
 
@@ -53,15 +52,16 @@ class QASummaryGenerator:
         'as expected'
     ]
 
-    # Valid UI surfaces (only mention if in evidence)
+    # Valid UI surfaces (only mention if in evidence).
+    # Generic placeholders only — pass the project's real surfaces via the
+    # `ui_surfaces` constructor arg (e.g. config.rules.allowed_areas).
     VALID_UI_SURFACES = [
-        'File Menu', 'Edit Menu', 'Tools Menu', 'Help Menu',
-        'Properties Panel', 'Dimensions Panel', 'Canvas',
-        'Dialog Window', 'Modal Window', 'Top Action Toolbar'
+        'Main Menu', 'Toolbar', 'Dialog Window', 'Modal Window'
     ]
 
     def __init__(self, api_key: str = None, model: str = "gpt-4o-mini", debug: bool = False,
-                 provider_type: str = None):
+                 provider_type: str = None, ui_surfaces: list[str] | None = None,
+                 app_name: str = None, platforms: list[str] | None = None):
         """Initialize generator.
 
         Args:
@@ -69,19 +69,28 @@ class QASummaryGenerator:
             model: LLM model to use for summary generation.
             debug: Enable debug mode to print extraction details.
             provider_type: LLM provider type (openai, gemini, anthropic, ollama).
+            ui_surfaces: Project-specific UI surface names (e.g. from
+                config.rules.allowed_areas). Falls back to generic placeholders.
+            app_name: Application name from project config; "the application"
+                when not provided.
+            platforms: Supported platforms from project config; used to scope
+                the summary to what QA actually covers.
         """
         self._provider_type = (provider_type or os.getenv("LLM_PROVIDER", "openai")).lower()
         self.model = model
         self.debug = debug
         self._provider = None
         self._api_key = api_key
+        self.valid_ui_surfaces = list(ui_surfaces) if ui_surfaces else list(self.VALID_UI_SURFACES)
+        self.app_name = app_name or "the application"
+        self.platforms = list(platforms) if platforms else []
 
     @property
     def provider(self):
         """Lazy-init LLM provider via factory."""
         if self._provider is None:
-            from core.services.llm.factory import create_llm_provider
             from core.config.environment import EnvironmentConfig
+            from core.services.llm.factory import create_llm_provider
             api_key = self._api_key or EnvironmentConfig.get_llm_api_key()
             if api_key and api_key != "your-api-key-here":
                 self._provider = create_llm_provider(
@@ -101,7 +110,7 @@ class QASummaryGenerator:
             return provider.client
         return provider
 
-    def generate_summary(self, story_data: Dict, test_cases: List[Dict]) -> str:
+    def generate_summary(self, story_data: dict, test_cases: list[dict]) -> str:
         """Generate QA Planning Summary from story data and test cases.
 
         Uses LLM for natural, human-written output when available.
@@ -125,7 +134,7 @@ class QASummaryGenerator:
             print("[DEBUG] Using deterministic QA summary generation")
         return self._generate_deterministic(story_data, test_cases)
 
-    def _call_llm_for_text(self, system_prompt: str, user_prompt: str) -> Optional[str]:
+    def _call_llm_for_text(self, system_prompt: str, user_prompt: str) -> str | None:
         """Call LLM provider and return text content. Works with any provider."""
         provider = self.provider
         if not provider:
@@ -170,7 +179,7 @@ class QASummaryGenerator:
 
         return None
 
-    def _generate_with_llm(self, story_data: Dict, test_cases: List[Dict]) -> Optional[str]:
+    def _generate_with_llm(self, story_data: dict, test_cases: list[dict]) -> str | None:
         """Generate QA Planning Summary using LLM."""
         title = story_data.get('title', '')
         description = story_data.get('description_text', '')
@@ -182,6 +191,15 @@ class QASummaryGenerator:
             tc_title = tc.get('title', '')
             tc_summary.append(f"- {tc_title}")
         tc_block = '\n'.join(tc_summary)
+
+        # Scope platform mentions to what the project actually covers
+        if self.platforms:
+            platform_rule = (
+                f"Only mention platforms the project tests on: "
+                f"{', '.join(self.platforms)}. Do NOT mention any other platform."
+            )
+        else:
+            platform_rule = "Do NOT name specific platforms unless the story or acceptance criteria mention them."
 
         prompt = f"""Write a QA Planning Summary for the following user story. The output MUST be valid Markdown that renders correctly in Azure DevOps description fields.
 
@@ -205,7 +223,9 @@ FORMATTING RULES (CRITICAL — match the reference template exactly):
 12. Do NOT invent features or behaviors not in the story description or acceptance criteria.
 13. Do NOT add "=====" or any decorative separators.
 14. Do NOT use `#` heading syntax. Use **bold** for headers instead.
-15. Do NOT mention macOS. The application is tested on Windows 11, iPad, and Android Tablet ONLY.
+15. {platform_rule}
+
+APPLICATION UNDER TEST: {self.app_name}
 
 USER STORY:
 Title: {title}
@@ -256,7 +276,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
             print(f"  QA Summary LLM generation failed: {e}, falling back to deterministic")
             return None
 
-    def _generate_deterministic(self, story_data: Dict, test_cases: List[Dict]) -> str:
+    def _generate_deterministic(self, story_data: dict, test_cases: list[dict]) -> str:
         """Deterministic fallback QA summary generation."""
         # Convert to UserStory model
         story = UserStory(
@@ -285,7 +305,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
 
         return summary_text
     
-    def _convert_test_cases(self, test_cases: List[Dict]) -> List[TestCase]:
+    def _convert_test_cases(self, test_cases: list[dict]) -> list[TestCase]:
         """Convert dict test cases to TestCase models."""
         result = []
         for tc in test_cases:
@@ -309,7 +329,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
             ))
         return result
     
-    def _build_summary_plan(self, story: UserStory, test_cases: List[TestCase]) -> SummaryPlan:
+    def _build_summary_plan(self, story: UserStory, test_cases: list[TestCase]) -> SummaryPlan:
         """Phase A: Build deterministic SummaryPlan from evidence.
         
         Args:
@@ -540,12 +560,12 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
             return cleaned
         return ""
     
-    def _extract_entry_points_evidence(self, evidence_text: str, feature_name: str) -> List[str]:
+    def _extract_entry_points_evidence(self, evidence_text: str, feature_name: str) -> list[str]:
         """Extract UI entry points from evidence only (no invention)."""
         entry_points = []
         
         # Check each valid UI surface - must be exact match in evidence
-        for surface in self.VALID_UI_SURFACES:
+        for surface in self.valid_ui_surfaces:
             surface_lower = surface.lower()
             # Check exact match in evidence (word boundary)
             pattern = r'\b' + re.escape(surface_lower) + r'\b'
@@ -564,13 +584,9 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
 
     def _build_intro_second_sentence(self, capability_desc: str, evidence_text: str) -> str:
         """Build a context-appropriate second sentence for the intro paragraph."""
-        evidence_lower = evidence_text.lower() if evidence_text else ''
-
         # Toggle/visibility features
         if 'toggling' in capability_desc or 'visibility' in capability_desc:
-            if 'canvas' in evidence_lower:
-                return "The feature allows users to customize their workspace by controlling which visual helpers are displayed on the Canvas."
-            return "The feature allows users to customize their workspace by controlling element visibility."
+            return "The feature allows users to customize their workspace by controlling which visual helpers are displayed."
 
         # Tool/manipulation features
         if any(word in capability_desc for word in ['rotating', 'moving', 'flipping', 'mirroring', 'manipulating']):
@@ -591,7 +607,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
         # Generic fallback
         return "The feature is intended to operate predictably and consistently across all supported platforms."
 
-    def _build_bullets(self, story: UserStory, evidence_text: str, test_titles: List[str]) -> List[str]:
+    def _build_bullets(self, story: UserStory, evidence_text: str, test_titles: list[str]) -> list[str]:
         """Build 7-10 professional ChatGPT-style bullet themes from AC.
         
         Creates polished, professional statements matching ChatGPT template style.
@@ -633,17 +649,17 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
                 # Per-element toggle behavior
                 for elem in toggle_elements:
                     professional_bullets.append(
-                        f"Correct toggle behavior for {elem}, confirming that the option enables or disables the corresponding element on the Canvas"
+                        f"Correct toggle behavior for {elem}, confirming that the option enables or disables the corresponding element in the workspace"
                     )
 
                 # Enabled state rendering
                 professional_bullets.append(
-                    "Accurate rendering of each visual element on the Canvas when its corresponding option is enabled"
+                    "Accurate rendering of each visual element in the workspace when its corresponding option is enabled"
                 )
 
                 # Disabled state removal
                 professional_bullets.append(
-                    "Complete removal of each visual element from the Canvas when its corresponding option is disabled"
+                    "Complete removal of each visual element from the workspace when its corresponding option is disabled"
                 )
 
                 # Independent operation
@@ -864,7 +880,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
         
         return deduplicated[:10]  # Max 10 bullets
     
-    def _create_menu_availability_bullet(self, ac_bullets: List[str], evidence_text: str) -> Optional[str]:
+    def _create_menu_availability_bullet(self, ac_bullets: list[str], evidence_text: str) -> str | None:
         """Create professional menu availability bullet."""
         for bullet in ac_bullets:
             bullet_lower = bullet.lower()
@@ -884,7 +900,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
                     return "Availability of the feature entry from the expected menu location and correct invocation behavior"
         return None
     
-    def _parse_acceptance_criteria(self, ac_text: str) -> List[str]:
+    def _parse_acceptance_criteria(self, ac_text: str) -> list[str]:
         """Parse acceptance criteria into individual bullets."""
         if not ac_text:
             return []
@@ -915,7 +931,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
         
         return bullets
     
-    def _group_related_bullets(self, bullets: List[str]) -> List[List[str]]:
+    def _group_related_bullets(self, bullets: list[str]) -> list[list[str]]:
         """Group fragment bullets (ending with ":") with their content bullets."""
         groups = []
         i = 0
@@ -949,7 +965,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
         
         return groups
     
-    def _normalize_bullet_group(self, group: List[str], evidence_text: str) -> Optional[str]:
+    def _normalize_bullet_group(self, group: list[str], evidence_text: str) -> str | None:
         """Normalize a group of related bullets into one complete, professional bullet (ChatGPT-style)."""
         if not group:
             return None
@@ -995,7 +1011,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
                 feature = feature_match.group(1) if feature_match else "the feature"
                 return f"Availability of the {feature.title()} entry from the expected {menu_name} location and correct invocation behavior"
             else:
-                return f"Availability of the feature entry from the expected menu location and correct invocation behavior"
+                return "Availability of the feature entry from the expected menu location and correct invocation behavior"
         elif 'opens' in fragment_lower or 'selecting' in fragment_lower:
             # "Selecting it opens an informational window" -> "Proper rendering of the informational window, including layout, visibility, and non-editable presentation"
             if 'window' in fragment_lower or 'dialog' in fragment_lower:
@@ -1007,7 +1023,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
             merged = ' '.join([fragment] + content_items)
             return self._normalize_single_bullet(merged, evidence_text)
     
-    def _normalize_single_bullet(self, bullet: str, evidence_text: str) -> Optional[str]:
+    def _normalize_single_bullet(self, bullet: str, evidence_text: str) -> str | None:
         """Normalize a single bullet into a professional, ChatGPT-style testable theme.
         
         Rules:
@@ -1199,7 +1215,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
         
         return bullet.strip()
     
-    def _deduplicate_bullets(self, bullets: List[str]) -> List[str]:
+    def _deduplicate_bullets(self, bullets: list[str]) -> list[str]:
         """Remove duplicate bullets."""
         seen = set()
         result = []
@@ -1213,7 +1229,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
                 result.append(bullet)
         return result
     
-    def _derive_bullets_from_tests(self, test_titles: List[str], evidence_text: str) -> List[str]:
+    def _derive_bullets_from_tests(self, test_titles: list[str], evidence_text: str) -> list[str]:
         """Derive additional bullets from test case titles if needed."""
         bullets = []
         
@@ -1245,7 +1261,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
         
         return bullets[:3]  # Max 3 additional bullets
     
-    def _extract_dependencies(self, evidence_text: str, test_titles: List[str]) -> List[str]:
+    def _extract_dependencies(self, evidence_text: str, test_titles: list[str]) -> list[str]:
         """Extract functional dependencies from evidence only (ChatGPT-style comprehensive).
         
         Only include if explicitly mentioned in evidence.
@@ -1268,7 +1284,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
         
         return dependencies
     
-    def _build_accessibility_clause(self, evidence_text: str, test_cases: List[TestCase]) -> str:
+    def _build_accessibility_clause(self, evidence_text: str, test_cases: list[TestCase]) -> str:
         """Build accessibility paragraph (ChatGPT-style comprehensive).
         
         Must not mention tools unless explicitly in story.
@@ -1326,7 +1342,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
         
         return summary
     
-    def _lint_summary(self, summary: str, story: UserStory, test_cases: List[TestCase]) -> List[str]:
+    def _lint_summary(self, summary: str, story: UserStory, test_cases: list[TestCase]) -> list[str]:
         """Lint summary against evidence and rules.
         
         Returns list of error messages (empty if valid).
@@ -1347,7 +1363,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
             errors.append("Contains 'implements Description' phrase")
         
         # Check for invented UI surfaces
-        for surface in self.VALID_UI_SURFACES:
+        for surface in self.valid_ui_surfaces:
             surface_lower = surface.lower()
             if surface_lower in summary_lower:
                 # Check if it's in evidence (word boundary match)
@@ -1381,7 +1397,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
         
         return errors
     
-    def save_summary(self, summary: str, story_id: int, output_dir: str, feature_name_safe: Optional[str] = None) -> str:
+    def save_summary(self, summary: str, story_id: int, output_dir: str, feature_name_safe: str | None = None) -> str:
         """Save QA Planning Summary to file.
         
         Args:
@@ -1409,7 +1425,7 @@ Write ONLY the Markdown QA Planning Summary. No explanations or commentary."""
         
         return filepath
 
-    def validate_summary(self, summary: str) -> Tuple[bool, List[str]]:
+    def validate_summary(self, summary: str) -> tuple[bool, list[str]]:
         """Validate summary structure and content.
 
         Returns:

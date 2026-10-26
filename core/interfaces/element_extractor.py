@@ -6,7 +6,6 @@ selectable elements, used to ground Playwright selector generation in real UI.
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional
 
 from core.domain.ui_element import ElementInventory
 
@@ -33,8 +32,8 @@ class PageState:
     reached by a scripted sequence of nav steps rather than a URL alone.
     """
     name: str                                          # logical name, e.g. "Scanner"
-    steps: List[NavStep] = field(default_factory=list)
-    ready_selector: Optional[str] = None               # wait for this before snapshotting
+    steps: list[NavStep] = field(default_factory=list)
+    ready_selector: str | None = None               # wait for this before snapshotting
 
 
 @dataclass
@@ -56,8 +55,8 @@ class IElementExtractor(ABC):
     def extract(
         self,
         base_url: str,
-        page_states: List[PageState],
-        api_mocks: Optional[List[ApiMock]] = None,
+        page_states: list[PageState],
+        api_mocks: list[ApiMock] | None = None,
     ) -> ElementInventory:
         """Crawl the app across the given page states and return its inventory."""
         raise NotImplementedError

@@ -7,7 +7,7 @@ import json
 import logging
 import sys
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class StructuredFormatter(logging.Formatter):
@@ -64,7 +64,7 @@ class StructuredLogger:
         level: int = logging.INFO,
         enable_console: bool = True,
         enable_file: bool = False,
-        log_file: Optional[str] = None
+        log_file: str | None = None
     ):
         """Initialize structured logger.
 
@@ -138,7 +138,7 @@ class StructuredLogger:
         cost_usd: float,
         cache_hit: bool = False,
         success: bool = True,
-        error: Optional[str] = None
+        error: str | None = None
     ) -> None:
         """Log an LLM generation request.
 
@@ -206,7 +206,7 @@ class StructuredLogger:
         cache_type: str,
         operation: str,
         key: str,
-        hit: Optional[bool] = None
+        hit: bool | None = None
     ) -> None:
         """Log a cache operation.
 
@@ -231,7 +231,7 @@ class StructuredLogger:
         story_id: int,
         num_test_cases: int,
         duration_ms: float,
-        provider: Optional[str] = None
+        provider: str | None = None
     ) -> None:
         """Log test case generation completion.
 

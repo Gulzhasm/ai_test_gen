@@ -3,9 +3,10 @@ TestRail repository implementations.
 
 Implements repository interfaces for TestRail data access.
 """
-from typing import Optional, List, Dict, Any
+from typing import Any
 
-from core.interfaces.repository import ITestSuiteRepository, ITestCaseRepository
+from core.interfaces.repository import ITestCaseRepository, ITestSuiteRepository
+
 from .http_client import TestRailHttpClient
 
 
@@ -18,7 +19,7 @@ class TestRailTestSuiteRepository(ITestSuiteRepository):
         email: str,
         api_key: str,
         project_id: int,
-        suite_id: Optional[int] = None
+        suite_id: int | None = None
     ):
         """Initialize repository with TestRail configuration.
 
@@ -36,9 +37,9 @@ class TestRailTestSuiteRepository(ITestSuiteRepository):
         )
         self._project_id = project_id
         self._suite_id = suite_id
-        self._section_cache: Dict[str, int] = {}
+        self._section_cache: dict[str, int] = {}
 
-    def find_suite_by_story_id(self, story_id: int) -> Optional[Dict[str, Any]]:
+    def find_suite_by_story_id(self, story_id: int) -> dict[str, Any] | None:
         """Find test suite/section matching story ID pattern.
 
         In TestRail, we map story IDs to sections within a suite.
@@ -78,7 +79,7 @@ class TestRailTestSuiteRepository(ITestSuiteRepository):
         plan_id: int,
         suite_name: str,
         story_id: int
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Create a new section for the story.
 
         In TestRail, we create sections rather than suites for individual stories.
@@ -131,7 +132,7 @@ class TestRailTestSuiteRepository(ITestSuiteRepository):
         # In TestRail, test cases are already in their section when created
         return True
 
-    def get_or_create_section(self, section_name: str) -> Optional[int]:
+    def get_or_create_section(self, section_name: str) -> int | None:
         """Get existing section or create a new one.
 
         Args:
@@ -188,8 +189,8 @@ class TestRailTestCaseRepository(ITestCaseRepository):
         email: str,
         api_key: str,
         project_id: int,
-        suite_id: Optional[int] = None,
-        default_section_id: Optional[int] = None
+        suite_id: int | None = None,
+        default_section_id: int | None = None
     ):
         """Initialize repository with TestRail configuration.
 
@@ -213,10 +214,10 @@ class TestRailTestCaseRepository(ITestCaseRepository):
     def create_test_case(
         self,
         title: str,
-        steps: List[Dict[str, str]],
+        steps: list[dict[str, str]],
         objective: str,
         **kwargs
-    ) -> Optional[int]:
+    ) -> int | None:
         """Create a test case in TestRail.
 
         Args:
@@ -276,7 +277,7 @@ class TestRailTestCaseRepository(ITestCaseRepository):
             print(f"Error creating test case: {e}")
             return None
 
-    def _build_steps_separated(self, steps: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    def _build_steps_separated(self, steps: list[dict[str, str]]) -> list[dict[str, str]]:
         """Build TestRail separated steps format.
 
         Args:
@@ -296,7 +297,7 @@ class TestRailTestCaseRepository(ITestCaseRepository):
     def update_test_case(
         self,
         test_case_id: int,
-        fields: Dict[str, Any]
+        fields: dict[str, Any]
     ) -> bool:
         """Update a test case.
 
@@ -323,7 +324,7 @@ class TestRailTestCaseRepository(ITestCaseRepository):
             print(f"Error updating test case {test_case_id}: {e}")
             return False
 
-    def get_test_case(self, test_case_id: int) -> Optional[Dict[str, Any]]:
+    def get_test_case(self, test_case_id: int) -> dict[str, Any] | None:
         """Get a test case by ID.
 
         Args:
@@ -341,8 +342,8 @@ class TestRailTestCaseRepository(ITestCaseRepository):
     def bulk_create_test_cases(
         self,
         section_id: int,
-        test_cases: List[Dict[str, Any]]
-    ) -> List[int]:
+        test_cases: list[dict[str, Any]]
+    ) -> list[int]:
         """Create multiple test cases in a section.
 
         Args:

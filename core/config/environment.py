@@ -5,7 +5,6 @@ Loads environment variables for the test generation framework.
 Project-specific configuration is managed through YAML files in projects/configs/.
 """
 import os
-from typing import Optional
 from pathlib import Path
 
 # Load environment variables from .env file if it exists
@@ -22,7 +21,7 @@ class EnvironmentConfig:
     """Environment configuration loaded from environment variables."""
 
     # Azure DevOps Authentication
-    ADO_PAT: Optional[str] = os.getenv("ADO_PAT")
+    ADO_PAT: str | None = os.getenv("ADO_PAT")
 
     # LLM Configuration
     LLM_ENABLED: bool = os.getenv("LLM_ENABLED", "false").lower() == "true"
@@ -42,13 +41,14 @@ class EnvironmentConfig:
     JUDGE_TIMEOUT: int = int(os.getenv("JUDGE_TIMEOUT", "120"))
 
     # OpenAI Configuration
-    OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
+    OPENAI_API_KEY: str | None = os.getenv("OPENAI_API_KEY")
 
     # Gemini Configuration
-    GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY")
+    GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY")
 
-    # Default Project (for backward compatibility)
-    DEFAULT_PROJECT: str = os.getenv("DEFAULT_PROJECT", "env-quickdraw")
+    # Default Project (for backward compatibility).
+    # Empty means "not configured" — set DEFAULT_PROJECT in .env to select one.
+    DEFAULT_PROJECT: str = os.getenv("DEFAULT_PROJECT", "")
 
     @classmethod
     def validate(cls) -> bool:
@@ -59,7 +59,7 @@ class EnvironmentConfig:
         return True
 
     @classmethod
-    def get_llm_api_key(cls, provider_type: Optional[str] = None) -> Optional[str]:
+    def get_llm_api_key(cls, provider_type: str | None = None) -> str | None:
         """Get the API key for the specified or configured LLM provider.
 
         Args:

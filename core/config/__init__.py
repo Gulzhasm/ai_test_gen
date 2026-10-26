@@ -15,18 +15,18 @@ except ImportError:
 
 # Re-export environment config for backward compatibility
 from .environment import (
-    EnvironmentConfig,
     ADO_PAT,
-    LLM_ENABLED,
-    LLM_PROVIDER,
-    LLM_MODEL,
-    LLM_ENDPOINT,
-    LLM_TIMEOUT,
-    LLM_MAX_RETRIES,
-    LLM_TEMPERATURE,
-    OPENAI_API_KEY,
     DEFAULT_PROJECT,
-    OUTPUT_DIR
+    LLM_ENABLED,
+    LLM_ENDPOINT,
+    LLM_MAX_RETRIES,
+    LLM_MODEL,
+    LLM_PROVIDER,
+    LLM_TEMPERATURE,
+    LLM_TIMEOUT,
+    OPENAI_API_KEY,
+    OUTPUT_DIR,
+    EnvironmentConfig,
 )
 
 
@@ -35,17 +35,19 @@ class ADOConfig:
     """Azure DevOps configuration."""
     org: str
     project: str
-    pat: Optional[str]
+    pat: str | None
     area_path: str
     base_url: str
     
     @classmethod
     def from_env(cls) -> 'ADOConfig':
         """Create config from environment variables."""
-        org = os.getenv("ADO_ORG", "cdpinc")
-        project = os.getenv("ADO_PROJECT", "Env")
+        # No silent client-specific defaults: empty means "not configured".
+        org = os.getenv("ADO_ORG", "")
+        project = os.getenv("ADO_PROJECT", "")
         pat = os.getenv("ADO_PAT")
-        area_path = os.getenv("ADO_AREA_PATH", "Env\\ENV Kanda")
+        # No silent project-specific default: empty means "not configured".
+        area_path = os.getenv("ADO_AREA_PATH", "")
         base_url = f"https://dev.azure.com/{org}/{project}"
         return cls(org=org, project=project, pat=pat, area_path=area_path, base_url=base_url)
 
@@ -55,16 +57,16 @@ class TestCaseConfig:
     """Test case generation configuration."""
     assigned_to: str
     default_state: str
-    forbidden_words: List[str]
-    forbidden_area_terms: List[str]
-    allowed_areas: List[str]
-    objective_key_terms: List[str]
+    forbidden_words: list[str]
+    forbidden_area_terms: list[str]
+    allowed_areas: list[str]
+    objective_key_terms: list[str]
     
     @classmethod
     def default(cls) -> 'TestCaseConfig':
         """Create default test case configuration."""
         return cls(
-            assigned_to=os.getenv("TEST_ASSIGNED_TO", "Gulzhas Mailybayeva <gulzhas.mailybayeva@kandasoft.com>"),
+            assigned_to=os.getenv("TEST_ASSIGNED_TO", ""),
             default_state=os.getenv("TEST_DEFAULT_STATE", "Design"),
             forbidden_words=[
                 'or / OR', 'if available', 'if supported', 'ambiguous'
@@ -72,10 +74,10 @@ class TestCaseConfig:
             forbidden_area_terms=[
                 'Functionality', 'Accessibility', 'Behavior', 'Validation', 'General', 'System'
             ],
+            # Generic placeholders only — project-specific UI surfaces must come
+            # from the project YAML config (rules.allowed_areas).
             allowed_areas=[
-                'File Menu', 'Edit Menu', 'Tools Menu', 'Properties Panel',
-                'Dimensions Panel', 'Canvas', 'Dialog Window', 'Modal Window',
-                'Top Action Toolbar'
+                'Main Menu', 'Toolbar', 'Dialog Window'
             ],
             objective_key_terms=[]  # Will be populated dynamically based on feature
         )

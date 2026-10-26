@@ -5,11 +5,11 @@ Domain entities and value objects.
 # Re-export models for backward compatibility
 from .models import (
     DeviceType,
-    UserStory,
-    TestStep,
-    TestCase,
+    EvidenceModel,
+    LintResult,
     Objective,
     SummaryPlan,
-    EvidenceModel,
-    LintResult
+    TestCase,
+    TestStep,
+    UserStory,
 )

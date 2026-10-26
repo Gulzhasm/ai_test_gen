@@ -6,7 +6,7 @@ Enhanced workflow engine supporting:
 1. Multiple project configurations (YAML-based)
 2. Application discovery for new projects
 3. Auto test suite creation (for projects without QA Prep)
-4. Backward compatibility with existing ENV QuickDraw usage
+4. Backward compatibility with existing SiteDraft (formerly ENV QuickDraw) usage
 
 Usage:
     # Using default project (env-quickdraw)
@@ -20,28 +20,28 @@ Usage:
 
     # Discover project from stories
     python3 workflows.py discover --story-id 12345 --project-name "mediapedia-us"
-"""
+"""  # noqa: EXE001
 import argparse
 import glob
 import json
-import sys
 import os
+import sys
 from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from projects import ProjectConfig, ProjectManager, ApplicationDiscovery, get_project_manager
-from projects.project_config import create_new_project_config, get_env_quickdraw_config
-from projects.test_suite_creator import TestSuiteCreator, QAPrepGenerator
 from core.services.embeddings.test_step_embedder import TestStepEmbedder
+from projects import ApplicationDiscovery, ProjectConfig, get_project_manager
+from projects.test_suite_creator import TestSuiteCreator
 
 
 class WorkflowStatus(Enum):
@@ -55,7 +55,7 @@ class WorkflowResult:
     """Result of workflow execution."""
     status: WorkflowStatus
     message: str
-    data: Dict[str, Any] = None
+    data: dict[str, Any] = None
 
     def __post_init__(self):
         if self.data is None:
@@ -69,23 +69,19 @@ class IWorkflow(ABC):
     @abstractmethod
     def name(self) -> str:
         """Workflow name."""
-        pass
 
     @property
     @abstractmethod
     def description(self) -> str:
         """Workflow description."""
-        pass
 
     @abstractmethod
     def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
         """Execute the workflow with project configuration."""
-        pass
 
     @abstractmethod
-    def validate_inputs(self, **kwargs) -> Optional[str]:
+    def validate_inputs(self, **kwargs) -> str | None:
         """Validate inputs. Returns error message or None if valid."""
-        pass
 
 
 class GenerateWorkflow(IWorkflow):
@@ -102,7 +98,7 @@ class GenerateWorkflow(IWorkflow):
     def description(self) -> str:
         return "Generate test cases using project configuration"
 
-    def validate_inputs(self, **kwargs) -> Optional[str]:
+    def validate_inputs(self, **kwargs) -> str | None:
         story_id = kwargs.get('story_id')
         if not story_id:
             return "story_id is required"
@@ -125,10 +121,14 @@ class GenerateWorkflow(IWorkflow):
             config.testrail.api_key = os.getenv('TESTRAIL_API_KEY')
 
     def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
-        import json
-        from infrastructure import get_story_repository
-        from infrastructure.export import CSVGenerator, ObjectiveGenerator
         from core.services import GenericTestGenerator
+        from core.services.llm.prompt_builder import (
+            clean_acceptance_criteria,
+            split_scope,
+        )
+        from core.services.platform_scope import select_story_platforms
+        from core.services.quality.output_gate import OutputQualityGate
+        from infrastructure import get_story_repository
 
         story_id = kwargs['story_id']
         output_dir = kwargs.get('output_dir') or config.output_dir or 'output'
@@ -137,7 +137,7 @@ class GenerateWorkflow(IWorkflow):
         # Determine source platform
         source_platform = config.source_platform.upper()
 
-        print(f"\nWorkflow: Generate Test Cases")
+        print("\nWorkflow: Generate Test Cases")
         print(f"Project: {config.project_id} ({config.application.name})")
         print(f"Source Platform: {source_platform}")
         print(f"Story ID: {story_id}")
@@ -165,6 +165,28 @@ class GenerateWorkflow(IWorkflow):
 
         title = story.title
         acceptance_criteria = story.acceptance_criteria
+        qa_rules = getattr(config, 'qa_rules', None)
+        strict = bool(getattr(qa_rules, 'strict_grounding', False))
+
+        # Requirement documents kept outside the work item (e.g. story-results/<id>.md
+        # in the application repo) — the source for details the story text leaves open.
+        requirement_docs_block, requirement_docs_text, requirement_doc_paths, story_result_text = "", "", [], ""
+        if (getattr(config, 'requirement_docs', None) or {}).get('enabled'):
+            try:
+                from infrastructure.docs.requirement_docs import RequirementDocsLoader
+                docs = RequirementDocsLoader(
+                    config.requirement_docs, config.ado.organization, config.ado.project
+                ).load(story_id)
+                requirement_docs_block = docs.prompt_block(int(config.requirement_docs.get('max_chars', 120000)))
+                requirement_docs_text = docs.grounding_text()
+                requirement_doc_paths = docs.paths()
+                story_result_text = docs.story_result_text()
+                print(f"  Requirement docs: {len(requirement_doc_paths)} document(s)"
+                      + (f" — {', '.join(requirement_doc_paths[:4])}{'...' if len(requirement_doc_paths) > 4 else ''}"
+                         if requirement_doc_paths else " (none found for this story)"))
+            except Exception as e:  # noqa: BLE001 - docs are an enrichment, never fatal
+                print(f"  Requirement docs: not loaded ({e})")
+        self._open_questions = []
 
         print(f"  Title: {title}")
         print(f"  Acceptance Criteria: {len(acceptance_criteria)} items")
@@ -188,19 +210,51 @@ class GenerateWorkflow(IWorkflow):
         )
         print(f"  Generated {len(test_cases)} test cases")
 
+        # Inputs every LLM layer shares: the feature name (not the raw story
+        # title), the cleaned in-scope ACs (the numbering ac_refs and the judge
+        # use) and the platforms this story is in scope for.
+        feature_name = generator._extract_feature_name(title)
+        in_scope_acs, _ = split_scope(clean_acceptance_criteria(acceptance_criteria))
+        in_scope_acs = in_scope_acs or list(acceptance_criteria)
+        story_platforms = select_story_platforms(
+            config.application.supported_platforms,
+            in_scope_acs + [feature_name],
+            getattr(config.application, 'platform_aliases', None),
+        )
+        print(f"  Platforms in scope: {', '.join(story_platforms) or 'none configured'}")
+        story_data = {'story_id': story_id, 'title': title, 'description': description,
+                      'platforms': story_platforms,
+                      'requirement_docs': requirement_docs_block, 'strict_grounding': strict}
+
+        # Deterministic reviewer rules, grounded in the story text + requirement docs
+        rule_checker = None
+        if strict:
+            from core.services.quality.qa_rules_checker import QARulesChecker, QARulesConfig, to_judge_issues
+            grounding = "\n".join([title, description, "\n".join(acceptance_criteria), requirement_docs_text])
+            rules_cfg = QARulesConfig(legacy_terms=list(qa_rules.legacy_terms), synonyms=dict(qa_rules.synonyms))
+            checker = QARulesChecker(grounding, rules_cfg, ac_count=len(in_scope_acs),
+                                     ac_texts=in_scope_acs, docs_text=story_result_text)
+
+            def rule_checker(tcs, _checker=checker):
+                return to_judge_issues(_checker.check(tcs))
+
         # Optional LLM correction
         if not skip_correction and config.llm_enabled:
             test_cases = self._apply_llm_correction(
                 config, test_cases, story_id, title, acceptance_criteria, qa_prep,
-                story_description=description
+                story_description=description, feature_name=feature_name,
+                requirement_docs=requirement_docs_block,
             )
 
         # Judge validation (cross-LLM review)
+        verdict = None
         if config.judge_enabled:
-            test_cases = self._apply_judge_validation(
+            test_cases, verdict = self._apply_judge_validation(
                 config, test_cases,
-                story_data={'story_id': story_id, 'title': title, 'description': description},
-                acceptance_criteria=acceptance_criteria
+                story_data=story_data,
+                acceptance_criteria=in_scope_acs,
+                feature_name=feature_name,
+                rule_checker=rule_checker,
             )
 
         # Self-judge (final cleanup using corrector's own LLM)
@@ -213,7 +267,25 @@ class GenerateWorkflow(IWorkflow):
             )
 
         # Drop fabricated filler tests and duplicates regardless of source layer
-        test_cases = self._filter_irrelevant_tests(test_cases, acceptance_criteria)
+        test_cases = self._filter_irrelevant_tests(
+            test_cases, acceptance_criteria,
+            getattr(config.application, 'unavailable_features', []),
+            config.application.supported_platforms,
+            getattr(config.application, 'platform_aliases', None),
+        )
+
+        # Deterministic gate: the same rules on every run, whatever the LLMs did
+        gate = OutputQualityGate(
+            config.application, config.rules, story_platforms, len(in_scope_acs)
+        ).run(test_cases)
+        self._print_gate(gate)
+
+        rule_findings = []
+        if strict:
+            from core.services.quality.qa_rules_checker import summarize
+            rule_findings = checker.check(test_cases)
+            rs = summarize(rule_findings)
+            print(f"  Reviewer rules: {rs['errors']} error(s), {rs['warnings']} warning(s) {rs['by_rule']}")
 
         # Step 3: Save outputs
         print("\n[3/3] Saving outputs...")
@@ -221,35 +293,126 @@ class GenerateWorkflow(IWorkflow):
             config, story_id, title, description, acceptance_criteria,
             test_cases, output_dir, skip_correction,
             story_repo=story_repo,
-            qa_prep_exists=bool(qa_prep)
+            qa_prep_exists=bool(qa_prep),
+            extra_debug={'requirement_docs': requirement_doc_paths,
+                         'open_questions': self._open_questions},
         )
+        output_files['quality_report'] = self._save_quality_report(
+            output_dir, story_id, story_platforms, in_scope_acs, verdict, gate,
+            rule_findings=rule_findings if strict else None,
+        )
+        if self._open_questions:
+            output_files['open_questions'] = self._save_open_questions(
+                output_dir, story_id, title, self._open_questions)
 
-        print(f"\nGeneration complete")
+        problems = self._review_problems(config, verdict, gate)
+        rule_errors = [f for f in rule_findings if f.severity == "error"]
+        if rule_errors:
+            problems.append(f"reviewer rules: {len(rule_errors)} error(s) — see quality report")
+
+        print("\nGeneration complete")
         print(f"  Test cases: {len(test_cases)}")
         for key, path in output_files.items():
             print(f"  {key}: {path}")
+        if problems:
+            print("\nREVIEW REQUIRED before upload:")
+            for problem in problems:
+                print(f"  - {problem}")
 
         return WorkflowResult(
-            status=WorkflowStatus.SUCCESS,
-            message=f"Generated {len(test_cases)} test cases",
+            status=WorkflowStatus.PARTIAL if problems else WorkflowStatus.SUCCESS,
+            message=f"Generated {len(test_cases)} test cases"
+                    + (f" — review required: {'; '.join(problems)}" if problems else ""),
             data={
                 'test_cases': test_cases,
                 'output_files': output_files,
                 'story_id': story_id,
-                'title': title
+                'title': title,
+                'problems': problems,
             }
         )
+
+    @staticmethod
+    def _print_gate(gate) -> None:
+        status = "PASSED" if gate.passed else "ISSUES FOUND"
+        print(f"\n  Quality gate: {status} — {gate.summary_line()}")
+        serious = [f for f in gate.findings if f.severity != "minor"]
+        for finding in serious[:12]:
+            print(f"    [{finding.severity}] {finding.test_case_id} {finding.location}: "
+                  f"{finding.message}")
+        if len(serious) > 12:
+            print(f"    … {len(serious) - 12} more in the quality report")
+
+    @staticmethod
+    def _review_problems(config: ProjectConfig, verdict, gate) -> list[str]:
+        """Reasons a human must review the output before it is uploaded."""
+        problems = []
+        if config.judge_enabled:
+            if verdict is None or not verdict.evaluated:
+                reason = verdict.error if verdict is not None else "judge did not run"
+                problems.append(f"output was not cross-validated by the judge ({reason})")
+            else:
+                if not verdict.passed:
+                    problems.append(f"judge: {verdict.critical_count} critical and "
+                                    f"{verdict.major_count} major issue(s) remain")
+                if verdict.uncovered_acs:
+                    problems.append(f"judge: AC(s) {', '.join(verdict.uncovered_acs)} not covered")
+        if not gate.passed:
+            problems.append(f"quality gate: {gate.count('critical')} critical and "
+                            f"{gate.count('major')} major finding(s)")
+        return problems
+
+    @staticmethod
+    def _save_open_questions(output_dir, story_id, title, questions) -> str:
+        """Open questions the generator could not answer from the sources."""
+        os.makedirs(output_dir, exist_ok=True)
+        path = os.path.join(output_dir, f"{story_id}_OPEN_QUESTIONS.md")
+        unique = list(dict.fromkeys(q.strip() for q in questions if q.strip()))
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(f"# Open questions: {story_id} {title}\n\n")
+            f.writelines(f"{i}. {q}\n" for i, q in enumerate(unique, 1))
+        return path
+
+    @staticmethod
+    def _save_quality_report(output_dir, story_id, story_platforms, in_scope_acs,
+                             verdict, gate, rule_findings=None) -> str:
+        """Write the judge verdict and gate findings next to the CSV."""
+        import json
+        from datetime import datetime
+
+        os.makedirs(output_dir, exist_ok=True)
+        path = os.path.join(output_dir, f"{story_id}_QUALITY_REPORT.json")
+        report = {
+            "story_id": str(story_id),
+            "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "story_platforms": story_platforms,
+            "acceptance_criteria": {str(i): ac for i, ac in enumerate(in_scope_acs, 1)},
+            "judge": (verdict.to_dict() if verdict is not None
+                      else {"evaluated": False, "error": "judge disabled"}),
+            "quality_gate": gate.to_dict(),
+        }
+        if rule_findings is not None:
+            from dataclasses import asdict
+
+            from core.services.quality.qa_rules_checker import summarize
+            report["reviewer_rules"] = {"summary": summarize(rule_findings),
+                                        "findings": [asdict(f) for f in rule_findings]}
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2)
+        return path
 
     def _apply_llm_correction(
         self,
         config: ProjectConfig,
-        test_cases: List[Dict],
+        test_cases: list[dict],
         story_id: int,
         title: str,
-        acceptance_criteria: List[str],
+        acceptance_criteria: list[str],
         qa_prep: str,
-        story_description: str = ""
-    ) -> List[Dict]:
+        story_description: str = "",
+        feature_name: str = "",
+        requirement_docs: str = "",
+    ) -> list[dict]:
         """Apply LLM correction to generated test cases."""
         from core.config.environment import EnvironmentConfig
         provider_type = getattr(config, 'llm_provider', None) or os.getenv("LLM_PROVIDER", "openai")
@@ -268,22 +431,31 @@ class GenerateWorkflow(IWorkflow):
                 provider_type=provider_type
             )
 
-            embedder = TestStepEmbedder()
-            reference_steps = embedder.get_reference_steps(title, n_results=10)
-            if reference_steps:
-                print(f"  Found {len(reference_steps)} reference steps for correction")
+            reference_steps = []
+            if getattr(getattr(config, 'qa_rules', None), 'rag_reference_steps', True):
+                embedder = TestStepEmbedder(
+                    collection_name=f"test_steps_{config.project_id}"
+                )
+                reference_steps = embedder.get_reference_steps(title, n_results=10)
+                if reference_steps:
+                    print(f"  Found {len(reference_steps)} reference steps for correction")
+            else:
+                print("  Reference steps: disabled (qa_rules.rag_reference_steps)")
 
 
             corrected = corrector.correct_test_cases(
                 test_cases=test_cases,
                 story_id=str(story_id),
-                feature_name=title,
+                feature_name=feature_name or title,
                 acceptance_criteria=acceptance_criteria,
                 qa_prep=qa_prep,
                 reference_steps=reference_steps,
-                story_description=story_description
+                story_description=story_description,
+                requirement_docs=requirement_docs,
             )
-            print(f"  LLM correction complete: {len(corrected)} test cases")
+            self._open_questions = list(getattr(corrector, 'last_open_questions', []) or [])
+            print(f"  LLM correction complete: {len(corrected)} test cases"
+                  + (f", {len(self._open_questions)} open question(s)" if self._open_questions else ""))
             return corrected
         except Exception as e:
             print(f"  LLM correction failed: {e}, using rule-based output")
@@ -291,52 +463,54 @@ class GenerateWorkflow(IWorkflow):
 
     def _filter_irrelevant_tests(
         self,
-        test_cases: List[Dict],
-        acceptance_criteria: List[str],
-    ) -> List[Dict]:
+        test_cases: list[dict],
+        acceptance_criteria: list[str],
+        unavailable_features: list[str] | None = None,
+        platforms: list[str] | None = None,
+        platform_aliases: dict[str, list[str]] | None = None,
+    ) -> list[dict]:
         """Drop fabricated 'unsupported feature is absent' filler tests and exact duplicates.
 
         The LLM-correction layer sometimes invents negative tests that verify a
-        capability is NOT present (e.g. "No Multi-Object Selection Available",
-        "No Unsupported Features Available"). These are hallucinations unless an
-        acceptance criterion actually constrains that capability. This is a
-        framework-wide net that catches such filler regardless of which layer
-        produced it, plus near-identical duplicate test cases.
+        capability is NOT present (e.g. "No Multi-Object Selection Available").
+        Such a test is filler when its title/objective is about the absence of
+        an unavailable feature that no acceptance criterion mentions. Absence
+        tests about anything else ("No 'Webpage not available' error page") are
+        real tests and are kept. Duplicates must match on actions AND expected
+        results — identical template actions with different oracles are
+        different tests — AND on the platform the title names: the same steps
+        on iPad and on Android Tablet are two tests (dropping them lost a whole
+        platform on story 294626).
         """
         import re as _re
 
+        from core.services.platform_scope import platforms_mentioned
+
         ac_text = " ".join(acceptance_criteria).lower()
+        concepts = [f.lower() for f in (unavailable_features or []) if f]
+        concepts += ["multi-object", "multi object", "unsupported feature"]
+        absence = _re.compile(
+            r"\b(?:no|not|absence of|unavailable|unsupported|no longer available)\b")
 
-        # Phrases that mark a test as "verify an unsupported feature is absent".
-        absence_markers = [
-            "unsupported feature", "no unsupported", "not available", "no multi-object",
-            "multi-object selection", "multi object selection", "batch", "cloud",
-            "absence of", "is not present", "are not present", "no longer available",
-        ]
-        # Concepts the AC must reference for such a test to be legitimate.
-        concept_keywords = ["multi-object", "multi object", "multi-select", "batch",
-                            "cloud", "unsupported", "not available", "only when"]
-
-        def _is_absence_filler(tc: Dict) -> bool:
-            blob = (tc.get("title", "") + " " + tc.get("objective", "")).lower()
-            steps_blob = " ".join(
-                s.get("action", "") + " " + s.get("expected", "")
-                for s in tc.get("steps", [])
-            ).lower()
-            full = blob + " " + steps_blob
-            if not any(m in full for m in absence_markers):
+        def _is_absence_filler(tc: dict) -> bool:
+            head = f"{tc.get('title', '')} {tc.get('objective', '')}".lower()
+            if not absence.search(head):
                 return False
-            # Legitimate only if some AC references the same concept.
-            justified = any(k in ac_text for k in concept_keywords)
-            return not justified
+            named = [c for c in concepts if c in head]
+            # Legitimate only if an AC references the same concept.
+            return bool(named) and not any(c in ac_text for c in named)
 
-        def _step_signature(tc: Dict) -> tuple:
-            return tuple(
-                _re.sub(r"\s+", " ", s.get("action", "").strip().lower())
+        def _step_signature(tc: dict) -> tuple:
+            steps = tuple(
+                (_re.sub(r"\s+", " ", s.get("action", "").strip().lower()),
+                 _re.sub(r"\s+", " ", s.get("expected", "").strip().lower()))
                 for s in tc.get("steps", [])
             )
+            tags = frozenset(platforms_mentioned(
+                tc.get("title", ""), platforms or [], platform_aliases, include_generic=False))
+            return tags, steps
 
-        kept: List[Dict] = []
+        kept: list[dict] = []
         seen_signatures = set()
         dropped_filler = []
         dropped_dupes = []
@@ -360,11 +534,11 @@ class GenerateWorkflow(IWorkflow):
     def _apply_self_judge(
         self,
         config: ProjectConfig,
-        test_cases: List[Dict],
+        test_cases: list[dict],
         story_title: str,
         story_description: str,
-        acceptance_criteria: List[str],
-    ) -> List[Dict]:
+        acceptance_criteria: list[str],
+    ) -> list[dict]:
         """Lightweight self-review using the corrector's own LLM provider."""
         from core.config.environment import EnvironmentConfig
         from core.services.llm.factory import create_llm_provider
@@ -413,20 +587,31 @@ class GenerateWorkflow(IWorkflow):
     def _apply_judge_validation(
         self,
         config: ProjectConfig,
-        test_cases: List[Dict],
-        story_data: Dict,
-        acceptance_criteria: List[str],
-    ) -> List[Dict]:
-        """Apply Judge LLM validation after LLM correction, before CSV generation."""
+        test_cases: list[dict],
+        story_data: dict,
+        acceptance_criteria: list[str],
+        feature_name: str = "",
+        rule_checker=None,
+    ) -> tuple:
+        """Apply Judge LLM validation after LLM correction, before CSV generation.
+
+        Returns ``(test_cases, verdict)``. When the judge cannot run, the verdict
+        has ``evaluated=False`` so the run is reported as needing review instead
+        of silently passing.
+        """
         from core.config.environment import EnvironmentConfig
+        from core.interfaces.judge import JudgeVerdict
         from core.services.llm.factory import create_llm_provider
         from core.services.quality.judge import LLMJudge
+
+        def _not_evaluated(reason: str) -> tuple:
+            print(f"  Judge: {reason} — output is NOT cross-validated")
+            return test_cases, JudgeVerdict(passed=False, evaluated=False, error=reason)
 
         try:
             judge_api_key = EnvironmentConfig.get_llm_api_key(config.judge_provider)
             if not judge_api_key or judge_api_key == "your-api-key-here":
-                print(f"  Judge: API key for {config.judge_provider} not configured, skipping")
-                return test_cases
+                return _not_evaluated(f"API key for {config.judge_provider} not configured")
 
             judge_provider = create_llm_provider(
                 provider_type=config.judge_provider,
@@ -437,14 +622,14 @@ class GenerateWorkflow(IWorkflow):
             )
 
             if not judge_provider:
-                print("  Judge: LLM provider unavailable, skipping validation")
-                return test_cases
+                return _not_evaluated("judge LLM provider unavailable")
 
             # Fixes are applied by the CORRECTOR LLM (the one that authored the
             # content), not the judge — this keeps evaluate/fix on different models
             # so the judge re-validates fixes it didn't write. Falls back to the
             # judge LLM if the corrector provider can't be created.
             fixer_provider = None
+            gap_filler = None
             correction_provider_type = getattr(config, 'llm_provider', None) or os.getenv("LLM_PROVIDER", "openai")
             try:
                 corrector_api_key = EnvironmentConfig.get_llm_api_key(correction_provider_type)
@@ -453,7 +638,28 @@ class GenerateWorkflow(IWorkflow):
                         provider_type=correction_provider_type,
                         model=config.llm_model,
                         api_key=corrector_api_key,
+                        # A fix round rewrites many tests at once; the factory default
+                        # timed out and the whole round was discarded.
+                        timeout=max(config.judge_timeout, 300),
                     )
+                    if config.llm_enabled:
+                        from core.services.llm.corrector import LLMCorrector
+                        gap_corrector = LLMCorrector(
+                            api_key=corrector_api_key,
+                            model=config.llm_model,
+                            project_config=config,
+                            provider_type=correction_provider_type,
+                        )
+                        gap_corrector._current_requirement_docs = story_data.get('requirement_docs', '')
+
+                        def gap_filler(uncovered, current):
+                            # Tests for ACs the judge reports as uncovered; the
+                            # next judge round evaluates them like any other test.
+                            return gap_corrector.generate_tests_for_uncovered_acs(
+                                uncovered, current, str(story_data['story_id']),
+                                feature_name or story_data.get('title', ''),
+                                story_data.get('description', ''),
+                            )
             except Exception as e:
                 print(f"  Judge: corrector fixer unavailable ({e}), judge LLM will fix")
 
@@ -462,6 +668,8 @@ class GenerateWorkflow(IWorkflow):
                 max_rounds=config.judge_max_rounds,
                 auto_fix=config.judge_auto_fix,
                 fixer_provider=fixer_provider,
+                gap_filler=gap_filler,
+                rule_checker=rule_checker,
             )
 
             print(f"\n  Judge: Validating {len(test_cases)} test cases with {config.judge_provider}/{config.judge_model}")
@@ -474,21 +682,21 @@ class GenerateWorkflow(IWorkflow):
                 rules=config.rules,
             )
 
-            status = "PASSED" if verdict.passed else "ISSUES REMAIN"
-            print(
-                f"  Judge: {status} after {verdict.rounds_used} round(s) "
-                f"— {verdict.total_issues} issues "
-                f"({verdict.critical_count} critical, {verdict.major_count} major, "
-                f"{verdict.minor_count} minor)"
-            )
+            if not verdict.evaluated:
+                print(f"  Judge: NOT EVALUATED — {verdict.error}")
+            else:
+                status = "PASSED" if verdict.passed and not verdict.uncovered_acs else "ISSUES REMAIN"
+                print(
+                    f"  Judge: {status} — best version from {verdict.rounds_used} round(s) "
+                    f"has {verdict.total_issues} issues "
+                    f"({verdict.critical_count} critical, {verdict.major_count} major, "
+                    f"{verdict.minor_count} minor)"
+                )
 
-            if verdict.corrected_test_cases:
-                return verdict.corrected_test_cases
-            return test_cases
+            return (verdict.corrected_test_cases or test_cases), verdict
 
         except Exception as e:
-            print(f"  Judge: Validation failed ({e}), using uncorrected tests")
-            return test_cases
+            return _not_evaluated(f"validation failed ({e})")
 
     def _save_outputs(
         self,
@@ -496,15 +704,17 @@ class GenerateWorkflow(IWorkflow):
         story_id: int,
         title: str,
         description: str,
-        acceptance_criteria: List[str],
-        test_cases: List[Dict],
+        acceptance_criteria: list[str],
+        test_cases: list[dict],
         output_dir: str,
         skip_correction: bool,
         story_repo=None,
-        qa_prep_exists: bool = False
-    ) -> Dict[str, str]:
+        qa_prep_exists: bool = False,
+        extra_debug: dict | None = None,
+    ) -> dict[str, str]:
         """Save generated outputs to files."""
         import json
+
         from infrastructure.export import CSVGenerator, ObjectiveGenerator
         from infrastructure.export.csv_generator import CSVConfig
         from infrastructure.export.qa_summary_generator import QASummaryGenerator
@@ -544,6 +754,10 @@ class GenerateWorkflow(IWorkflow):
         # QA Planning Summary (skip if QA Prep already exists in ADO)
         if qa_prep_exists:
             print("  QA Summary: Skipped (QA Prep already exists in ADO)")
+        elif not getattr(getattr(config, 'qa_rules', None), 'write_qa_prep_summary', True):
+            # Auto-written summaries are read back as "QA Prep" on the next run, so
+            # unreviewed text would become a source. Off for strict projects.
+            print("  QA Summary: Skipped (qa_rules.write_qa_prep_summary is off)")
         else:
             ac_text = '\n'.join(acceptance_criteria) if isinstance(acceptance_criteria, list) else acceptance_criteria
             story_data = {
@@ -555,7 +769,10 @@ class GenerateWorkflow(IWorkflow):
             summary_generator = QASummaryGenerator(
                 api_key=llm_api_key,
                 model=config.llm_model if hasattr(config, 'llm_model') else "gpt-4o-mini",
-                provider_type=llm_provider
+                provider_type=llm_provider,
+                ui_surfaces=config.rules.allowed_areas,
+                app_name=config.application.name,
+                platforms=config.application.supported_platforms
             )
             summary_text = summary_generator.generate_summary(story_data, test_cases)
             summary_path = summary_generator.save_summary(
@@ -577,7 +794,8 @@ class GenerateWorkflow(IWorkflow):
                 'project': config.project_id,
                 'application': config.application.name,
                 'test_cases': test_cases,
-                'mode': 'hybrid' if not skip_correction else 'rule_based'
+                'mode': 'hybrid' if not skip_correction else 'rule_based',
+                **(extra_debug or {}),
             }, f, indent=2)
         output_files['debug_json'] = json_path
         print(f"  Debug JSON: {json_path}")
@@ -628,7 +846,9 @@ class GenerateWorkflow(IWorkflow):
                 # Flat mode: single grounded .spec.ts into the output dir
                 print("  Generating Playwright script...")
                 try:
-                    from infrastructure.export.playwright_generator import PlaywrightGenerator
+                    from infrastructure.export.playwright_generator import (
+                        PlaywrightGenerator,
+                    )
                     pw_gen = PlaywrightGenerator(
                         app_name=config.application.name,
                         app_type=config.application.app_type,
@@ -676,7 +896,9 @@ class GenerateWorkflow(IWorkflow):
         # Traceability matrix (auto-generated if any automation artifacts exist)
         if 'playwright' in output_files or 'postman' in output_files:
             try:
-                from infrastructure.export.traceability_generator import TraceabilityGenerator
+                from infrastructure.export.traceability_generator import (
+                    TraceabilityGenerator,
+                )
                 trace_gen = TraceabilityGenerator()
                 trace_path = os.path.join(output_dir, f"{story_id}_{safe_title}_TRACEABILITY.json")
                 trace_gen.generate_traceability(
@@ -710,7 +932,7 @@ class UploadWorkflow(IWorkflow):
     def description(self) -> str:
         return "Generate + Upload to target platform (ADO/TestRail)"
 
-    def validate_inputs(self, **kwargs) -> Optional[str]:
+    def validate_inputs(self, **kwargs) -> str | None:
         story_id = kwargs.get('story_id')
         if not story_id:
             return "story_id is required"
@@ -733,10 +955,7 @@ class UploadWorkflow(IWorkflow):
             config.testrail.api_key = os.getenv('TESTRAIL_API_KEY')
 
     def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
-        import time
-        import requests
         from infrastructure import get_story_repository, get_test_repositories
-        from infrastructure.export import ObjectiveGenerator
 
         story_id = kwargs['story_id']
         output_dir = kwargs.get('output_dir') or config.output_dir or 'output'
@@ -748,7 +967,7 @@ class UploadWorkflow(IWorkflow):
         source_platform = config.source_platform.upper()
         target_platform = config.target_platform.upper()
 
-        print(f"\nWorkflow: Generate + Upload")
+        print("\nWorkflow: Generate + Upload")
         print(f"Project: {config.project_id} ({config.application.name})")
         print(f"Source Platform: {source_platform}")
         print(f"Target Platform: {target_platform}")
@@ -773,7 +992,7 @@ class UploadWorkflow(IWorkflow):
 
         if not suite_info:
             if auto_create_suite:
-                print(f"  No suite found. Creating new test suite...")
+                print("  No suite found. Creating new test suite...")
                 try:
                     # Fetch story title for suite name
                     story = story_repo.get_story(story_id)
@@ -855,7 +1074,7 @@ class UploadWorkflow(IWorkflow):
         )
 
         # Step 4: Summary
-        print(f"\n[4/4] Upload complete")
+        print("\n[4/4] Upload complete")
         print(f"  Created: {len(upload_results['created'])}")
         print(f"  Failed: {len(upload_results['failed'])}")
 
@@ -877,12 +1096,13 @@ class UploadWorkflow(IWorkflow):
         config: ProjectConfig,
         case_repo,
         suite_repo,
-        suite_info: Dict,
-        test_cases: List[Dict],
+        suite_info: dict,
+        test_cases: list[dict],
         target_platform: str
-    ) -> Dict:
+    ) -> dict:
         """Upload test cases to target platform (ADO or TestRail)."""
         import time
+
         from infrastructure.export import ObjectiveGenerator
 
         results = {'created': [], 'failed': []}
@@ -932,7 +1152,7 @@ class UploadWorkflow(IWorkflow):
 
         return results
 
-    def _build_steps_xml(self, steps: List[Dict]) -> str:
+    def _build_steps_xml(self, steps: list[dict]) -> str:
         """Build XML for test steps."""
         if not steps:
             return ""
@@ -980,7 +1200,7 @@ class InitProjectWorkflow(IWorkflow):
     def description(self) -> str:
         return "Initialize a new project configuration"
 
-    def validate_inputs(self, **kwargs) -> Optional[str]:
+    def validate_inputs(self, **kwargs) -> str | None:
         app_name = kwargs.get('app_name')
         if not app_name:
             return "app_name is required"
@@ -994,7 +1214,7 @@ class InitProjectWorkflow(IWorkflow):
         area_path = kwargs.get('area_path') or os.getenv('ADO_AREA_PATH', '')
         interactive = kwargs.get('interactive', False)
 
-        print(f"\nWorkflow: Initialize New Project")
+        print("\nWorkflow: Initialize New Project")
         print(f"Application: {app_name}")
         print(f"Project ID: {project_id}\n")
 
@@ -1080,7 +1300,7 @@ class DiscoverWorkflow(IWorkflow):
     def description(self) -> str:
         return "Discover project configuration from stories"
 
-    def validate_inputs(self, **kwargs) -> Optional[str]:
+    def validate_inputs(self, **kwargs) -> str | None:
         story_ids = kwargs.get('story_ids')
         if not story_ids:
             return "At least one story_id is required"
@@ -1110,7 +1330,7 @@ class DiscoverWorkflow(IWorkflow):
 
         source_platform = config.source_platform.upper()
 
-        print(f"\nWorkflow: Discover Project from Stories")
+        print("\nWorkflow: Discover Project from Stories")
         print(f"Source Platform: {source_platform}")
         print(f"Stories: {story_ids}")
         print(f"Target Project Name: {project_name}\n")
@@ -1202,7 +1422,7 @@ class ListProjectsWorkflow(IWorkflow):
     def description(self) -> str:
         return "List all available project configurations"
 
-    def validate_inputs(self, **kwargs) -> Optional[str]:
+    def validate_inputs(self, **kwargs) -> str | None:
         return None
 
     def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
@@ -1211,7 +1431,7 @@ class ListProjectsWorkflow(IWorkflow):
 
         projects = manager.list_projects()
 
-        print(f"\nAvailable Projects\n")
+        print("\nAvailable Projects\n")
 
         for project_id in projects:
             proj_config = manager.get_project(project_id)
@@ -1243,7 +1463,7 @@ class UploadExistingWorkflow(IWorkflow):
     def description(self) -> str:
         return "Upload existing test cases to target platform (skip generation)"
 
-    def validate_inputs(self, **kwargs) -> Optional[str]:
+    def validate_inputs(self, **kwargs) -> str | None:
         story_id = kwargs.get('story_id')
         if not story_id:
             return "story_id is required"
@@ -1251,7 +1471,7 @@ class UploadExistingWorkflow(IWorkflow):
             return "story_id must be a positive integer"
         return None
 
-    def _find_existing_files(self, story_id: int, output_dir: str) -> Dict[str, str]:
+    def _find_existing_files(self, story_id: int, output_dir: str) -> dict[str, str]:
         """Find existing test case files for a story."""
         found_files = {}
 
@@ -1271,7 +1491,7 @@ class UploadExistingWorkflow(IWorkflow):
 
         return found_files
 
-    def _load_test_cases(self, json_file: str) -> Optional[List[Dict]]:
+    def _load_test_cases(self, json_file: str) -> list[dict] | None:
         """Load test cases from JSON file."""
         try:
             with open(json_file, 'r', encoding='utf-8') as f:
@@ -1302,7 +1522,7 @@ class UploadExistingWorkflow(IWorkflow):
         output_dir = kwargs.get('output_dir') or config.output_dir or 'output'
         target_platform = config.target_platform.upper()
 
-        print(f"\nWorkflow: Upload Existing Test Cases")
+        print("\nWorkflow: Upload Existing Test Cases")
         print(f"Project: {config.project_id} ({config.application.name})")
         print(f"Target Platform: {target_platform}")
         print(f"Story ID: {story_id}\n")
@@ -1361,7 +1581,7 @@ class UploadExistingWorkflow(IWorkflow):
             config, case_repo, suite_repo, suite_info, test_cases, target_platform
         )
 
-        print(f"\nUpload complete")
+        print("\nUpload complete")
         print(f"  Created: {len(upload_results['created'])}")
         print(f"  Failed: {len(upload_results['failed'])}")
 
@@ -1400,7 +1620,7 @@ class UpdateFromFeedbackWorkflow(IWorkflow):
     def description(self) -> str:
         return "Update test cases in ADO based on reviewer feedback"
 
-    def validate_inputs(self, **kwargs) -> Optional[str]:
+    def validate_inputs(self, **kwargs) -> str | None:
         csv_file = kwargs.get('csv_file')
         feedback_file = kwargs.get('feedback_file')
 
@@ -1415,8 +1635,6 @@ class UpdateFromFeedbackWorkflow(IWorkflow):
         return None
 
     def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
-        import csv
-        import re
 
         csv_file = kwargs['csv_file']
         feedback_file = kwargs['feedback_file']
@@ -1425,7 +1643,7 @@ class UpdateFromFeedbackWorkflow(IWorkflow):
         output_file = kwargs.get('output_file', None)
         target_platform = config.target_platform.upper()
 
-        print(f"\nWorkflow: Update Test Cases from Reviewer Feedback")
+        print("\nWorkflow: Update Test Cases from Reviewer Feedback")
         print(f"Project: {config.project_id}")
         print(f"Target Platform: {target_platform}")
         print(f"CSV File: {csv_file}")
@@ -1493,7 +1711,7 @@ class UpdateFromFeedbackWorkflow(IWorkflow):
 
         success, failed = self._update_ado(client, test_cases, fixes)
 
-        print(f"\nUpdate complete")
+        print("\nUpdate complete")
         print(f"  Success: {success}")
         print(f"  Failed: {failed}")
 
@@ -1504,7 +1722,7 @@ class UpdateFromFeedbackWorkflow(IWorkflow):
             data={'success': success, 'failed': failed, 'fixes': fixes}
         )
 
-    def _parse_csv(self, csv_file: str) -> Dict[int, Dict]:
+    def _parse_csv(self, csv_file: str) -> dict[int, dict]:
         """Parse test cases from ADO-exported CSV."""
         import csv
 
@@ -1531,7 +1749,7 @@ class UpdateFromFeedbackWorkflow(IWorkflow):
                     })
         return test_cases
 
-    def _parse_feedback(self, feedback_file: str) -> Dict[str, Any]:
+    def _parse_feedback(self, feedback_file: str) -> dict[str, Any]:
         """Parse reviewer feedback from text file."""
         import re
 
@@ -1573,12 +1791,11 @@ class UpdateFromFeedbackWorkflow(IWorkflow):
 
         return feedback
 
-    def _generate_fixes_manual(self, test_cases: Dict[int, Dict], feedback: Dict) -> Dict[int, Dict]:
+    def _generate_fixes_manual(self, test_cases: dict[int, dict], feedback: dict) -> dict[int, dict]:
         """
         Generate fixes by parsing feedback patterns manually.
         Applies ONLY the specific changes mentioned in feedback.
         """
-        import re
 
         fixes = {}
 
@@ -1612,7 +1829,7 @@ class UpdateFromFeedbackWorkflow(IWorkflow):
 
         return fixes
 
-    def _map_feedback_ids_to_ado_ids(self, test_cases: Dict, feedback: Dict) -> Dict[int, str]:
+    def _map_feedback_ids_to_ado_ids(self, test_cases: dict, feedback: dict) -> dict[int, str]:
         """Map ADO test case IDs to feedback identifiers (AC1, 015, etc.)."""
         import re
 
@@ -1629,7 +1846,7 @@ class UpdateFromFeedbackWorkflow(IWorkflow):
 
         return mapping
 
-    def _apply_specific_feedback(self, fix: Dict, specific_feedback: List[str], original: Dict) -> Dict:
+    def _apply_specific_feedback(self, fix: dict, specific_feedback: list[str], original: dict) -> dict:
         """Apply test-specific feedback."""
         import re
 
@@ -1684,7 +1901,7 @@ class UpdateFromFeedbackWorkflow(IWorkflow):
 
         return fix
 
-    def _apply_general_feedback(self, fix: Dict, general_feedback: List[str]) -> Dict:
+    def _apply_general_feedback(self, fix: dict, general_feedback: list[str]) -> dict:
         """Apply general feedback patterns to all tests."""
         feedback_text = ' '.join(general_feedback).lower()
 
@@ -1694,7 +1911,7 @@ class UpdateFromFeedbackWorkflow(IWorkflow):
 
         return fix
 
-    def _generate_fixes_with_llm(self, test_cases: Dict, feedback: Dict) -> Dict:
+    def _generate_fixes_with_llm(self, test_cases: dict, feedback: dict) -> dict:
         """Use LLM to interpret feedback and generate fixes."""
         import json
         import re
@@ -1763,7 +1980,7 @@ Return ONLY valid JSON."""
         fixes = json.loads(result)
         return {int(k): v for k, v in fixes.items()}
 
-    def _preview_changes(self, test_cases: Dict, fixes: Dict, output_file: str = None):
+    def _preview_changes(self, test_cases: dict, fixes: dict, output_file: str = None):
         """Preview the changes that will be made with full detail."""
         print("\nDETAILED CHANGES TO BE APPLIED\n")
 
@@ -1818,7 +2035,7 @@ Return ONLY valid JSON."""
         print(f"\nFixes saved to: {final_output_path}")
         print(f"Summary: {len(tests_with_changes)} test case(s) will be updated")
 
-    def _update_ado(self, client, test_cases: Dict, fixes: Dict) -> tuple:
+    def _update_ado(self, client, test_cases: dict, fixes: dict) -> tuple:
         """Update test cases in ADO."""
         success = 0
         failed = 0
@@ -1846,7 +2063,7 @@ Return ONLY valid JSON."""
 
         return success, failed
 
-    def _build_steps_xml(self, steps: List[Dict]) -> str:
+    def _build_steps_xml(self, steps: list[dict]) -> str:
         """Build XML for test steps."""
         if not steps:
             return ""
@@ -1891,7 +2108,7 @@ class UpdateObjectivesWorkflow(IWorkflow):
     def description(self) -> str:
         return "Update objectives/summary field for existing test cases in ADO"
 
-    def validate_inputs(self, **kwargs) -> Optional[str]:
+    def validate_inputs(self, **kwargs) -> str | None:
         story_id = kwargs.get('story_id')
         csv_file = kwargs.get('csv_file')
 
@@ -1904,7 +2121,7 @@ class UpdateObjectivesWorkflow(IWorkflow):
             return f"CSV file not found: {csv_file}"
         return None
 
-    def _find_existing_files(self, story_id: int, output_dir: str) -> Dict[str, str]:
+    def _find_existing_files(self, story_id: int, output_dir: str) -> dict[str, str]:
         """Find existing test case files for a story."""
         found_files = {}
 
@@ -1923,7 +2140,7 @@ class UpdateObjectivesWorkflow(IWorkflow):
 
         return found_files
 
-    def _load_test_cases(self, json_file: str) -> Optional[List[Dict]]:
+    def _load_test_cases(self, json_file: str) -> list[dict] | None:
         """Load test cases from JSON file."""
         try:
             with open(json_file, 'r', encoding='utf-8') as f:
@@ -1933,7 +2150,7 @@ class UpdateObjectivesWorkflow(IWorkflow):
             print(f"  Failed to load test cases: {e}")
             return None
 
-    def _build_objectives_map(self, test_cases: List[Dict]) -> Dict[str, str]:
+    def _build_objectives_map(self, test_cases: list[dict]) -> dict[str, str]:
         """Build a map of test case ID pattern to formatted objective."""
         from infrastructure.export import ObjectiveGenerator
 
@@ -1958,7 +2175,7 @@ class UpdateObjectivesWorkflow(IWorkflow):
 
         return objectives_map
 
-    def _parse_ado_csv(self, csv_file: str) -> List[Dict]:
+    def _parse_ado_csv(self, csv_file: str) -> list[dict]:
         """
         Parse ADO-exported CSV to extract work item IDs and titles.
 
@@ -1980,7 +2197,7 @@ class UpdateObjectivesWorkflow(IWorkflow):
 
         return test_cases
 
-    def _fetch_test_cases_from_ado(self, config: ProjectConfig, story_id: int) -> List[Dict]:
+    def _fetch_test_cases_from_ado(self, config: ProjectConfig, story_id: int) -> list[dict]:
         """
         Fetch test cases from ADO by finding the test suite for the story.
 
@@ -2013,7 +2230,7 @@ class UpdateObjectivesWorkflow(IWorkflow):
             print(f"  Error fetching test cases from ADO: {e}")
             return []
 
-    def _extract_test_id_from_title(self, title: str) -> Optional[str]:
+    def _extract_test_id_from_title(self, title: str) -> str | None:
         """Extract test ID (e.g., '272265-AC1' or '272265-005') from title."""
         import re
         match = re.match(r'^(\d+-(?:AC\d+|\d+))', title)
@@ -2032,7 +2249,7 @@ class UpdateObjectivesWorkflow(IWorkflow):
         output_dir = kwargs.get('output_dir') or config.output_dir or 'output'
         dry_run = kwargs.get('dry_run', False)
 
-        print(f"\nWorkflow: Update Objectives in ADO")
+        print("\nWorkflow: Update Objectives in ADO")
         print(f"Project: {config.project_id} ({config.application.name})")
         print(f"Story ID: {story_id}")
         print(f"Source: {'CSV File' if csv_file else 'ADO (fetch by story ID)'}")
@@ -2107,7 +2324,7 @@ class UpdateObjectivesWorkflow(IWorkflow):
         print(f"  Matched {len(matches)}/{len(ado_test_cases)} test cases")
 
         # Step 4: Update objectives in ADO
-        print(f"\n[4/4] Updating objectives in ADO...")
+        print("\n[4/4] Updating objectives in ADO...")
 
         if dry_run:
             print("\n[DRY RUN - No changes made]\n")
@@ -2170,7 +2387,7 @@ class UpdateObjectivesWorkflow(IWorkflow):
                 print(f"FAILED - {e}")
                 failed += 1
 
-        print(f"\nUpdate complete")
+        print("\nUpdate complete")
         print(f"  Success: {success}")
         print(f"  Failed: {failed}")
 
@@ -2204,7 +2421,7 @@ class CreateBugWorkflow(IWorkflow):
     def description(self) -> str:
         return "Create a formatted bug report from a .txt file"
 
-    def validate_inputs(self, **kwargs) -> Optional[str]:
+    def validate_inputs(self, **kwargs) -> str | None:
         bug_file = kwargs.get('bug_file')
         if not bug_file:
             return "bug_file is required (--file)"
@@ -2213,8 +2430,8 @@ class CreateBugWorkflow(IWorkflow):
         return None
 
     def execute(self, config: ProjectConfig, **kwargs) -> WorkflowResult:
-        from core.application.use_cases.bug_parser import BugFileParser
         from core.application.use_cases.bug_formatter import BugHtmlFormatter
+        from core.application.use_cases.bug_parser import BugFileParser
 
         bug_file = kwargs['bug_file']
         upload = kwargs.get('upload', False)
@@ -2223,7 +2440,7 @@ class CreateBugWorkflow(IWorkflow):
         output_dir = config.output_dir or 'output'
 
         mode = 'Dry run (preview)' if dry_run else ('Upload to ADO' if upload else 'Local only')
-        print(f"\nWorkflow: Create Bug Report")
+        print("\nWorkflow: Create Bug Report")
         print(f"Project: {config.project_id} ({config.application.name})")
         print(f"Input File: {bug_file}")
         print(f"Mode: {mode}")
@@ -2255,7 +2472,7 @@ class CreateBugWorkflow(IWorkflow):
         print(f"  Steps: {len(bug.steps)}")
         print(f"  Attachments: {len(bug.attachments)}")
         if bug.is_wcag:
-            print(f"  Type: WCAG/Accessibility")
+            print("  Type: WCAG/Accessibility")
 
         # Override story_id from CLI if provided
         if story_id:
@@ -2363,7 +2580,7 @@ class WorkflowEngine:
     """Orchestrates workflow execution with project configuration."""
 
     def __init__(self):
-        self._workflows: Dict[str, IWorkflow] = {}
+        self._workflows: dict[str, IWorkflow] = {}
         self._project_manager = get_project_manager()
         self._register_workflows()
 
@@ -2383,11 +2600,11 @@ class WorkflowEngine:
         for workflow in workflows:
             self._workflows[workflow.name] = workflow
 
-    def get_workflow(self, name: str) -> Optional[IWorkflow]:
+    def get_workflow(self, name: str) -> IWorkflow | None:
         """Get workflow by name."""
         return self._workflows.get(name)
 
-    def list_workflows(self) -> List[str]:
+    def list_workflows(self) -> list[str]:
         """List all available workflow names."""
         return list(self._workflows.keys())
 

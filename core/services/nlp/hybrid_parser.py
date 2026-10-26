@@ -8,11 +8,11 @@ Provides domain-agnostic parsing with graceful degradation:
 """
 import os
 import re
-from typing import List, Optional, Tuple
 
 from core.interfaces.semantic_parser import ISemanticParser, SemanticComponents
 from core.services.ac_parser import ACParser, ACSemantics
-from .spacy_parser import SpacySemanticParser, SPACY_AVAILABLE
+
+from .spacy_parser import SpacySemanticParser
 
 
 class HybridACParser(ISemanticParser):
@@ -29,7 +29,7 @@ class HybridACParser(ISemanticParser):
         prefer_nlp: bool = True,
         confidence_threshold: float = 0.7,
         spacy_model: str = "en_core_web_sm",
-        embedding_enabled: Optional[bool] = None,
+        embedding_enabled: bool | None = None,
         embedding_threshold: float = 0.80
     ):
         """Initialize hybrid parser.
@@ -131,7 +131,7 @@ class HybridACParser(ISemanticParser):
     def extract_action_target_outcome(
         self,
         text: str
-    ) -> Tuple[str, str, str]:
+    ) -> tuple[str, str, str]:
         """Extract action-target-outcome triple.
 
         Args:
@@ -143,7 +143,7 @@ class HybridACParser(ISemanticParser):
         components = self.parse(text)
         return components.to_action_target_outcome()
 
-    def extract_entities(self, text: str) -> List[str]:
+    def extract_entities(self, text: str) -> list[str]:
         """Extract named entities from text.
 
         Args:
@@ -292,7 +292,7 @@ class HybridACParser(ISemanticParser):
 def create_parser(
     prefer_nlp: bool = True,
     confidence_threshold: float = 0.7,
-    embedding_enabled: Optional[bool] = None,
+    embedding_enabled: bool | None = None,
     embedding_threshold: float = 0.80
 ) -> HybridACParser:
     """Factory function to create a hybrid parser.

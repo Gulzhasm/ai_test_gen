@@ -4,9 +4,8 @@ Ruleset Model: Centralized evidence-based rule system for test generation.
 The Ruleset is the single source of truth that extracts signals from AC bullets
 and QA Prep bullets, enabling deterministic test generation.
 """
-from dataclasses import dataclass, field
-from typing import List, Dict, Set, Optional
 import re
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -15,15 +14,15 @@ class EvidenceBullet:
     id: str  # e.g., "AC1", "QA-1"
     text: str
     source: str  # "AC" or "QA_PREP"
-    signals: Set[str] = field(default_factory=set)  # Signal types extracted
+    signals: set[str] = field(default_factory=set)  # Signal types extracted
 
 
 @dataclass
 class Signal:
     """Represents a signal extracted from evidence."""
     signal_type: str  # e.g., "availability", "action", "state", "visibility", etc.
-    value: Optional[str] = None  # e.g., "Edit menu" for entry_point, "Windows 11" for platform
-    evidence_refs: List[str] = field(default_factory=list)  # IDs of bullets that support this signal
+    value: str | None = None  # e.g., "Edit menu" for entry_point, "Windows 11" for platform
+    evidence_refs: list[str] = field(default_factory=list)  # IDs of bullets that support this signal
 
 
 @dataclass
@@ -35,11 +34,11 @@ class Ruleset:
     must check Ruleset.has_signal() before adding any test or step.
     """
     story_id: int
-    ac_bullets: List[EvidenceBullet] = field(default_factory=list)
-    qa_prep_bullets: List[EvidenceBullet] = field(default_factory=list)
+    ac_bullets: list[EvidenceBullet] = field(default_factory=list)
+    qa_prep_bullets: list[EvidenceBullet] = field(default_factory=list)
     
     # Signal maps: signal_type -> Signal
-    signals: Dict[str, Signal] = field(default_factory=dict)
+    signals: dict[str, Signal] = field(default_factory=dict)
     
     # Explicit signals extracted
     has_availability: bool = False
@@ -52,20 +51,20 @@ class Ruleset:
     has_persistence: bool = False
     
     # Entry points
-    entry_points: Set[str] = field(default_factory=set)  # e.g., "Edit menu", "Toolbar"
+    entry_points: set[str] = field(default_factory=set)  # e.g., "Edit menu", "Toolbar"
     
     # Platforms
-    platforms: Set[str] = field(default_factory=set)  # e.g., "Windows 11", "iPad", "Android Tablet"
+    platforms: set[str] = field(default_factory=set)  # e.g., "Windows 11", "iPad", "Android Tablet"
     
     # Units (for measurements)
-    units: Set[str] = field(default_factory=set)  # e.g., "metric", "imperial"
+    units: set[str] = field(default_factory=set)  # e.g., "metric", "imperial"
     
     # Constraints
     requires_selection: bool = False
-    object_type_constraints: Set[str] = field(default_factory=set)  # e.g., "rectangle", "circle"
+    object_type_constraints: set[str] = field(default_factory=set)  # e.g., "rectangle", "circle"
     
     # Explicit negatives
-    explicit_negatives: Set[str] = field(default_factory=set)  # e.g., "no selection", "empty canvas"
+    explicit_negatives: set[str] = field(default_factory=set)  # e.g., "no selection", "empty canvas"
     
     # Explicit feedback
     explicit_feedback: bool = False
@@ -77,7 +76,7 @@ class Ruleset:
     explicit_hotkeys: bool = False
     
     # Explicit accessibility standard
-    explicit_accessibility_standard: Optional[str] = None  # e.g., "WCAG 2.1 AA"
+    explicit_accessibility_standard: str | None = None  # e.g., "WCAG 2.1 AA"
     
     def __post_init__(self):
         """Extract signals from bullets after initialization."""
@@ -203,7 +202,7 @@ class Ruleset:
                     self.signals[signal_type] = Signal(signal_type=signal_type, evidence_refs=[])
                 self.signals[signal_type].evidence_refs.append(bullet.id)
     
-    def has_signal(self, signal_type: str, value: Optional[str] = None) -> bool:
+    def has_signal(self, signal_type: str, value: str | None = None) -> bool:
         """
         Check if a signal exists in the ruleset.
         
@@ -227,16 +226,16 @@ class Ruleset:
         else:
             return signal_type in self.signals
     
-    def get_evidence_refs(self, signal_type: str) -> List[str]:
+    def get_evidence_refs(self, signal_type: str) -> list[str]:
         """Get evidence references for a signal type."""
         if signal_type in self.signals:
             return self.signals[signal_type].evidence_refs
         return []
     
-    def get_all_ac_ids(self) -> List[str]:
+    def get_all_ac_ids(self) -> list[str]:
         """Get all AC bullet IDs."""
         return [bullet.id for bullet in self.ac_bullets]
     
-    def get_all_qa_prep_ids(self) -> List[str]:
+    def get_all_qa_prep_ids(self) -> list[str]:
         """Get all QA Prep bullet IDs."""
         return [bullet.id for bullet in self.qa_prep_bullets]

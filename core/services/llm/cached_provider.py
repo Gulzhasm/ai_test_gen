@@ -5,7 +5,7 @@ Wraps any LLM provider to add caching capabilities.
 """
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any
 
 from core.interfaces.llm_provider import ILLMProvider, LLMResponse
 from core.interfaces.metrics import GenerationMetrics, TokenUsage
@@ -19,9 +19,9 @@ class CachedLLMProvider(ILLMProvider):
     def __init__(
         self,
         provider: ILLMProvider,
-        cache_manager: Optional[CacheManager] = None,
-        cache_ttl: Optional[timedelta] = None,
-        metrics_collector: Optional[Any] = None
+        cache_manager: CacheManager | None = None,
+        cache_ttl: timedelta | None = None,
+        metrics_collector: Any | None = None
     ):
         """Initialize cached provider.
 
@@ -49,7 +49,7 @@ class CachedLLMProvider(ILLMProvider):
     def generate(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         **kwargs
     ) -> LLMResponse:
         """Generate text with caching.
@@ -130,9 +130,9 @@ class CachedLLMProvider(ILLMProvider):
     def generate_json(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate JSON with caching.
 
         Args:
@@ -179,7 +179,7 @@ class CachedLLMProvider(ILLMProvider):
     def _get_cache_key(
         self,
         prompt: str,
-        system_prompt: Optional[str],
+        system_prompt: str | None,
         method: str
     ) -> str:
         """Generate cache key for request.
@@ -194,7 +194,7 @@ class CachedLLMProvider(ILLMProvider):
         """
         return f"llm:{method}:{CacheManager.hash_prompt(prompt, system_prompt, self.model)}"
 
-    def _serialize_response(self, response: LLMResponse) -> Dict[str, Any]:
+    def _serialize_response(self, response: LLMResponse) -> dict[str, Any]:
         """Serialize LLMResponse for caching.
 
         Args:
@@ -210,7 +210,7 @@ class CachedLLMProvider(ILLMProvider):
             "finish_reason": response.finish_reason
         }
 
-    def _deserialize_response(self, data: Dict[str, Any]) -> LLMResponse:
+    def _deserialize_response(self, data: dict[str, Any]) -> LLMResponse:
         """Deserialize cached response.
 
         Args:
@@ -231,7 +231,7 @@ class CachedLLMProvider(ILLMProvider):
         self._cache.clear()
 
     @property
-    def cache_stats(self) -> Dict[str, Any]:
+    def cache_stats(self) -> dict[str, Any]:
         """Get cache statistics.
 
         Returns:
@@ -242,9 +242,9 @@ class CachedLLMProvider(ILLMProvider):
 
 def wrap_with_cache(
     provider: ILLMProvider,
-    cache_manager: Optional[CacheManager] = None,
-    cache_ttl: Optional[timedelta] = None,
-    metrics_collector: Optional[Any] = None
+    cache_manager: CacheManager | None = None,
+    cache_ttl: timedelta | None = None,
+    metrics_collector: Any | None = None
 ) -> CachedLLMProvider:
     """Convenience function to wrap a provider with caching.
 

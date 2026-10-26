@@ -3,13 +3,12 @@ Unit tests for TestRules module.
 
 Tests rule-based templates and patterns for test case generation.
 """
-import pytest
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.services import TestRules, StepTemplate
+from core.services import StepTemplate, TestRules
 
 
 class TestTestRulesDefaults:
@@ -108,14 +107,24 @@ class TestTestRulesTemplates:
         assert step['expected'] == ""  # Close should have blank expected
 
     def test_object_setup_steps(self):
-        """Test object setup steps generation."""
+        """Object setup steps come from app config; unconfigured -> generic fallback."""
         steps = self.rules.get_object_setup_steps()
         assert isinstance(steps, list)
-        assert len(steps) >= 2
-        # Should include drawing and selecting
+        assert len(steps) >= 1
         actions = [s['action'].lower() for s in steps]
-        assert any('draw' in a for a in actions)
-        assert any('select' in a for a in actions)
+        # Fallback must be domain-neutral: no drawing-app vocabulary
+        assert not any('draw' in a or 'canvas' in a for a in actions)
+        assert any('create' in a or 'open' in a for a in actions)
+
+    def test_object_setup_steps_from_app_config(self):
+        """When an app config provides object_setup_steps, they are used verbatim."""
+        class FakeApp:
+            def get_object_setup_steps(self):
+                return [{"action": "Open an existing record.", "expected": "Record opens."}]
+
+        rules = TestRules(app_config=FakeApp())
+        steps = rules.get_object_setup_steps()
+        assert steps == [{"action": "Open an existing record.", "expected": "Record opens."}]
 
     def test_undo_redo_steps(self):
         """Test undo/redo steps generation."""

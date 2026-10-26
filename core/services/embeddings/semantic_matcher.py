@@ -3,17 +3,12 @@ Semantic matcher for finding similar patterns using embedding similarity.
 
 Uses cosine similarity to match input text against pre-computed pattern embeddings.
 """
-from typing import List, Optional
 
 import numpy as np
 
-from .embedding_interface import (
-    IEmbeddingProvider,
-    SimilarityMatch,
-    cosine_similarity
-)
 from .embedding_cache import EmbeddingCache
-from .pattern_index import EmbeddingPatternIndex, PatternEntry
+from .embedding_interface import IEmbeddingProvider, SimilarityMatch, cosine_similarity
+from .pattern_index import EmbeddingPatternIndex
 
 
 class SemanticMatcher:
@@ -36,7 +31,7 @@ class SemanticMatcher:
         self,
         provider: IEmbeddingProvider,
         pattern_index: EmbeddingPatternIndex,
-        cache: Optional[EmbeddingCache] = None,
+        cache: EmbeddingCache | None = None,
         threshold: float = 0.80
     ):
         """Initialize semantic matcher.
@@ -65,10 +60,10 @@ class SemanticMatcher:
     def find_similar(
         self,
         text: str,
-        category: Optional[str] = None,
+        category: str | None = None,
         top_k: int = 5,
         include_below_threshold: bool = False
-    ) -> List[SimilarityMatch]:
+    ) -> list[SimilarityMatch]:
         """Find most similar patterns to input text.
 
         Args:
@@ -123,7 +118,7 @@ class SemanticMatcher:
 
         return matches[:top_k]
 
-    def _get_embedding(self, text: str) -> Optional[np.ndarray]:
+    def _get_embedding(self, text: str) -> np.ndarray | None:
         """Get embedding for text, using cache if available.
 
         Args:
@@ -146,7 +141,7 @@ class SemanticMatcher:
         self._cache.set(result)
         return result.vector
 
-    def match_action(self, text: str) -> Optional[SimilarityMatch]:
+    def match_action(self, text: str) -> SimilarityMatch | None:
         """Find best matching action pattern.
 
         Args:
@@ -158,7 +153,7 @@ class SemanticMatcher:
         matches = self.find_similar(text, category="action", top_k=1)
         return matches[0] if matches else None
 
-    def match_outcome(self, text: str) -> Optional[SimilarityMatch]:
+    def match_outcome(self, text: str) -> SimilarityMatch | None:
         """Find best matching outcome pattern.
 
         Args:
@@ -170,7 +165,7 @@ class SemanticMatcher:
         matches = self.find_similar(text, category="outcome", top_k=1)
         return matches[0] if matches else None
 
-    def match_boundary(self, text: str) -> Optional[SimilarityMatch]:
+    def match_boundary(self, text: str) -> SimilarityMatch | None:
         """Find best matching boundary condition pattern.
 
         Args:
@@ -199,8 +194,8 @@ class SemanticMatcher:
 
     def calculate_confidence(
         self,
-        action_match: Optional[SimilarityMatch],
-        outcome_match: Optional[SimilarityMatch]
+        action_match: SimilarityMatch | None,
+        outcome_match: SimilarityMatch | None
     ) -> float:
         """Calculate overall confidence from action and outcome matches.
 
@@ -235,7 +230,7 @@ class SemanticMatcher:
     def explain_match(
         self,
         text: str,
-        category: Optional[str] = None,
+        category: str | None = None,
         top_k: int = 3
     ) -> str:
         """Get human-readable explanation of matching results.

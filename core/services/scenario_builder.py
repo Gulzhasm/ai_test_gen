@@ -4,7 +4,6 @@ ScenarioBuilder: Builds balanced, specific scenario names from AC bullets.
 This replaces generic titles like "Verify selected object" with specific scenarios
 like "Rotate Tool Applies 90 Degree Clockwise Rotation".
 """
-from typing import Dict, Optional, List
 import re
 
 
@@ -162,7 +161,7 @@ class ScenarioBuilder:
 
         return base_scenario
 
-    def _extract_action(self, ac_bullet: str) -> Optional[str]:
+    def _extract_action(self, ac_bullet: str) -> str | None:
         """Extract primary action from AC bullet."""
         ac_lower = ac_bullet.lower()
 
@@ -172,7 +171,7 @@ class ScenarioBuilder:
 
         return None
 
-    def _extract_outcome(self, ac_bullet: str) -> Optional[str]:
+    def _extract_outcome(self, ac_bullet: str) -> str | None:
         """Extract expected outcome/validation from AC bullet."""
         ac_lower = ac_bullet.lower()
 
@@ -186,7 +185,7 @@ class ScenarioBuilder:
 
         return None
 
-    def _extract_target(self, ac_bullet: str) -> Optional[str]:
+    def _extract_target(self, ac_bullet: str) -> str | None:
         """Extract target object/control from AC bullet."""
         ac_lower = ac_bullet.lower()
 
@@ -211,8 +210,8 @@ class ScenarioBuilder:
 
         return None
 
-    def _compose_scenario(self, action: Optional[str], target: Optional[str],
-                         outcome: Optional[str], ac_bullet: str) -> str:
+    def _compose_scenario(self, action: str | None, target: str | None,
+                         outcome: str | None, ac_bullet: str) -> str:
         """Compose scenario from extracted components."""
 
         # If we have all components
@@ -267,7 +266,7 @@ class ScenarioBuilder:
 
 
 def build_balanced_title(story_id: int, feature_name: str, area: str,
-                        scenario: str, device: Optional[str] = None) -> str:
+                        scenario: str, device: str | None = None) -> str:
     """
     Build a balanced test case title following strict format.
 

@@ -2,7 +2,6 @@
 User Story domain entity.
 """
 from dataclasses import dataclass
-from typing import List, Optional
 
 
 @dataclass
@@ -12,7 +11,7 @@ class UserStory:
     title: str
     description: str
     acceptance_criteria_text: str
-    acceptance_criteria: List[str]
+    acceptance_criteria: list[str]
     
     def __post_init__(self):
         """Validate story after initialization."""

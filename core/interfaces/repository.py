@@ -4,17 +4,16 @@ Repository interfaces for data access abstraction.
 Following the Repository pattern to abstract data access from business logic.
 """
 from abc import ABC, abstractmethod
-from typing import Optional, List, Dict, Any
+from typing import Any
 
 from core.domain.story import UserStory
-from core.domain.test_case import TestCase
 
 
 class IStoryRepository(ABC):
     """Interface for story data access."""
 
     @abstractmethod
-    def get_story(self, story_id: int) -> Optional[UserStory]:
+    def get_story(self, story_id: int) -> UserStory | None:
         """Retrieve a user story by ID.
 
         Args:
@@ -23,10 +22,9 @@ class IStoryRepository(ABC):
         Returns:
             UserStory if found, None otherwise
         """
-        pass
 
     @abstractmethod
-    def get_qa_prep(self, story_id: int) -> Optional[str]:
+    def get_qa_prep(self, story_id: int) -> str | None:
         """Retrieve QA Prep content for a story.
 
         Args:
@@ -35,7 +33,6 @@ class IStoryRepository(ABC):
         Returns:
             QA Prep content if found, None otherwise
         """
-        pass
 
     def update_qa_prep(self, story_id: int, summary_text: str) -> bool:
         """Update QA Prep child task with QA Planning Summary.
@@ -54,7 +51,7 @@ class ITestSuiteRepository(ABC):
     """Interface for test suite data access."""
 
     @abstractmethod
-    def find_suite_by_story_id(self, story_id: int) -> Optional[Dict[str, Any]]:
+    def find_suite_by_story_id(self, story_id: int) -> dict[str, Any] | None:
         """Find test suite matching story ID pattern.
 
         Args:
@@ -63,7 +60,6 @@ class ITestSuiteRepository(ABC):
         Returns:
             Suite info dict with 'id', 'name', 'plan_id' if found, None otherwise
         """
-        pass
 
     @abstractmethod
     def create_suite(
@@ -71,7 +67,7 @@ class ITestSuiteRepository(ABC):
         plan_id: int,
         suite_name: str,
         story_id: int
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Create a new test suite.
 
         Args:
@@ -82,7 +78,6 @@ class ITestSuiteRepository(ABC):
         Returns:
             Suite info dict if created, None otherwise
         """
-        pass
 
     @abstractmethod
     def add_test_case_to_suite(
@@ -101,7 +96,6 @@ class ITestSuiteRepository(ABC):
         Returns:
             True if successful, False otherwise
         """
-        pass
 
 
 class ITestCaseRepository(ABC):
@@ -111,10 +105,10 @@ class ITestCaseRepository(ABC):
     def create_test_case(
         self,
         title: str,
-        steps: List[Dict[str, str]],
+        steps: list[dict[str, str]],
         objective: str,
         **kwargs
-    ) -> Optional[int]:
+    ) -> int | None:
         """Create a test case in the repository.
 
         Args:
@@ -126,13 +120,12 @@ class ITestCaseRepository(ABC):
         Returns:
             Work item ID if created, None otherwise
         """
-        pass
 
     @abstractmethod
     def update_test_case(
         self,
         test_case_id: int,
-        fields: Dict[str, Any]
+        fields: dict[str, Any]
     ) -> bool:
         """Update a test case.
 
@@ -143,10 +136,9 @@ class ITestCaseRepository(ABC):
         Returns:
             True if successful, False otherwise
         """
-        pass
 
     @abstractmethod
-    def get_test_case(self, test_case_id: int) -> Optional[Dict[str, Any]]:
+    def get_test_case(self, test_case_id: int) -> dict[str, Any] | None:
         """Get a test case by ID.
 
         Args:
@@ -155,4 +147,3 @@ class ITestCaseRepository(ABC):
         Returns:
             Test case data if found, None otherwise
         """
-        pass

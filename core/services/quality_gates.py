@@ -3,7 +3,6 @@ Quality Gates: Hard-fail validation for test case quality.
 
 These gates enforce strict compliance with test design rules.
 """
-from typing import List, Tuple, Dict
 import re
 
 
@@ -68,7 +67,7 @@ class TitleQualityGate:
         r'^Enable\s+\w+$',  # Just "Enable X"
     ]
 
-    def validate_title(self, test_id: str, title: str) -> Tuple[bool, List[str]]:
+    def validate_title(self, test_id: str, title: str) -> tuple[bool, list[str]]:
         """
         Validate test case title against quality rules.
 
@@ -170,7 +169,7 @@ class ForbiddenWordScanner:
         (r'\(e\.g\.,\s+[^)]+\s+or\s+', '"e.g., X or Y"'),  # Catches "e.g., Ctrl+Z or Cmd+Z"
     ]
 
-    def scan_steps(self, test_id: str, steps: List[Dict]) -> Tuple[bool, List[str]]:
+    def scan_steps(self, test_id: str, steps: list[dict]) -> tuple[bool, list[str]]:
         """
         Scan test steps for forbidden words.
 
@@ -231,7 +230,7 @@ class ACCoverageTracker:
         if 1 <= ac_index <= self.num_ac_bullets:
             self.ac_coverage[ac_index].append(test_id)
 
-    def validate_coverage(self) -> Tuple[bool, List[str]]:
+    def validate_coverage(self) -> tuple[bool, list[str]]:
         """
         Validate AC coverage.
 
@@ -274,7 +273,7 @@ class QualityGateRunner:
         self.forbidden_scanner = ForbiddenWordScanner()
         self.ac_tracker = ACCoverageTracker(num_ac_bullets)
 
-    def validate_test_case(self, test_case: Dict) -> Tuple[bool, List[str]]:
+    def validate_test_case(self, test_case: dict) -> tuple[bool, list[str]]:
         """
         Validate a single test case through all gates.
 
@@ -300,7 +299,7 @@ class QualityGateRunner:
 
         return len(all_errors) == 0, all_errors
 
-    def validate_all_tests(self, test_cases: List[Dict]) -> Tuple[bool, List[str]]:
+    def validate_all_tests(self, test_cases: list[dict]) -> tuple[bool, list[str]]:
         """
         Validate all test cases.
 
@@ -338,7 +337,7 @@ class QualityGateRunner:
 
         return len(all_errors) == 0, all_errors
 
-    def print_quality_report(self, test_cases: List[Dict]):
+    def print_quality_report(self, test_cases: list[dict]):
         """Print comprehensive quality report."""
         print("\n" + "=" * 80)
         print("QUALITY GATE REPORT")

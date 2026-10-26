@@ -4,9 +4,9 @@ ADO HTTP Client - Low-level HTTP interactions with Azure DevOps.
 This class handles only HTTP concerns, keeping infrastructure separate from domain logic.
 """
 import base64
-from typing import Dict, Optional, Any
+from typing import Any
+
 import requests
-from requests.auth import HTTPBasicAuth
 
 
 class ADOHttpClient:
@@ -49,11 +49,11 @@ class ADOHttpClient:
         return self._base_url
 
     @property
-    def headers(self) -> Dict[str, str]:
+    def headers(self) -> dict[str, str]:
         """Headers for API calls."""
         return self._headers.copy()
 
-    def _create_headers(self) -> Dict[str, str]:
+    def _create_headers(self) -> dict[str, str]:
         """Create authentication headers."""
         credentials = base64.b64encode(f":{self._pat}".encode()).decode()
         return {
@@ -61,7 +61,7 @@ class ADOHttpClient:
             'Authorization': f'Basic {credentials}'
         }
 
-    def get(self, endpoint: str, params: Optional[Dict] = None) -> Dict[str, Any]:
+    def get(self, endpoint: str, params: dict | None = None) -> dict[str, Any]:
         """Make GET request to ADO API.
 
         Args:
@@ -91,9 +91,9 @@ class ADOHttpClient:
     def post(
         self,
         endpoint: str,
-        data: Dict[str, Any],
-        params: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        data: dict[str, Any],
+        params: dict | None = None
+    ) -> dict[str, Any]:
         """Make POST request to ADO API.
 
         Args:
@@ -124,8 +124,8 @@ class ADOHttpClient:
         endpoint: str,
         data: Any,
         content_type: str = 'application/json-patch+json',
-        params: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        params: dict | None = None
+    ) -> dict[str, Any]:
         """Make PATCH request to ADO API.
 
         Args:
@@ -155,7 +155,7 @@ class ADOHttpClient:
         response.raise_for_status()
         return response.json()
 
-    def execute_wiql(self, query: str) -> Dict[str, Any]:
+    def execute_wiql(self, query: str) -> dict[str, Any]:
         """Execute a WIQL query.
 
         Args:

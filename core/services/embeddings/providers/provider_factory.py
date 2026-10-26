@@ -4,17 +4,16 @@ Embedding provider factory.
 Creates embedding providers based on configuration.
 """
 import os
-from typing import Optional
 
 from ..embedding_interface import IEmbeddingProvider
 from .openai_embeddings import OpenAIEmbeddingProvider
 
 
 def create_embedding_provider(
-    provider_type: Optional[str] = None,
-    model: Optional[str] = None,
-    api_key: Optional[str] = None
-) -> Optional[IEmbeddingProvider]:
+    provider_type: str | None = None,
+    model: str | None = None,
+    api_key: str | None = None
+) -> IEmbeddingProvider | None:
     """Create embedding provider based on configuration.
 
     Args:

@@ -10,7 +10,6 @@ Intelligently parses acceptance criteria to extract:
 This enables automatic generation of comprehensive, balanced test cases.
 """
 
-from typing import Dict, List, Optional, Tuple
 import re
 from dataclasses import dataclass
 
@@ -21,8 +20,8 @@ class ACSemantics:
     action: str  # e.g., "Bring to Front", "Enable", "Disable"
     target: str  # e.g., "selected object", "diameter measurement", "Draw Order actions"
     outcome: str  # e.g., "moves to highest z-order", "becomes visible", "are enabled"
-    conditions: List[str]  # e.g., ["when object is selected", "for ellipse only"]
-    boundary_cases: List[str]  # e.g., ["at top", "at bottom", "no selection"]
+    conditions: list[str]  # e.g., ["when object is selected", "for ellipse only"]
+    boundary_cases: list[str]  # e.g., ["at top", "at bottom", "no selection"]
     negation: bool  # True if this is a negative scenario (disabled, hidden, etc.)
     
     def get_balanced_scenario(self) -> str:
@@ -75,8 +74,10 @@ class ACParser:
          'decreases z-order by one level'),
         
         # State outcomes
-        (r'(?:become[s]?|are|is)\s+(enabled|disabled|visible|hidden)',
-         r'are \1'),
+        (r'(?:become[s]?|are|is)\s+enabled', 'are enabled'),
+        (r'(?:become[s]?|are|is)\s+disabled', 'are disabled'),
+        (r'(?:become[s]?|are|is)\s+visible', 'are visible'),
+        (r'(?:become[s]?|are|is)\s+hidden', 'are hidden'),
         (r'(?:remain[s]?|stay[s]?)\s+(?:the\s+same|unchanged)',
          'remains unchanged'),
         
@@ -202,7 +203,7 @@ class ACParser:
         else:
             return 'works correctly'
     
-    def _extract_conditions(self, ac_lower: str) -> List[str]:
+    def _extract_conditions(self, ac_lower: str) -> list[str]:
         """Extract conditions/constraints."""
         conditions = []
         
@@ -221,7 +222,7 @@ class ACParser:
         
         return conditions
     
-    def _detect_boundary_cases(self, ac_lower: str) -> List[str]:
+    def _detect_boundary_cases(self, ac_lower: str) -> list[str]:
         """Detect boundary cases mentioned in AC."""
         boundary_cases = []
         
@@ -250,8 +251,8 @@ class BoundaryCaseGenerator:
         feature_name: str,
         semantics: ACSemantics,
         base_test_id: str,
-        context: Dict
-    ) -> List[Dict]:
+        context: dict
+    ) -> list[dict]:
         """Generate boundary case tests based on AC semantics."""
         boundary_tests = []
         
@@ -274,8 +275,8 @@ class BoundaryCaseGenerator:
         story_id: int,
         feature_name: str,
         semantics: ACSemantics,
-        context: Dict
-    ) -> List[Dict]:
+        context: dict
+    ) -> list[dict]:
         """Generate stacking operation boundary tests."""
         tests = []
         
@@ -308,8 +309,8 @@ class BoundaryCaseGenerator:
         story_id: int,
         feature_name: str,
         semantics: ACSemantics,
-        context: Dict
-    ) -> Optional[Dict]:
+        context: dict
+    ) -> dict | None:
         """Generate 'no selection' boundary test."""
         return {
             'type': 'boundary',
@@ -330,9 +331,9 @@ class ComprehensiveStepBuilder:
             app_config: Application configuration with name, prereq_template, etc.
         """
         self._app_config = app_config
-        # Default values if no config provided
+        # Neutral fallbacks, used only when no config is provided
         self._app_name = "Application"
-        self._prereq = "Pre-req: The application is installed"
+        self._prereq = "Pre-req: The application is set up and accessible"
         self._launch = "Launch the application."
         self._close = "Close the application"
 
@@ -349,8 +350,8 @@ class ComprehensiveStepBuilder:
         self,
         semantics: ACSemantics,
         feature_name: str,
-        context: Dict
-    ) -> List[Dict]:
+        context: dict
+    ) -> list[dict]:
         """Build test steps from AC semantics."""
         steps = []
 
@@ -377,7 +378,7 @@ class ComprehensiveStepBuilder:
         
         return steps
     
-    def _build_setup_steps(self, semantics: ACSemantics, context: Dict) -> List[Dict]:
+    def _build_setup_steps(self, semantics: ACSemantics, context: dict) -> list[dict]:
         """Build setup steps based on semantics."""
         steps = []
         
@@ -385,33 +386,45 @@ class ComprehensiveStepBuilder:
         if 'z-order' in semantics.outcome or 'level' in semantics.outcome:
             # Need overlapping objects
             num_objects = 3
-            steps.append({"action": f"Draw {self._num_to_word(num_objects)} overlapping shapes on the Canvas.", "expected": ""})
-            
+            steps.append({"action": f"Create {self._num_to_word(num_objects)} overlapping objects.", "expected": ""})
+
             # Select appropriate object based on action
             if 'front' in semantics.action.lower() or 'above' in semantics.action.lower():
-                steps.append({"action": "Select the bottom-most shape.", "expected": ""})
+                steps.append({"action": "Select the bottom-most object.", "expected": ""})
             elif 'back' in semantics.action.lower() or 'under' in semantics.action.lower():
-                steps.append({"action": "Select the top-most shape.", "expected": ""})
+                steps.append({"action": "Select the top-most object.", "expected": ""})
             else:
-                steps.append({"action": "Select one shape.", "expected": ""})
-        
+                steps.append({"action": "Select one object.", "expected": ""})
+
         # Check if we need single object selection
         elif semantics.conditions and any('selected' in c for c in semantics.conditions):
-            steps.append({"action": "Draw a shape on the Canvas.", "expected": ""})
-            steps.append({"action": "Select the drawn shape.", "expected": ""})
-        
+            steps.extend(self._get_object_setup_steps())
+
         # Check if we explicitly need no selection
         elif semantics.negation and 'selection' in semantics.target:
-            steps.append({"action": "Ensure no object is selected on the Canvas.", "expected": ""})
-        
+            steps.append({"action": "Ensure no object is selected.", "expected": ""})
+
         return steps
+
+    def _get_object_setup_steps(self) -> list[dict]:
+        """Object setup steps from config, with a generic fallback."""
+        if self._app_config is not None:
+            getter = getattr(self._app_config, 'get_object_setup_steps', None)
+            if callable(getter):
+                config_steps = getter()
+                if config_steps:
+                    return [dict(s) for s in config_steps]
+        return [
+            {"action": "Create or open the object/record required for this test.", "expected": ""},
+            {"action": "Select the created object.", "expected": ""},
+        ]
     
     def _build_action_steps(
         self,
         semantics: ACSemantics,
         feature_name: str,
-        context: Dict
-    ) -> List[Dict]:
+        context: dict
+    ) -> list[dict]:
         """Build action steps based on semantics."""
         steps = []
         entry_point = context.get('entry_point', 'Menu')
@@ -432,7 +445,7 @@ class ComprehensiveStepBuilder:
         
         return steps
     
-    def _build_verification(self, semantics: ACSemantics) -> Dict:
+    def _build_verification(self, semantics: ACSemantics) -> dict:
         """Build verification step from semantics."""
         # Build verification based on outcome
         if 'highest z-order' in semantics.outcome:

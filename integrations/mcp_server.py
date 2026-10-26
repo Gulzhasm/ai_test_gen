@@ -23,12 +23,11 @@ Usage:
 """
 import asyncio
 import json
-import sys
 import os
+import sys
 import time
 import traceback
 from pathlib import Path
-from typing import Dict, List, Optional
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -36,24 +35,28 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 # Load environment variables
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # MCP imports
 try:
     from mcp.server import Server
     from mcp.server.stdio import stdio_server
-    from mcp.types import Tool, TextContent
+    from mcp.types import TextContent, Tool
     MCP_AVAILABLE = True
 except ImportError:
     MCP_AVAILABLE = False
     print("MCP not installed. Run: pip install mcp", file=sys.stderr)
 
 # Project imports
-from projects.project_config import ProjectConfig, get_env_quickdraw_config
 from core.services.test_generator import GenericTestGenerator
-from infrastructure.export.csv_generator import CSVGenerator, CSVConfig
+from infrastructure.export.csv_generator import CSVConfig, CSVGenerator
 from infrastructure.export.objective_generator import ObjectiveGenerator
-from infrastructure.repository_factory import get_story_repository, get_test_repositories
+from infrastructure.repository_factory import (
+    get_story_repository,
+    get_test_repositories,
+)
+from projects.project_config import ProjectConfig, get_env_quickdraw_config
 
 
 def load_project_config(project_id: str) -> ProjectConfig:
@@ -62,6 +65,12 @@ def load_project_config(project_id: str) -> ProjectConfig:
     if config_path.exists():
         return ProjectConfig.load_from_yaml(str(config_path))
     elif project_id == "env-quickdraw":
+        print(
+            f"WARNING: project '{project_id}' resolved from built-in defaults — "
+            f"no YAML found at projects/configs/{project_id}.yaml; "
+            f"built-ins may be stale. Create the YAML to silence this.",
+            file=sys.stderr
+        )
         return get_env_quickdraw_config()
     else:
         raise ValueError(f"Project config not found: {project_id}")
@@ -186,7 +195,9 @@ def _apply_llm_correction(
             provider_type=provider_type,
         )
 
-        embedder = TestStepEmbedder()
+        embedder = TestStepEmbedder(
+            collection_name=f"test_steps_{config.project_id}"
+        )
         reference_steps = embedder.get_reference_steps(title, n_results=10)
         if reference_steps:
             print(f"  Found {len(reference_steps)} reference steps for correction")
@@ -620,8 +631,8 @@ async def create_bug_from_file(
         Dict with bug report details and output file path
     """
     try:
-        from core.application.use_cases.bug_parser import BugFileParser
         from core.application.use_cases.bug_formatter import BugHtmlFormatter
+        from core.application.use_cases.bug_parser import BugFileParser
 
         config = load_project_config(project_id)
         ensure_credentials(config)
@@ -709,7 +720,7 @@ def run_cli():
 
         if command == 'list':
             projects = list_available_projects()
-            print(f"\nAvailable projects:")
+            print("\nAvailable projects:")
             for p in projects:
                 try:
                     cfg = load_project_config(p)
@@ -742,7 +753,7 @@ def run_cli():
         source_platform = 'UNKNOWN'
         target_platform = 'UNKNOWN'
 
-    print(f"\nMCP Test Generator - CLI Mode")
+    print("\nMCP Test Generator - CLI Mode")
     print(f"Command: {command}")
     print(f"Story ID: {story_id}")
     print(f"Project: {project}")
@@ -761,10 +772,10 @@ def run_cli():
         return False
 
     if result.get("success"):
-        print(f"\nOperation complete")
+        print("\nOperation complete")
         print(f"  Test cases: {result.get('test_count', 'N/A')}")
         if 'output_files' in result:
-            print(f"  Output files:")
+            print("  Output files:")
             for key, path in result.get('output_files', {}).items():
                 print(f"    {key}: {path}")
 
@@ -851,7 +862,7 @@ if MCP_AVAILABLE:
             ),
             Tool(
                 name="create_bug",
-                description="WORKFLOW 4: Create a formatted bug report from a structured .txt file. Formats to ENV Drawing Bug Template and optionally uploads to ADO.",
+                description="WORKFLOW 4: Create a formatted bug report from a structured .txt file. Formats to the configured project's bug report template and optionally uploads to ADO.",
                 inputSchema={
                     "type": "object",
                     "properties": {

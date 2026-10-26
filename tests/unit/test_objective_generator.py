@@ -3,10 +3,9 @@ Unit tests for Objective Generator module.
 
 Tests objective formatting and generation functionality.
 """
-import pytest
+import os
 import sys
 import tempfile
-import os
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))

@@ -6,7 +6,8 @@ to enable semantic similarity matching in AC parsing.
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any
+from typing import Any
+
 import numpy as np
 
 
@@ -17,9 +18,9 @@ class EmbeddingResult:
     vector: np.ndarray
     model: str
     dimensions: int
-    usage: Optional[Dict[str, int]] = None
+    usage: dict[str, int] | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary (vector as list for serialization)."""
         return {
             "text": self.text,
@@ -30,7 +31,7 @@ class EmbeddingResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EmbeddingResult":
+    def from_dict(cls, data: dict[str, Any]) -> "EmbeddingResult":
         """Create from dictionary."""
         return cls(
             text=data["text"],
@@ -48,9 +49,9 @@ class SimilarityMatch:
     pattern_text: str
     category: str  # "action", "outcome", "boundary", "condition"
     similarity_score: float
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "pattern_id": self.pattern_id,
@@ -68,22 +69,19 @@ class IEmbeddingProvider(ABC):
     @abstractmethod
     def provider_name(self) -> str:
         """Provider identifier (e.g., 'openai', 'sentence-transformers')."""
-        pass
 
     @property
     @abstractmethod
     def model_name(self) -> str:
         """Model being used (e.g., 'text-embedding-3-small')."""
-        pass
 
     @property
     @abstractmethod
     def dimensions(self) -> int:
         """Embedding vector dimensions."""
-        pass
 
     @abstractmethod
-    def embed(self, text: str) -> Optional[EmbeddingResult]:
+    def embed(self, text: str) -> EmbeddingResult | None:
         """Generate embedding for single text.
 
         Args:
@@ -92,10 +90,9 @@ class IEmbeddingProvider(ABC):
         Returns:
             EmbeddingResult with vector or None on failure
         """
-        pass
 
     @abstractmethod
-    def embed_batch(self, texts: List[str]) -> List[EmbeddingResult]:
+    def embed_batch(self, texts: list[str]) -> list[EmbeddingResult]:
         """Generate embeddings for multiple texts efficiently.
 
         Args:
@@ -104,7 +101,6 @@ class IEmbeddingProvider(ABC):
         Returns:
             List of EmbeddingResults (may be shorter than input on failures)
         """
-        pass
 
     @abstractmethod
     def is_available(self) -> bool:
@@ -113,7 +109,6 @@ class IEmbeddingProvider(ABC):
         Returns:
             True if provider can be used
         """
-        pass
 
 
 def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:

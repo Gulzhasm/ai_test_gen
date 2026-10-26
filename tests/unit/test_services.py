@@ -1,7 +1,7 @@
 """Tests for services."""
-import pytest
-from core.domain.models import UserStory, TestCase, TestStep, EvidenceModel
-from services import SummaryService, ObjectiveService
+from services import ObjectiveService, SummaryService
+
+from core.domain.models import EvidenceModel, TestCase, TestStep, UserStory
 
 
 def test_summary_service_no_llm():

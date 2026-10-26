@@ -2,7 +2,7 @@
 LLM Provider Base Interface
 Protocol/interface for LLM providers.
 """
-from typing import Protocol, Optional
+from typing import Protocol
 
 
 class LLMProvider(Protocol):
@@ -13,7 +13,7 @@ class LLMProvider(Protocol):
         prompt: str,
         temperature: float = 0.3,
         max_tokens: int = 500
-    ) -> Optional[str]:
+    ) -> str | None:
         """Rewrite text based on prompt.
         
         Args:

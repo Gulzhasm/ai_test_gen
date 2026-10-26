@@ -2,13 +2,16 @@
 Use case: Export test case deliverables (CSV, Objectives, Summary).
 """
 from pathlib import Path
-from typing import List
 
+from core.config import AppConfig
+from core.domain.feature import FeatureExtractor
 from core.domain.story import UserStory
 from core.domain.test_case import TestCase
-from core.domain.feature import FeatureExtractor
-from core.interfaces.output_generator import ICSVGenerator, IObjectiveGenerator, IQASummaryGenerator
-from core.config import AppConfig
+from core.interfaces.output_generator import (
+    ICSVGenerator,
+    IObjectiveGenerator,
+    IQASummaryGenerator,
+)
 
 
 class ExportDeliverablesUseCase:
@@ -37,7 +40,7 @@ class ExportDeliverablesUseCase:
     def execute(
         self,
         story: UserStory,
-        test_cases: List[TestCase]
+        test_cases: list[TestCase]
     ) -> dict:
         """Execute deliverables export.
         

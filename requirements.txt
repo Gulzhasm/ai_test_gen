@@ -11,6 +11,10 @@ anthropic>=0.21.0  # Claude API
 # NLP (optional but recommended)
 spacy>=3.7.0
 
+# Embeddings / vector DB (test step deduplication)
+chromadb>=1.0.0
+numpy>=1.22.5
+
 # UI element extraction (selector grounding for Playwright generation)
 # Optional: only needed to run scripts/extract_ui_inventory.py
 playwright>=1.40.0

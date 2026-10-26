@@ -4,10 +4,10 @@ Rule-Driven Test Case Builders.
 Each builder maps to a specific rule section and generates test cases
 based only on Ruleset signals, never from raw text or heuristics.
 """
-from typing import List, Dict, Optional, Tuple
-from core.domain.ruleset import Ruleset, EvidenceBullet
 import re
+
 from core.config import environment as config
+from core.domain.ruleset import EvidenceBullet, Ruleset
 
 
 class BaseBuilder:
@@ -25,7 +25,7 @@ class BaseBuilder:
         self.test_id_counter += 5
         return test_id
     
-    def _add_mandatory_steps(self, steps: List[Dict]) -> List[Dict]:
+    def _add_mandatory_steps(self, steps: list[dict]) -> list[dict]:
         """Add mandatory PRE-REQ and Close steps."""
         # Check if PRE-REQ already exists
         has_prereq = any('PRE-REQ' in step.get('action', '').upper() for step in steps)
@@ -67,7 +67,7 @@ class BaseBuilder:
 class AvailabilityBuilder(BaseBuilder):
     """Builder for AC1 availability/entry point tests."""
     
-    def build(self, ac_bullet: EvidenceBullet) -> Optional[Dict]:
+    def build(self, ac_bullet: EvidenceBullet) -> dict | None:
         """
         Build availability test case.
         Only generates if ruleset.has_signal('availability') is True.
@@ -104,12 +104,7 @@ class AvailabilityBuilder(BaseBuilder):
         
         # Navigate to entry point
         if entry_point:
-            if 'menu' in entry_point.lower():
-                steps.append({
-                    "action": f"Open {entry_point}.",
-                    "expected": ""
-                })
-            elif 'panel' in entry_point.lower():
+            if 'menu' in entry_point.lower() or 'panel' in entry_point.lower():
                 steps.append({
                     "action": f"Open {entry_point}.",
                     "expected": ""
@@ -155,7 +150,7 @@ class AvailabilityBuilder(BaseBuilder):
 class ActionBuilder(BaseBuilder):
     """Builder for action-based tests (add, remove, enable, disable, etc.)."""
     
-    def build(self, ac_bullet: EvidenceBullet) -> Optional[Dict]:
+    def build(self, ac_bullet: EvidenceBullet) -> dict | None:
         """
         Build action test case.
         Only generates if ruleset.has_signal('action') is True.
@@ -265,7 +260,7 @@ class ActionBuilder(BaseBuilder):
         else:
             return f"{action_type.capitalize()} Feature"
     
-    def _generate_action_step(self, text: str, action_type: str) -> Dict:
+    def _generate_action_step(self, text: str, action_type: str) -> dict:
         """Generate action step."""
         # Extract what to act on
         if 'dimension' in text.lower():
@@ -282,7 +277,7 @@ class ActionBuilder(BaseBuilder):
             "expected": ""
         }
     
-    def _generate_verify_step(self, text: str, action_type: str) -> Dict:
+    def _generate_verify_step(self, text: str, action_type: str) -> dict:
         """Generate verification step."""
         verify_text = f"Verify that {self.feature_name} is {action_type}d successfully."
         
@@ -299,7 +294,7 @@ class ActionBuilder(BaseBuilder):
 class UndoRedoBuilder(BaseBuilder):
     """Builder for undo/redo tests."""
     
-    def build(self, ac_bullet: EvidenceBullet) -> Optional[Dict]:
+    def build(self, ac_bullet: EvidenceBullet) -> dict | None:
         """
         Build undo/redo test case.
         Only generates if ruleset.has_signal('undo_redo') is True.
@@ -382,7 +377,7 @@ class UndoRedoBuilder(BaseBuilder):
             'evidence_refs': self.ruleset.get_evidence_refs('undo_redo')
         }
     
-    def _extract_action_from_ac(self, text: str) -> Optional[Dict]:
+    def _extract_action_from_ac(self, text: str) -> dict | None:
         """Extract the action to undo/redo from AC text."""
         # Simplified extraction - in real implementation, this would be more sophisticated
         if 'move' in text.lower():
@@ -405,7 +400,7 @@ class UndoRedoBuilder(BaseBuilder):
 class AccessibilityBuilder(BaseBuilder):
     """Builder for accessibility tests."""
     
-    def build(self, ac_bullet: EvidenceBullet) -> List[Dict]:
+    def build(self, ac_bullet: EvidenceBullet) -> list[dict]:
         """
         Build accessibility test cases.
         Only generates if ruleset.has_signal('accessibility') is True.
@@ -457,7 +452,7 @@ class AccessibilityBuilder(BaseBuilder):
         else:
             return f"{self.feature_name} / Accessibility / Accessibility Compliance ({platform})"
     
-    def _generate_steps(self, platform: str, ac_text: str) -> List[Dict]:
+    def _generate_steps(self, platform: str, ac_text: str) -> list[dict]:
         """Generate accessibility test steps."""
         steps = []
         
@@ -526,7 +521,7 @@ class AccessibilityBuilder(BaseBuilder):
 class BoundaryBuilder(BaseBuilder):
     """Builder for boundary/constraint tests."""
     
-    def build(self, ac_bullet: EvidenceBullet) -> Optional[Dict]:
+    def build(self, ac_bullet: EvidenceBullet) -> dict | None:
         """
         Build boundary test case.
         Only generates if ruleset.has_signal('constraint') is True.
@@ -599,7 +594,7 @@ class BoundaryBuilder(BaseBuilder):
         else:
             return "Boundary Constraint"
     
-    def _generate_boundary_step(self, text: str, boundary_type: str) -> Optional[Dict]:
+    def _generate_boundary_step(self, text: str, boundary_type: str) -> dict | None:
         """Generate boundary test step."""
         if '360' in boundary_type.lower():
             return {
@@ -617,7 +612,7 @@ class BoundaryBuilder(BaseBuilder):
                 "expected": ""
             }
     
-    def _generate_boundary_verify_step(self, text: str, boundary_type: str) -> Dict:
+    def _generate_boundary_verify_step(self, text: str, boundary_type: str) -> dict:
         """Generate boundary verification step."""
         if 'wrap' in boundary_type.lower():
             return {
@@ -641,7 +636,7 @@ class BoundaryBuilder(BaseBuilder):
 class StateNegativeBuilder(BaseBuilder):
     """Builder for negative state tests (no selection, empty canvas, etc.)."""
     
-    def build(self, ac_bullet: EvidenceBullet) -> Optional[Dict]:
+    def build(self, ac_bullet: EvidenceBullet) -> dict | None:
         """
         Build negative state test case.
         Only generates if ruleset.has_signal('negative') is True.
@@ -727,7 +722,7 @@ class StateNegativeBuilder(BaseBuilder):
 class VisibilityBuilder(BaseBuilder):
     """Builder for visibility tests."""
     
-    def build(self, ac_bullet: EvidenceBullet) -> Optional[Dict]:
+    def build(self, ac_bullet: EvidenceBullet) -> dict | None:
         """
         Build visibility test case.
         Only generates if ruleset.has_signal('visibility') is True.

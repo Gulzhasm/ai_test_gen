@@ -11,11 +11,9 @@ attribute / layout) described in the dissertation's self-healing locator design
 (§3.3.1). Embeddings are NOT computed here — they are deferred to the later
 self-healing increment, which consumes this same inventory as its baseline store.
 """
-from dataclasses import dataclass, field, asdict
-from typing import List, Dict, Optional
 import hashlib
 import json
-
+from dataclasses import asdict, dataclass, field
 
 # Stability tiers for a recommended selector (used for ranking + later ML labels).
 STABILITY_HIGH = "high"      # role + accessible name, unique on page
@@ -51,21 +49,21 @@ class UIElement:
     tag: str = ""                              # DOM tag, e.g. "button", "h1", "th"
 
     # --- Attribute features ---
-    attributes: Dict[str, str] = field(default_factory=dict)  # id / class / data-testid / placeholder
+    attributes: dict[str, str] = field(default_factory=dict)  # id / class / data-testid / placeholder
 
     # --- Structural features ---
-    role_chain: List[str] = field(default_factory=list)  # ARIA ancestor roles, outermost first
+    role_chain: list[str] = field(default_factory=list)  # ARIA ancestor roles, outermost first
     structural_path: str = ""                  # CSS-ish path, best-effort
 
     # --- Layout features ---
-    bounding_box: Optional[BoundingBox] = None
-    viewport: Optional[Dict[str, int]] = None  # {"width": ..., "height": ...}
+    bounding_box: BoundingBox | None = None
+    viewport: dict[str, int] | None = None  # {"width": ..., "height": ...}
 
     # --- Interaction state ---
     disabled: bool = False
     editable: bool = False
     focusable: bool = False
-    value: Optional[str] = None
+    value: str | None = None
 
     # --- Usability / disambiguation ---
     is_unique: bool = True                     # does recommended_selector resolve to exactly one node?
@@ -73,7 +71,7 @@ class UIElement:
 
     # --- Selectors ---
     recommended_selector: str = ""             # Playwright locator string, e.g. getByRole('button', { name: 'Scan' })
-    fallback_selectors: List[str] = field(default_factory=list)
+    fallback_selectors: list[str] = field(default_factory=list)
     stability_tier: str = STABILITY_MEDIUM
 
     # --- Provenance ---
@@ -94,11 +92,11 @@ class UIElement:
         ])
         return hashlib.sha1(key.encode("utf-8")).hexdigest()[:16]
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict) -> "UIElement":
+    def from_dict(cls, data: dict) -> "UIElement":
         bbox = data.get("bounding_box")
         kwargs = {k: v for k, v in data.items() if k != "bounding_box"}
         elem = cls(**kwargs)
@@ -113,10 +111,10 @@ class ElementInventory:
     app_name: str
     base_url: str
     captured_at: str = ""                      # ISO timestamp, stamped by the extractor
-    elements: List[UIElement] = field(default_factory=list)
+    elements: list[UIElement] = field(default_factory=list)
 
     # --- Serialization ---
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "app_name": self.app_name,
             "base_url": self.base_url,
@@ -128,7 +126,7 @@ class ElementInventory:
         return json.dumps(self.to_dict(), indent=indent)
 
     @classmethod
-    def from_dict(cls, data: Dict) -> "ElementInventory":
+    def from_dict(cls, data: dict) -> "ElementInventory":
         return cls(
             app_name=data.get("app_name", ""),
             base_url=data.get("base_url", ""),
@@ -150,7 +148,7 @@ class ElementInventory:
             f.write(self.to_json())
 
     # --- Prompt rendering ---
-    def to_prompt_block(self, page_context: Optional[str] = None, max_elements: int = 60) -> str:
+    def to_prompt_block(self, page_context: str | None = None, max_elements: int = 60) -> str:
         """
         Render a compact, token-bounded list of REAL selectors for the LLM prompt.
 
@@ -166,7 +164,7 @@ class ElementInventory:
         }
 
         # Filter
-        picked: List[UIElement] = []
+        picked: list[UIElement] = []
         for e in self.elements:
             if page_context and e.page_context and e.page_context != page_context:
                 continue
@@ -180,7 +178,7 @@ class ElementInventory:
         order = {STABILITY_HIGH: 0, STABILITY_MEDIUM: 1, STABILITY_LOW: 2}
         picked.sort(key=lambda e: (order.get(e.stability_tier, 3), e.role, e.accessible_name))
         seen = set()
-        unique: List[UIElement] = []
+        unique: list[UIElement] = []
         for e in picked:
             if e.recommended_selector in seen:
                 continue
@@ -190,7 +188,7 @@ class ElementInventory:
         if not unique:
             return ""
 
-        lines: List[str] = []
+        lines: list[str] = []
         truncated = unique[:max_elements]
         for e in truncated:
             name = e.accessible_name or e.text or ""

@@ -10,7 +10,7 @@ extracts:
 """
 
 from dataclasses import dataclass
-from typing import List, Optional
+
 from core.services.story_type_classifier import StoryType
 
 
@@ -28,8 +28,8 @@ class Observable:
     """
     action: str
     target: str
-    outcomes: List[str]
-    constraints: List[str]
+    outcomes: list[str]
+    constraints: list[str]
     requires_object: bool
     raw_ac: str
 
@@ -206,7 +206,7 @@ class ObservableExtractor:
         # Fallback: return story type as target
         return story_type.name.lower().replace('_', ' ')
 
-    def _extract_outcomes(self, ac_text: str, action: str, target: str) -> List[str]:
+    def _extract_outcomes(self, ac_text: str, action: str, target: str) -> list[str]:
         """Extract expected outcomes to verify.
 
         Args:
@@ -282,7 +282,7 @@ class ObservableExtractor:
         # Pattern 7: Tool activation outcomes
         # "tool activates" → "tool is activated"
         if action == 'activate' and not outcomes:
-            outcomes.append(f"tool is activated")
+            outcomes.append("tool is activated")
             # Check for "when" conditions
             when_match = re.search(r'when\s+([a-z][a-z\s]+?)(?:is|are)\s+([a-z]+)', ac_lower)
             if when_match:
@@ -316,7 +316,7 @@ class ObservableExtractor:
 
         return outcomes if outcomes else [f"{action} completes successfully"]
 
-    def _extract_constraints(self, ac_text: str) -> List[str]:
+    def _extract_constraints(self, ac_text: str) -> list[str]:
         """Extract constraints or rules from AC.
 
         Args:

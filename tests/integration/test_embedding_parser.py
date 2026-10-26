@@ -4,6 +4,7 @@ These tests require OPENAI_API_KEY to be set and will make real API calls.
 Skip these tests in CI by using: pytest -m "not integration"
 """
 import os
+
 import pytest
 
 # Mark all tests in this module as integration tests
@@ -61,9 +62,9 @@ class TestEmbeddingParserIntegration:
     def test_pattern_index_loads(self):
         """Should load and embed all patterns."""
         from core.services.embeddings import (
-            create_embedding_provider,
             EmbeddingCache,
-            EmbeddingPatternIndex
+            EmbeddingPatternIndex,
+            create_embedding_provider,
         )
 
         provider = create_embedding_provider()
@@ -81,10 +82,10 @@ class TestEmbeddingParserIntegration:
     def test_semantic_matcher_finds_similar(self):
         """Should find similar patterns for input text."""
         from core.services.embeddings import (
-            create_embedding_provider,
             EmbeddingCache,
             EmbeddingPatternIndex,
-            SemanticMatcher
+            SemanticMatcher,
+            create_embedding_provider,
         )
 
         provider = create_embedding_provider()
@@ -168,10 +169,10 @@ class TestEmbeddingAccuracy:
     def test_action_pattern_accuracy(self):
         """Test accuracy of action pattern matching."""
         from core.services.embeddings import (
-            create_embedding_provider,
             EmbeddingCache,
             EmbeddingPatternIndex,
-            SemanticMatcher
+            SemanticMatcher,
+            create_embedding_provider,
         )
 
         provider = create_embedding_provider()

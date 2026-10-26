@@ -4,7 +4,6 @@ ActionChainBuilder: Reusable action sequences for comprehensive test steps.
 This module provides deterministic action chains that can be composed
 to create comprehensive test steps without needing LLM inference.
 """
-from typing import List, Dict, Optional
 from dataclasses import dataclass
 
 
@@ -12,7 +11,7 @@ from dataclasses import dataclass
 class ActionChain:
     """Represents a reusable action sequence."""
     name: str
-    steps: List[Dict[str, str]]
+    steps: list[dict[str, str]]
     requires_object: bool = False
 
 
@@ -218,7 +217,7 @@ class ActionChainBuilder:
 
     @staticmethod
     def chain_comprehensive_undo_redo(
-        action_chains: List[ActionChain],
+        action_chains: list[ActionChain],
         pre_state: str,
         post_state: str
     ) -> ActionChain:
@@ -409,7 +408,7 @@ class ActionChainBuilder:
         )
 
     @staticmethod
-    def compose_chains(chains: List[ActionChain]) -> List[Dict[str, str]]:
+    def compose_chains(chains: list[ActionChain]) -> list[dict[str, str]]:
         """Compose multiple action chains into a single step list."""
         steps = []
         for chain in chains:
@@ -472,7 +471,7 @@ class ActionChainBuilder:
         )
 
     @staticmethod
-    def get_comprehensive_undo_redo_actions(story_type: str) -> List[ActionChain]:
+    def get_comprehensive_undo_redo_actions(story_type: str) -> list[ActionChain]:
         """
         Get appropriate action chains for undo/redo based on story type.
 

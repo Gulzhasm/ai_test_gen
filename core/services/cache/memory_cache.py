@@ -6,9 +6,9 @@ Thread-safe cache with configurable size limits and TTL.
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from threading import Lock
-from typing import Any, Optional, List
+from typing import Any
 
-from .cache_interface import ICache, CacheEntry, CacheStats
+from .cache_interface import CacheEntry, CacheStats, ICache
 
 
 class MemoryCache(ICache[Any]):
@@ -17,7 +17,7 @@ class MemoryCache(ICache[Any]):
     def __init__(
         self,
         max_size: int = 1000,
-        default_ttl: Optional[timedelta] = None
+        default_ttl: timedelta | None = None
     ):
         """Initialize memory cache.
 
@@ -33,7 +33,7 @@ class MemoryCache(ICache[Any]):
         self._misses = 0
         self._evictions = 0
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """Retrieve value from cache.
 
         Args:
@@ -66,7 +66,7 @@ class MemoryCache(ICache[Any]):
         self,
         key: str,
         value: Any,
-        ttl: Optional[timedelta] = None
+        ttl: timedelta | None = None
     ) -> None:
         """Store value in cache.
 
@@ -156,7 +156,7 @@ class MemoryCache(ICache[Any]):
                 evictions=self._evictions
             )
 
-    def keys(self) -> List[str]:
+    def keys(self) -> list[str]:
         """Get all valid cache keys.
 
         Returns:
@@ -195,7 +195,7 @@ class MemoryCache(ICache[Any]):
 
             return len(expired)
 
-    def get_entry(self, key: str) -> Optional[CacheEntry]:
+    def get_entry(self, key: str) -> CacheEntry | None:
         """Get cache entry with metadata.
 
         Args:

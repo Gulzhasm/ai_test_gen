@@ -10,9 +10,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from core.domain.ui_element import UIElement, ElementInventory
-from infrastructure.export.pom.element_bucketer import bucket_elements, DASHBOARD
-from infrastructure.export.pom.page_object_generator import generate_all, generate_page_object
+from core.domain.ui_element import ElementInventory, UIElement
+from infrastructure.export.pom.element_bucketer import DASHBOARD, bucket_elements
+from infrastructure.export.pom.page_object_generator import (
+    generate_all,
+    generate_page_object,
+)
 from infrastructure.export.pom.pom_spec_prompt_builder import analyze_method_grounding
 
 

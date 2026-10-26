@@ -1,5 +1,5 @@
 """Evidence-based linting system."""
-from .summary_linter import SummaryLinter
 from .objective_linter import ObjectiveLinter
+from .summary_linter import SummaryLinter
 
-__all__ = ['SummaryLinter', 'ObjectiveLinter']
+__all__ = ['ObjectiveLinter', 'SummaryLinter']

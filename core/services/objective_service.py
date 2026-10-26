@@ -2,8 +2,8 @@
 Objective Service
 Generates objectives with evidence gates and optional LLM rewriting.
 """
-from typing import List, Optional
-from core.domain.models import TestCase, Objective, EvidenceModel, LintResult
+
+from core.domain.models import EvidenceModel, LintResult, Objective, TestCase
 from core.services.linting import ObjectiveLinter
 from core.services.llm.base import LLMProvider
 
@@ -13,7 +13,7 @@ class ObjectiveService:
     
     def __init__(
         self,
-        llm_provider: Optional[LLMProvider] = None,
+        llm_provider: LLMProvider | None = None,
         debug: bool = False
     ):
         """Initialize objective service.
@@ -27,9 +27,9 @@ class ObjectiveService:
     
     def generate_objectives(
         self,
-        test_cases: List[TestCase],
+        test_cases: list[TestCase],
         evidence: EvidenceModel
-    ) -> tuple[List[Objective], LintResult]:
+    ) -> tuple[list[Objective], LintResult]:
         """Generate objectives for test cases.
         
         Returns:
@@ -94,7 +94,7 @@ class ObjectiveService:
         objective: Objective,
         test_case: TestCase,
         evidence: EvidenceModel
-    ) -> Optional[str]:
+    ) -> str | None:
         """Rewrite objective with LLM."""
         if not self.llm_provider:
             return None

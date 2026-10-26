@@ -64,3 +64,6 @@ Screenshot*.png
 # Real project configs contain client ADO org/project — keep local only
 projects/configs/*.yaml
 !projects/configs/example-jira-testrail.yaml
+
+# Client knowledge-base documents — keep local only
+docs/IMS_REWRITE_KB/

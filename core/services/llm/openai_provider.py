@@ -4,10 +4,10 @@ LLM provider using OpenAI API (GPT-4o-mini, GPT-4o, etc.)
 
 Implements humanistic prompt engineering for natural, professional test generation.
 """
-import os
 import json
-from typing import Optional, Dict, Any
+import os
 from dataclasses import dataclass
+from typing import Any, Optional
 
 try:
     from openai import OpenAI
@@ -21,8 +21,8 @@ class LLMResponse:
     """Response from LLM provider."""
     content: str
     model: str
-    usage: Optional[Dict[str, int]] = None
-    finish_reason: Optional[str] = None
+    usage: dict[str, int] | None = None
+    finish_reason: str | None = None
 
 
 class OpenAIProvider:
@@ -47,7 +47,7 @@ Be deterministic - the same input should always produce the same high-quality ou
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         model: str = "gpt-4o-mini",
         timeout: int = 30,
         max_retries: int = 2
@@ -64,7 +64,7 @@ Be deterministic - the same input should always produce the same high-quality ou
         self._model = model
         self.timeout = timeout
         self.max_retries = max_retries
-        self._client: Optional[OpenAI] = None
+        self._client: OpenAI | None = None
 
     @property
     def provider_name(self) -> str:
@@ -77,7 +77,7 @@ Be deterministic - the same input should always produce the same high-quality ou
         return self._model
 
     @property
-    def client(self) -> Optional[OpenAI]:
+    def client(self) -> Optional["OpenAI"]:
         """Lazy initialization of OpenAI client."""
         if self._client is None and OPENAI_AVAILABLE and self.api_key:
             self._client = OpenAI(
@@ -90,11 +90,11 @@ Be deterministic - the same input should always produce the same high-quality ou
     def generate(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         temperature: float = 0.3,
         max_tokens: int = 500,
         **kwargs
-    ) -> Optional[LLMResponse]:
+    ) -> LLMResponse | None:
         """Generate text completion.
 
         Args:
@@ -125,7 +125,10 @@ Be deterministic - the same input should always produce the same high-quality ou
                 ],
                 temperature=temperature,
                 max_tokens=max_tokens,
-                top_p=0.9
+                top_p=0.9,
+                # JSON mode for generate_json callers (judge verdicts and fixes); without it the
+                # model sometimes wrapped JSON in prose and the fix round was discarded.
+                **({"response_format": {"type": "json_object"}} if kwargs.get("json_mode") else {})
             )
 
             content = response.choices[0].message.content
@@ -147,10 +150,10 @@ Be deterministic - the same input should always produce the same high-quality ou
     def generate_json(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         temperature: float = 0.1,
         **kwargs
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Generate JSON response.
 
         Args:
@@ -173,6 +176,7 @@ Be deterministic - the same input should always produce the same high-quality ou
             system_prompt=json_system,
             temperature=temperature,
             max_tokens=max_tokens,
+            json_mode=True,
             **kwargs
         )
 
@@ -199,7 +203,7 @@ Be deterministic - the same input should always produce the same high-quality ou
         prompt: str,
         temperature: float = 0.3,
         max_tokens: int = 500
-    ) -> Optional[str]:
+    ) -> str | None:
         """Rewrite text using OpenAI (legacy method for compatibility).
 
         Args:

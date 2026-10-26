@@ -6,7 +6,6 @@ Follows the same export pattern as CSVGenerator and ObjectiveGenerator.
 """
 import json
 import os
-from typing import Dict, List, Optional
 
 
 class PostmanGenerator:
@@ -20,9 +19,9 @@ class PostmanGenerator:
     def __init__(
         self,
         app_name: str = "Application",
-        provider_type: Optional[str] = None,
-        model: Optional[str] = None,
-        api_key: Optional[str] = None
+        provider_type: str | None = None,
+        model: str | None = None,
+        api_key: str | None = None
     ):
         self._app_name = app_name
         self._provider_type = provider_type
@@ -52,9 +51,9 @@ class PostmanGenerator:
         story_id: str,
         feature_name: str,
         description: str,
-        acceptance_criteria: List[str],
+        acceptance_criteria: list[str],
         output_file: str
-    ) -> Dict:
+    ) -> dict:
         """Generate Postman collection and save to file. Returns collection dict."""
         collection = self.generate_collection_dict(
             story_id, feature_name, description, acceptance_criteria
@@ -69,8 +68,8 @@ class PostmanGenerator:
         story_id: str,
         feature_name: str,
         description: str,
-        acceptance_criteria: List[str]
-    ) -> Dict:
+        acceptance_criteria: list[str]
+    ) -> dict:
         """Generate Postman collection as dict. LLM first, fallback if it fails."""
         if self.provider:
             collection = self._generate_with_llm(
@@ -87,8 +86,8 @@ class PostmanGenerator:
         story_id: str,
         feature_name: str,
         description: str,
-        acceptance_criteria: List[str]
-    ) -> Optional[Dict]:
+        acceptance_criteria: list[str]
+    ) -> dict | None:
         """Generate collection using LLM."""
         from core.services.llm.postman_prompt_builder import PostmanPromptBuilder
 
@@ -141,7 +140,7 @@ class PostmanGenerator:
             print(f"  Postman LLM generation failed: {e}")
             return None
 
-    def _validate_collection(self, collection: Dict) -> bool:
+    def _validate_collection(self, collection: dict) -> bool:
         """Validate Postman collection has required structure."""
         return (
             isinstance(collection, dict)
@@ -149,7 +148,7 @@ class PostmanGenerator:
             and 'item' in collection
         )
 
-    def _generate_skeleton(self, story_id: str, feature_name: str) -> Dict:
+    def _generate_skeleton(self, story_id: str, feature_name: str) -> dict:
         """Deterministic fallback: empty collection structure."""
         return {
             "info": {

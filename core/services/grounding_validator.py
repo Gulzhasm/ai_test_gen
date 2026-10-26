@@ -5,9 +5,8 @@ This module prevents the generator from inventing context by validating
 that all test elements (entry points, scenarios, assertions) are supported
 by evidence from AC or QA Prep.
 """
-from typing import List, Dict, Tuple, Set
-from core.domain.grounded_spec import GroundedSpec
 from core.config import environment as config
+from core.domain.grounded_spec import GroundedSpec
 
 
 class GroundingValidator:
@@ -24,7 +23,7 @@ class GroundingValidator:
     def __init__(self, grounded_spec: GroundedSpec):
         self.grounded_spec = grounded_spec
 
-    def validate_test_cases(self, test_cases: List[Dict]) -> Tuple[bool, List[str]]:
+    def validate_test_cases(self, test_cases: list[dict]) -> tuple[bool, list[str]]:
         """
         Validate all test cases against grounded spec.
 
@@ -54,7 +53,7 @@ class GroundingValidator:
 
         return len(errors) == 0, errors
 
-    def _validate_title_grounding(self, tc_id: str, title: str) -> List[str]:
+    def _validate_title_grounding(self, tc_id: str, title: str) -> list[str]:
         """
         Validate that title area is grounded in evidence.
 
@@ -99,7 +98,7 @@ class GroundingValidator:
 
         return errors
 
-    def _find_close_surface_matches(self, area: str) -> List[str]:
+    def _find_close_surface_matches(self, area: str) -> list[str]:
         """Find surfaces that are close matches to the area."""
         area_lower = area.lower()
         close_matches = []
@@ -112,7 +111,7 @@ class GroundingValidator:
 
         return close_matches
 
-    def _validate_steps_grounding(self, tc_id: str, steps: List[Dict]) -> List[str]:
+    def _validate_steps_grounding(self, tc_id: str, steps: list[dict]) -> list[str]:
         """
         Validate that steps are grounded in evidence.
 
@@ -137,7 +136,7 @@ class GroundingValidator:
 
         return errors
 
-    def _validate_objective_grounding(self, tc_id: str, objective: str) -> List[str]:
+    def _validate_objective_grounding(self, tc_id: str, objective: str) -> list[str]:
         """
         Validate that objective is grounded in evidence.
 
@@ -165,7 +164,7 @@ class GroundingValidator:
 
         return errors
 
-    def _validate_no_out_of_scope(self, tc_id: str, test_case: Dict) -> List[str]:
+    def _validate_no_out_of_scope(self, tc_id: str, test_case: dict) -> list[str]:
         """
         Validate that test case doesn't test out-of-scope features.
 
@@ -189,7 +188,7 @@ class GroundingValidator:
 
         return errors
 
-    def _check_forbidden_words(self, tc_id: str, step_idx: int, action: str, expected: str) -> List[str]:
+    def _check_forbidden_words(self, tc_id: str, step_idx: int, action: str, expected: str) -> list[str]:
         """Check for forbidden words in step."""
         errors = []
 
@@ -205,7 +204,7 @@ class GroundingValidator:
 
         return errors
 
-    def _check_out_of_scope_in_text(self, tc_id: str, step_idx: int, text: str) -> List[str]:
+    def _check_out_of_scope_in_text(self, tc_id: str, step_idx: int, text: str) -> list[str]:
         """Check for out-of-scope mentions in text."""
         errors = []
         text_lower = text.lower()
@@ -226,7 +225,7 @@ class GroundingValidator:
         """
         return self.grounded_spec.has_entry_point(entry_point)
 
-    def get_valid_entry_points(self) -> List[str]:
+    def get_valid_entry_points(self) -> list[str]:
         """
         Get list of valid entry points from GroundedSpec.
 
@@ -261,7 +260,7 @@ class GroundingValidator:
         # No valid entry point found
         return "Unspecified Entry Point"
 
-    def generate_validation_report(self, test_cases: List[Dict]) -> str:
+    def generate_validation_report(self, test_cases: list[dict]) -> str:
         """
         Generate a validation report for test cases.
 

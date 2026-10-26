@@ -3,18 +3,19 @@ Azure DevOps repository implementations.
 
 Implements repository interfaces for ADO data access.
 """
-from typing import Optional, List, Dict, Any
 import re
+from typing import Any
+
 from bs4 import BeautifulSoup
 
 from core.domain.story import UserStory
-from core.domain.test_case import TestCase
+from core.interfaces.config_provider import IADOConfig
 from core.interfaces.repository import (
     IStoryRepository,
+    ITestCaseRepository,
     ITestSuiteRepository,
-    ITestCaseRepository
 )
-from core.interfaces.config_provider import IADOConfig
+
 from .http_client import ADOHttpClient
 
 
@@ -89,7 +90,7 @@ class HtmlParser:
         return '\n'.join(lines)
 
     @staticmethod
-    def parse_acceptance_criteria(ac_text: str) -> List[str]:
+    def parse_acceptance_criteria(ac_text: str) -> list[str]:
         """Parse acceptance criteria text into list of meaningful AC bullets.
 
         Recognizes bullet patterns and groups continuation lines appropriately.
@@ -259,7 +260,7 @@ class ADOStoryRepository(IStoryRepository):
         )
         self._parser = HtmlParser()
 
-    def get_story(self, story_id: int) -> Optional[UserStory]:
+    def get_story(self, story_id: int) -> UserStory | None:
         """Retrieve a user story by ID."""
         try:
             data = self._client.get(
@@ -292,7 +293,7 @@ class ADOStoryRepository(IStoryRepository):
             print(f"Error retrieving story {story_id}: {e}")
             return None
 
-    def get_qa_prep(self, story_id: int) -> Optional[str]:
+    def get_qa_prep(self, story_id: int) -> str | None:
         """
         Retrieve QA Prep content for a story.
 
@@ -409,7 +410,7 @@ class ADOStoryRepository(IStoryRepository):
             print(f"  Failed to update QA Prep task #{qa_prep_id}: {e}")
             return False
 
-    def _find_qa_prep_id(self, story_id: int) -> Optional[int]:
+    def _find_qa_prep_id(self, story_id: int) -> int | None:
         """Find QA Prep child task ID for a story.
 
         Returns:
@@ -583,7 +584,7 @@ class ADOTestSuiteRepository(ITestSuiteRepository):
             pat=config.pat
         )
 
-    def find_suite_by_story_id(self, story_id: int) -> Optional[Dict[str, Any]]:
+    def find_suite_by_story_id(self, story_id: int) -> dict[str, Any] | None:
         """Find test suite matching story ID pattern."""
         prefix = f"{story_id} :"
 
@@ -607,7 +608,7 @@ class ADOTestSuiteRepository(ITestSuiteRepository):
 
         return None
 
-    def _get_all_suites(self, plan_id: int) -> List[Dict]:
+    def _get_all_suites(self, plan_id: int) -> list[dict]:
         """Get all suites in a test plan recursively."""
         suites = []
         try:
@@ -622,7 +623,7 @@ class ADOTestSuiteRepository(ITestSuiteRepository):
         plan_id: int,
         suite_name: str,
         story_id: int
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Create a new test suite."""
         try:
             # Get root suite
@@ -668,7 +669,7 @@ class ADOTestSuiteRepository(ITestSuiteRepository):
         self,
         plan_id: int,
         suite_id: int
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get all test cases in a test suite.
 
         Returns:
@@ -707,10 +708,10 @@ class ADOTestCaseRepository(ITestCaseRepository):
     def create_test_case(
         self,
         title: str,
-        steps: List[Dict[str, str]],
+        steps: list[dict[str, str]],
         objective: str,
         **kwargs
-    ) -> Optional[int]:
+    ) -> int | None:
         """Create a test case work item in Design state.
 
         Test cases are always created in 'Design' state.
@@ -759,7 +760,7 @@ class ADOTestCaseRepository(ITestCaseRepository):
     def update_test_case(
         self,
         test_case_id: int,
-        fields: Dict[str, Any]
+        fields: dict[str, Any]
     ) -> bool:
         """Update a test case."""
         try:
@@ -780,7 +781,7 @@ class ADOTestCaseRepository(ITestCaseRepository):
             print(f"Error updating test case {test_case_id}: {e}")
             return False
 
-    def get_test_case(self, test_case_id: int) -> Optional[Dict[str, Any]]:
+    def get_test_case(self, test_case_id: int) -> dict[str, Any] | None:
         """Get a test case by ID."""
         try:
             return self._client.get(f"_apis/wit/workitems/{test_case_id}")
@@ -788,7 +789,7 @@ class ADOTestCaseRepository(ITestCaseRepository):
             print(f"Error getting test case {test_case_id}: {e}")
             return None
 
-    def _build_steps_xml(self, steps: List[Dict[str, str]]) -> str:
+    def _build_steps_xml(self, steps: list[dict[str, str]]) -> str:
         """Build XML for test steps."""
         if not steps:
             return ""

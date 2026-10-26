@@ -5,8 +5,8 @@ Provides domain-agnostic quality evaluation criteria.
 """
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Protocol, List, Dict, Optional
 from enum import Enum
+from typing import Protocol
 
 
 class QualityLevel(Enum):
@@ -26,7 +26,7 @@ class StepQualityMetrics:
     has_generic_phrases: bool  # Contains "works as expected", "perform action", etc.
     action_length: int  # Character count
     expected_length: int  # Character count
-    issues: List[str] = field(default_factory=list)
+    issues: list[str] = field(default_factory=list)
 
     @property
     def overall_score(self) -> float:
@@ -40,13 +40,13 @@ class StepQualityMetrics:
 class TestCaseQualityMetrics:
     """Quality metrics for a complete test case."""
     title_quality: float  # 0-1: Title follows pattern and is descriptive
-    step_metrics: List[StepQualityMetrics] = field(default_factory=list)
+    step_metrics: list[StepQualityMetrics] = field(default_factory=list)
     has_prereq: bool = False
     has_launch: bool = False
     has_close: bool = False
     has_verification_steps: bool = False
     objective_quality: float = 0.0
-    issues: List[str] = field(default_factory=list)
+    issues: list[str] = field(default_factory=list)
 
     @property
     def overall_score(self) -> float:
@@ -98,15 +98,15 @@ class QualityIssue:
     severity: str  # "critical", "major", "minor"
     location: str  # "title", "step_3_action", "step_5_expected", "objective"
     description: str
-    suggestion: Optional[str] = None
+    suggestion: str | None = None
 
 
 @dataclass
 class CorrectionResult:
     """Result of LLM correction for a test case."""
-    original_test: Dict
-    corrected_test: Dict
-    changes_made: List[str]
+    original_test: dict
+    corrected_test: dict
+    changes_made: list[str]
     quality_before: float
     quality_after: float
     confidence: float  # 0-1: How confident is the correction
@@ -116,7 +116,7 @@ class IQualityAnalyzer(Protocol):
     """Interface for test case quality analysis."""
 
     @abstractmethod
-    def analyze_test_case(self, test_case: Dict) -> TestCaseQualityMetrics:
+    def analyze_test_case(self, test_case: dict) -> TestCaseQualityMetrics:
         """
         Analyze quality of a single test case.
 
@@ -143,7 +143,7 @@ class IQualityAnalyzer(Protocol):
         ...
 
     @abstractmethod
-    def find_issues(self, test_case: Dict) -> List[QualityIssue]:
+    def find_issues(self, test_case: dict) -> list[QualityIssue]:
         """
         Find quality issues in a test case.
 
@@ -162,9 +162,9 @@ class ITestCorrector(Protocol):
     @abstractmethod
     def correct_test_case(
         self,
-        test_case: Dict,
+        test_case: dict,
         quality_metrics: TestCaseQualityMetrics,
-        feature_context: Optional[str] = None
+        feature_context: str | None = None
     ) -> CorrectionResult:
         """
         Correct a test case using LLM.
@@ -185,8 +185,8 @@ class ITestCorrector(Protocol):
         action: str,
         expected: str,
         feature_name: str,
-        step_context: Optional[str] = None
-    ) -> Dict[str, str]:
+        step_context: str | None = None
+    ) -> dict[str, str]:
         """
         Enhance a single step using LLM.
 

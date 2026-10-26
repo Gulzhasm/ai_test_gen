@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from core.domain.ui_element import UIElement, ElementInventory, STABILITY_HIGH
+from core.domain.ui_element import STABILITY_HIGH, ElementInventory, UIElement
 from core.services.llm.playwright_prompt_builder import PlaywrightPromptBuilder
 from infrastructure.export.playwright_generator import analyze_grounding
 

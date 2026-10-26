@@ -7,14 +7,13 @@ import json
 import logging
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, List, Optional
 
 from core.interfaces.metrics import (
-    IMetricsCollector,
+    CacheMetrics,
     GenerationMetrics,
-    TokenUsage,
-    CacheMetrics
+    IMetricsCollector,
 )
+
 from .cost_calculator import CostCalculator
 from .logger import StructuredLogger
 
@@ -33,9 +32,9 @@ class MetricsCollector(IMetricsCollector):
             log_level: Logging level for structured logger
             enable_logging: Enable structured logging
         """
-        self._generations: List[GenerationMetrics] = []
-        self._cache_metrics: Dict[str, CacheMetrics] = {}
-        self._parsing_times: List[Dict] = []
+        self._generations: list[GenerationMetrics] = []
+        self._cache_metrics: dict[str, CacheMetrics] = {}
+        self._parsing_times: list[dict] = []
 
         # Track cache hits/misses by provider
         self._cache_hits = defaultdict(int)
@@ -144,7 +143,7 @@ class MetricsCollector(IMetricsCollector):
             self._cache_metrics[key] = CacheMetrics(cache_type=cache_type)
         self._cache_metrics[key].misses += 1
 
-    def get_summary(self) -> Dict:
+    def get_summary(self) -> dict:
         """Get aggregated metrics summary.
 
         Returns:
@@ -190,16 +189,16 @@ class MetricsCollector(IMetricsCollector):
             "by_model": self._group_by_model()
         }
 
-    def get_cost_report(self) -> Dict:
+    def get_cost_report(self) -> dict:
         """Get detailed cost breakdown.
 
         Returns:
             Dictionary with cost breakdown by model/provider
         """
-        by_model: Dict[str, Dict] = defaultdict(
+        by_model: dict[str, dict] = defaultdict(
             lambda: {"requests": 0, "tokens": 0, "cost": 0.0}
         )
-        by_provider: Dict[str, Dict] = defaultdict(
+        by_provider: dict[str, dict] = defaultdict(
             lambda: {"requests": 0, "tokens": 0, "cost": 0.0}
         )
 
@@ -263,9 +262,9 @@ class MetricsCollector(IMetricsCollector):
         self._cache_hits.clear()
         self._cache_misses.clear()
 
-    def _group_by_provider(self) -> Dict[str, Dict]:
+    def _group_by_provider(self) -> dict[str, dict]:
         """Group metrics by provider."""
-        result: Dict[str, Dict] = defaultdict(
+        result: dict[str, dict] = defaultdict(
             lambda: {
                 "requests": 0,
                 "tokens": 0,
@@ -291,9 +290,9 @@ class MetricsCollector(IMetricsCollector):
 
         return dict(result)
 
-    def _group_by_model(self) -> Dict[str, Dict]:
+    def _group_by_model(self) -> dict[str, dict]:
         """Group metrics by model."""
-        result: Dict[str, Dict] = defaultdict(
+        result: dict[str, dict] = defaultdict(
             lambda: {
                 "requests": 0,
                 "tokens": 0,
@@ -370,9 +369,9 @@ class MetricsCollector(IMetricsCollector):
 
         return "\n".join(lines)
 
-    def _aggregate_parsing_metrics(self) -> Dict[str, Dict]:
+    def _aggregate_parsing_metrics(self) -> dict[str, dict]:
         """Aggregate parsing metrics by parser type."""
-        result: Dict[str, Dict] = defaultdict(
+        result: dict[str, dict] = defaultdict(
             lambda: {
                 "count": 0,
                 "avg_duration_ms": 0.0,
@@ -404,7 +403,7 @@ class MetricsCollector(IMetricsCollector):
 
 
 # Global metrics collector instance
-_global_collector: Optional[MetricsCollector] = None
+_global_collector: MetricsCollector | None = None
 
 
 def get_metrics_collector() -> MetricsCollector:

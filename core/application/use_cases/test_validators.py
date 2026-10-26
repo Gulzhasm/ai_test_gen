@@ -4,7 +4,7 @@ Validators for test case generation.
 MappingValidator: Ensures 1 primary test per AC bullet and caps extra tests.
 EvidenceValidator: Blocks forbidden assertions unless explicitly signaled.
 """
-from typing import List, Dict, Set, Tuple
+
 from core.domain.ruleset import Ruleset
 
 
@@ -22,9 +22,9 @@ class MappingValidator:
     def __init__(self, ruleset: Ruleset):
         self.ruleset = ruleset
         self.ac_ids = set(ruleset.get_all_ac_ids())
-        self.test_coverage: Dict[str, Set[str]] = {}  # ac_id -> set of coverage types
+        self.test_coverage: dict[str, set[str]] = {}  # ac_id -> set of coverage types
     
-    def validate_mapping(self, test_cases: List[Dict]) -> Tuple[bool, List[str]]:
+    def validate_mapping(self, test_cases: list[dict]) -> tuple[bool, list[str]]:
         """
         Validate that test cases are correctly mapped to AC bullets.
         
@@ -34,8 +34,8 @@ class MappingValidator:
         errors = []
         
         # Track coverage per AC
-        ac_test_counts: Dict[str, int] = {ac_id: 0 for ac_id in self.ac_ids}
-        ac_coverage_types: Dict[str, Set[str]] = {ac_id: set() for ac_id in self.ac_ids}
+        ac_test_counts: dict[str, int] = {ac_id: 0 for ac_id in self.ac_ids}
+        ac_coverage_types: dict[str, set[str]] = {ac_id: set() for ac_id in self.ac_ids}
         
         # Check each test case
         for tc in test_cases:
@@ -75,7 +75,7 @@ class MappingValidator:
         
         return len(errors) == 0, errors
     
-    def _extract_coverage_type(self, test_case: Dict) -> str:
+    def _extract_coverage_type(self, test_case: dict) -> str:
         """Extract coverage type from test case."""
         title = test_case.get('title', '').lower()
         
@@ -110,7 +110,7 @@ class EvidenceValidator:
     def __init__(self, ruleset: Ruleset):
         self.ruleset = ruleset
     
-    def validate_evidence(self, test_cases: List[Dict]) -> Tuple[bool, List[str]]:
+    def validate_evidence(self, test_cases: list[dict]) -> tuple[bool, list[str]]:
         """
         Validate that test cases don't include forbidden assertions.
         

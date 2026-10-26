@@ -3,19 +3,18 @@ Unit tests for Project Configuration module.
 
 Tests project configuration loading and management.
 """
-import pytest
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from projects.project_config import (
-    ProjectConfig,
-    ApplicationConfig,
     ADOProjectConfig,
+    ApplicationConfig,
+    ProjectConfig,
     TestRulesConfig,
+    create_new_project_config,
     get_env_quickdraw_config,
-    create_new_project_config
 )
 
 
@@ -223,7 +222,7 @@ class TestProjectConfig:
 
 
 class TestGetEnvQuickdrawConfig:
-    """Test ENV QuickDraw default configuration."""
+    """Test SiteDraft (formerly ENV QuickDraw) default configuration."""
 
     def test_returns_project_config(self):
         """Test returns valid ProjectConfig."""
@@ -236,7 +235,7 @@ class TestGetEnvQuickdrawConfig:
         """Test application configuration values."""
         config = get_env_quickdraw_config()
 
-        assert "QuickDraw" in config.application.name
+        assert config.application.name == "SiteDraft"
         assert config.application.app_type == "desktop"
 
     def test_ado_config(self):

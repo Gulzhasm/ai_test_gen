@@ -5,7 +5,7 @@ import pytest
 from core.services.embeddings.embedding_interface import (
     EmbeddingResult,
     SimilarityMatch,
-    cosine_similarity
+    cosine_similarity,
 )
 
 

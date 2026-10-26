@@ -5,9 +5,11 @@ Validates test cases against configurable QA rules.
 Implements IValidator interface for clean architecture compliance.
 """
 import re
-from typing import Dict, List, Tuple, Optional, Protocol
 from dataclasses import dataclass
 from enum import Enum
+from typing import Protocol
+
+from core.services.test_rules import ACCESSIBILITY_TOOL_NAMES
 
 
 class ValidationSeverity(Enum):
@@ -21,15 +23,15 @@ class ValidationSeverity(Enum):
 class ValidationResult:
     """Result of a validation check."""
     is_valid: bool
-    errors: List[str]
-    warnings: List[str]
+    errors: list[str]
+    warnings: list[str]
     severity: ValidationSeverity = ValidationSeverity.ERROR
 
 
 class IValidationConfig(Protocol):
     """Protocol for validation configuration."""
     @property
-    def forbidden_words(self) -> List[str]: ...
+    def forbidden_words(self) -> list[str]: ...
     @property
     def prereq_pattern(self) -> str: ...
     @property
@@ -56,46 +58,48 @@ class TestCaseValidator:
         'no issues found',
     ]
 
-    # Default setup step patterns (actions that should have blank expected)
+    # Default setup step patterns (actions that should have blank expected).
+    # Generic on purpose — project-specific patterns come via config.
     DEFAULT_SETUP_PATTERNS = [
-        'pre-req:',
+        'pre-req',
         'launch',
         'close/exit',
-        'draw a shape',
-        'select the shape',
-        'open properties panel',
-        'open dimensions panel',
-        'select another drawing tool',
-        'hold shift key',
-        'click and drag',
+        'open',
+        'select',
+        'navigate to',
+        'click',
+        'hold',
     ]
 
     def __init__(
         self,
-        config: Optional[IValidationConfig] = None,
-        prereq_pattern: Optional[str] = None,
-        close_pattern: Optional[str] = None
+        config: IValidationConfig | None = None,
+        prereq_pattern: str | None = None,
+        close_pattern: str | None = None
     ):
         """
         Initialize validator with optional configuration.
 
         Args:
             config: Validation configuration object
-            prereq_pattern: Pattern for prerequisite step (e.g., "PRE-REQ: App is installed")
-            close_pattern: Pattern for close step (e.g., "Close the application")
+            prereq_pattern: Substring identifying the prerequisite step (e.g., "PRE-REQ")
+            close_pattern: Substring identifying the close step (e.g., "Close")
         """
         self._config = config
-        self._prereq_pattern = prereq_pattern or (config.prereq_pattern if config else "PRE-REQ:")
+        self._prereq_pattern = prereq_pattern or (config.prereq_pattern if config else "Pre-req")
         self._close_pattern = close_pattern or (config.close_pattern if config else "Close")
+        self._setup_patterns = list(
+            getattr(config, 'setup_patterns', None) or self.DEFAULT_SETUP_PATTERNS
+        )
 
     @property
-    def forbidden_words(self) -> List[str]:
+    def forbidden_words(self) -> list[str]:
         """Get forbidden words list."""
         if self._config:
             return self._config.forbidden_words
         return []
 
-    def validate_test_cases(self, test_cases: List[Dict]) -> Tuple[bool, List[str]]:
+    def validate_test_cases(self, test_cases: list[dict]) -> tuple[bool, list[str]]:
         """
         Validate all test cases against QA rules.
 
@@ -113,7 +117,7 @@ class TestCaseValidator:
 
         return len(errors) == 0, errors
 
-    def validate_single(self, test_case: Dict, index: int = 0) -> ValidationResult:
+    def validate_single(self, test_case: dict, index: int = 0) -> ValidationResult:
         """
         Validate a single test case.
 
@@ -134,7 +138,7 @@ class TestCaseValidator:
             severity=ValidationSeverity.ERROR if errors else ValidationSeverity.INFO
         )
 
-    def _validate_single_test_case(self, tc: Dict, idx: int) -> List[str]:
+    def _validate_single_test_case(self, tc: dict, idx: int) -> list[str]:
         """Validate a single test case and return list of errors."""
         errors = []
         tc_id = tc.get('id', f'TC-{idx}')
@@ -165,7 +169,7 @@ class TestCaseValidator:
 
         return errors
 
-    def _validate_id_format(self, tc_id: str, idx: int) -> List[str]:
+    def _validate_id_format(self, tc_id: str, idx: int) -> list[str]:
         """Validate test case ID format."""
         errors = []
         if idx == 0:
@@ -176,7 +180,7 @@ class TestCaseValidator:
                 pass  # Allow flexible ID formats
         return errors
 
-    def _validate_prereq_step(self, tc: Dict, tc_id: str) -> List[str]:
+    def _validate_prereq_step(self, tc: dict, tc_id: str) -> list[str]:
         """Validate prerequisite step exists."""
         errors = []
         has_prereq = any(
@@ -187,7 +191,7 @@ class TestCaseValidator:
             errors.append(f"{tc_id}: Missing prerequisite step containing '{self._prereq_pattern}'")
         return errors
 
-    def _validate_close_step(self, tc: Dict, tc_id: str) -> List[str]:
+    def _validate_close_step(self, tc: dict, tc_id: str) -> list[str]:
         """Validate close step exists and has no expected result."""
         errors = []
         close_step = None
@@ -204,7 +208,7 @@ class TestCaseValidator:
 
         return errors
 
-    def _validate_forbidden_words(self, tc: Dict, tc_id: str) -> List[str]:
+    def _validate_forbidden_words(self, tc: dict, tc_id: str) -> list[str]:
         """Validate no forbidden words in steps."""
         errors = []
         for step in tc.get('steps', []):
@@ -214,7 +218,7 @@ class TestCaseValidator:
                     errors.append(f"{tc_id}: Contains forbidden word: {forbidden}")
         return errors
 
-    def _validate_accessibility(self, tc: Dict, tc_id: str) -> List[str]:
+    def _validate_accessibility(self, tc: dict, tc_id: str) -> list[str]:
         """Validate accessibility test requirements."""
         errors = []
         if tc.get('is_accessibility'):
@@ -223,9 +227,8 @@ class TestCaseValidator:
 
             # Check for accessibility tool prerequisite
             has_tool_prereq = any(
-                'pre-req:' in step.get('action', '').lower() and
-                any(tool in step.get('action', '') for tool in
-                    ['Accessibility Insights', 'VoiceOver', 'Accessibility Scanner', 'TalkBack'])
+                self._prereq_pattern.lower() in step.get('action', '').lower() and
+                any(tool in step.get('action', '') for tool in ACCESSIBILITY_TOOL_NAMES)
                 for step in tc.get('steps', [])
             )
             if not has_tool_prereq:
@@ -233,31 +236,34 @@ class TestCaseValidator:
 
         return errors
 
-    def _validate_object_interaction(self, tc: Dict, tc_id: str) -> List[str]:
+    def _validate_object_interaction(self, tc: dict, tc_id: str) -> list[str]:
         """Validate object interaction steps if required."""
         errors = []
         if tc.get('requires_object'):
             has_object_ops = any(
                 keyword in step.get('action', '').lower()
                 for step in tc.get('steps', [])
-                for keyword in ['draw', 'shape', 'object', 'select the', 'modify', 'rotate', 'move', 'transform']
+                for keyword in ['object', 'select the', 'modify', 'rotate', 'move', 'transform']
             )
 
             if has_object_ops:
-                has_draw = any('draw a shape' in step.get('action', '').lower() for step in tc.get('steps', []))
-                has_select = any(
-                    'select' in step.get('action', '').lower() and
-                    any(w in step.get('action', '').lower() for w in ['shape', 'object', 'drawn'])
+                has_setup = any(
+                    any(w in step.get('action', '').lower() for w in ['create', 'add', 'open', 'draw'])
                     for step in tc.get('steps', [])
                 )
-                if not has_draw:
-                    errors.append(f"{tc_id}: Missing 'Draw a shape' step for object interaction")
+                has_select = any(
+                    'select' in step.get('action', '').lower() and
+                    any(w in step.get('action', '').lower() for w in ['object', 'record', 'item', 'drawn', 'created'])
+                    for step in tc.get('steps', [])
+                )
+                if not has_setup:
+                    errors.append(f"{tc_id}: Missing object setup step for object interaction")
                 if not has_select:
-                    errors.append(f"{tc_id}: Missing 'Select the shape' step for object interaction")
+                    errors.append(f"{tc_id}: Missing object selection step for object interaction")
 
         return errors
 
-    def _validate_title_format(self, tc: Dict, tc_id: str) -> List[str]:
+    def _validate_title_format(self, tc: dict, tc_id: str) -> list[str]:
         """Validate title format."""
         errors = []
         title = tc.get('title', '')
@@ -270,7 +276,7 @@ class TestCaseValidator:
 
         return errors
 
-    def _validate_step_expected_rules(self, tc: Dict, tc_id: str) -> List[str]:
+    def _validate_step_expected_rules(self, tc: dict, tc_id: str) -> list[str]:
         """Validate step expected result rules."""
         errors = []
 
@@ -306,9 +312,9 @@ class TestCaseValidator:
 
     def _is_setup_step(self, action: str) -> bool:
         """Determine if action is a setup step."""
-        return any(pattern in action for pattern in self.DEFAULT_SETUP_PATTERNS)
+        return any(pattern in action for pattern in self._setup_patterns)
 
-    def _get_warnings(self, tc: Dict) -> List[str]:
+    def _get_warnings(self, tc: dict) -> list[str]:
         """Get non-critical warnings for a test case."""
         warnings = []
         tc_id = tc.get('id', 'Unknown')
@@ -345,10 +351,10 @@ class QualityGate:
 
     def run(
         self,
-        test_cases: List[Dict],
-        criteria: List[str],
-        qa_details: Optional[Dict] = None
-    ) -> Dict:
+        test_cases: list[dict],
+        criteria: list[str],
+        qa_details: dict | None = None
+    ) -> dict:
         """
         Run quality gate validation.
 
@@ -374,10 +380,10 @@ class QualityGate:
 
     def _calculate_coverage(
         self,
-        test_cases: List[Dict],
-        criteria: List[str],
-        qa_details: Optional[Dict]
-    ) -> Dict:
+        test_cases: list[dict],
+        criteria: list[str],
+        qa_details: dict | None
+    ) -> dict:
         """Calculate test coverage metrics."""
         ac_count = len(criteria)
         tc_count = len(test_cases)

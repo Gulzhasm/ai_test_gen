@@ -1,6 +1,7 @@
 """Tests for SummaryService."""
 import pytest
-from core.domain.models import UserStory, TestCase, TestStep, SummaryPlan
+
+from core.domain.models import SummaryPlan, TestCase, TestStep, UserStory
 from core.services import SummaryService
 
 

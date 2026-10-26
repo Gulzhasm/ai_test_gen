@@ -5,13 +5,12 @@ Stores cache entries as JSON files for persistence across sessions.
 """
 import hashlib
 import json
-import os
 from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Lock
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from .cache_interface import ICache, CacheStats
+from .cache_interface import CacheStats, ICache
 
 
 class FileCache(ICache[Any]):
@@ -22,7 +21,7 @@ class FileCache(ICache[Any]):
     def __init__(
         self,
         cache_dir: str = ".cache",
-        default_ttl: Optional[timedelta] = None,
+        default_ttl: timedelta | None = None,
         max_size: int = 10000
     ):
         """Initialize file cache.
@@ -46,7 +45,7 @@ class FileCache(ICache[Any]):
         """Get path to index file."""
         return self._cache_dir / self.INDEX_FILE
 
-    def _load_index(self) -> Dict[str, Dict]:
+    def _load_index(self) -> dict[str, dict]:
         """Load index from file.
 
         Returns:
@@ -57,7 +56,7 @@ class FileCache(ICache[Any]):
             try:
                 with open(index_path, 'r') as f:
                     return json.load(f)
-            except (json.JSONDecodeError, IOError):
+            except (OSError, json.JSONDecodeError):
                 return {}
         return {}
 
@@ -67,7 +66,7 @@ class FileCache(ICache[Any]):
         try:
             with open(index_path, 'w') as f:
                 json.dump(self._index, f, indent=2)
-        except IOError:
+        except OSError:
             pass  # Silently fail on write errors
 
     def _get_file_path(self, key: str) -> Path:
@@ -83,7 +82,7 @@ class FileCache(ICache[Any]):
         key_hash = hashlib.sha256(key.encode()).hexdigest()[:32]
         return self._cache_dir / f"{key_hash}.json"
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """Retrieve value from cache.
 
         Args:
@@ -125,7 +124,7 @@ class FileCache(ICache[Any]):
                     self._save_index()
 
                     return data["value"]
-            except (json.JSONDecodeError, IOError, KeyError):
+            except (OSError, json.JSONDecodeError, KeyError):
                 self._delete_entry(key)
                 self._misses += 1
                 return None
@@ -134,7 +133,7 @@ class FileCache(ICache[Any]):
         self,
         key: str,
         value: Any,
-        ttl: Optional[timedelta] = None
+        ttl: timedelta | None = None
     ) -> None:
         """Store value in cache.
 
@@ -173,7 +172,7 @@ class FileCache(ICache[Any]):
                 }
                 self._save_index()
 
-            except (IOError, TypeError) as e:
+            except (OSError, TypeError) as e:
                 # Failed to serialize or write
                 print(f"Cache write error for key {key}: {e}")
 
@@ -206,7 +205,7 @@ class FileCache(ICache[Any]):
         try:
             if file_path.exists():
                 file_path.unlink()
-        except IOError:
+        except OSError:
             pass
 
         # Remove from index
@@ -237,7 +236,7 @@ class FileCache(ICache[Any]):
                 try:
                     if file_path.exists():
                         file_path.unlink()
-                except IOError:
+                except OSError:
                     pass
 
             # Clear index
@@ -287,7 +286,7 @@ class FileCache(ICache[Any]):
                 evictions=self._evictions
             )
 
-    def keys(self) -> List[str]:
+    def keys(self) -> list[str]:
         """Get all valid cache keys.
 
         Returns:

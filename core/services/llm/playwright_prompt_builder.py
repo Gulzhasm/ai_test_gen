@@ -5,7 +5,6 @@ Builds system + user prompts for LLM-based conversion of test cases
 to Playwright TypeScript test scripts.
 """
 import json
-from typing import List, Dict, Optional
 
 
 class PlaywrightPromptBuilder:
@@ -98,7 +97,7 @@ Return ONLY valid TypeScript code for a Playwright .spec.ts file. No markdown fe
 - Do NOT invent page URLs. Use placeholder `const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';`
 """
 
-    def build_user_prompt(self, test_cases: List[Dict]) -> str:
+    def build_user_prompt(self, test_cases: list[dict]) -> str:
         """User prompt with test cases to convert."""
         tc_json = json.dumps(test_cases, indent=2)
 

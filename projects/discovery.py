@@ -2,12 +2,10 @@
 Application Discovery Module - Learns about new applications to generate appropriate test cases.
 Uses LLM to understand application context and generate configuration.
 """
-from typing import Dict, Optional, List, Any
-from dataclasses import dataclass
 import json
-import os
+from dataclasses import dataclass
 
-from .project_config import ProjectConfig, ApplicationConfig, ADOProjectConfig, TestRulesConfig
+from .project_config import ADOProjectConfig, ApplicationConfig, ProjectConfig
 
 
 @dataclass
@@ -16,10 +14,10 @@ class DiscoveredApplication:
     name: str
     description: str
     app_type: str  # desktop, web, mobile, hybrid
-    main_ui_surfaces: List[str]
-    entry_point_mappings: Dict[str, str]
-    supported_platforms: List[str]
-    object_keywords: List[str]
+    main_ui_surfaces: list[str]
+    entry_point_mappings: dict[str, str]
+    supported_platforms: list[str]
+    object_keywords: list[str]
     prereq_template: str
     launch_step: str
     launch_expected: str
@@ -78,7 +76,7 @@ class ApplicationDiscovery:
         """
         self.llm_provider = llm_provider
 
-    def discover_from_stories(self, stories: List[Dict]) -> DiscoveredApplication:
+    def discover_from_stories(self, stories: list[dict]) -> DiscoveredApplication:
         """
         Analyze ADO stories to discover application characteristics.
 
@@ -131,7 +129,7 @@ class ApplicationDiscovery:
             confidence_score=0.7 if len(stories) > 3 else 0.5
         )
 
-    def discover_interactive(self, app_name: str, responses: Dict[str, str]) -> DiscoveredApplication:
+    def discover_interactive(self, app_name: str, responses: dict[str, str]) -> DiscoveredApplication:
         """
         Create discovery result from interactive questionnaire responses.
 
@@ -175,7 +173,7 @@ class ApplicationDiscovery:
 
         return DiscoveredApplication(
             name=app_name,
-            description=f"User-configured application",
+            description="User-configured application",
             app_type=app_type,
             main_ui_surfaces=ui_surfaces,
             entry_point_mappings=entry_mappings,
@@ -314,7 +312,7 @@ Only return valid JSON, no explanation."""
         else:
             return 'desktop'
 
-    def _extract_ui_surfaces(self, text: str) -> List[str]:
+    def _extract_ui_surfaces(self, text: str) -> list[str]:
         """Extract UI surface names from text."""
         surfaces = []
         common_surfaces = [
@@ -340,7 +338,7 @@ Only return valid JSON, no explanation."""
 
         return list(set(surfaces))[:15]  # Limit to 15
 
-    def _extract_platforms(self, text: str) -> List[str]:
+    def _extract_platforms(self, text: str) -> list[str]:
         """Extract platform names from text."""
         platforms = []
         platform_map = {
@@ -370,7 +368,7 @@ Only return valid JSON, no explanation."""
 
         return platforms if platforms else ['Windows 11']
 
-    def _extract_object_keywords(self, text: str) -> List[str]:
+    def _extract_object_keywords(self, text: str) -> list[str]:
         """Extract object/entity keywords that indicate interaction is needed."""
         keywords = []
         action_keywords = [
@@ -384,7 +382,7 @@ Only return valid JSON, no explanation."""
 
         return keywords
 
-    def _infer_app_name(self, stories: List[Dict]) -> str:
+    def _infer_app_name(self, stories: list[dict]) -> str:
         """Try to infer application name from story content."""
         # Look for common patterns in titles/descriptions
         for story in stories:
@@ -397,7 +395,7 @@ Only return valid JSON, no explanation."""
 
         return "Application"
 
-    def _build_entry_mappings(self, text: str, ui_surfaces: List[str]) -> Dict[str, str]:
+    def _build_entry_mappings(self, text: str, ui_surfaces: list[str]) -> dict[str, str]:
         """Build entry point mappings based on context."""
         mappings = {}
 
@@ -426,7 +424,7 @@ Only return valid JSON, no explanation."""
 
         return mappings
 
-    def _build_default_entry_mappings(self, ui_surfaces: List[str]) -> Dict[str, str]:
+    def _build_default_entry_mappings(self, ui_surfaces: list[str]) -> dict[str, str]:
         """Build default entry point mappings from UI surfaces."""
         mappings = {
             'file': 'File Menu',
@@ -464,6 +462,6 @@ Only return valid JSON, no explanation."""
         )
 
     @staticmethod
-    def get_discovery_questions() -> List[Dict]:
+    def get_discovery_questions() -> list[dict]:
         """Get the list of discovery questions for interactive mode."""
         return ApplicationDiscovery.DISCOVERY_QUESTIONS

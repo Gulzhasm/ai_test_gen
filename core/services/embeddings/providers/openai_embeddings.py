@@ -4,7 +4,7 @@ OpenAI Embedding Provider.
 Uses OpenAI's text-embedding-3-small model for semantic similarity matching.
 """
 import os
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
 
@@ -14,7 +14,7 @@ try:
 except ImportError:
     OPENAI_AVAILABLE = False
 
-from ..embedding_interface import IEmbeddingProvider, EmbeddingResult
+from ..embedding_interface import EmbeddingResult, IEmbeddingProvider
 
 
 class OpenAIEmbeddingProvider(IEmbeddingProvider):
@@ -33,7 +33,7 @@ class OpenAIEmbeddingProvider(IEmbeddingProvider):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         model: str = "text-embedding-3-small",
         timeout: int = 30,
         max_retries: int = 2
@@ -50,7 +50,7 @@ class OpenAIEmbeddingProvider(IEmbeddingProvider):
         self._model = model
         self._timeout = timeout
         self._max_retries = max_retries
-        self._client: Optional[OpenAI] = None
+        self._client: OpenAI | None = None
         self._dimensions = self.MODEL_DIMENSIONS.get(model, 1536)
 
     @property
@@ -69,7 +69,7 @@ class OpenAIEmbeddingProvider(IEmbeddingProvider):
         return self._dimensions
 
     @property
-    def client(self) -> Optional[OpenAI]:
+    def client(self) -> Optional["OpenAI"]:
         """Lazy initialization of OpenAI client."""
         if self._client is None and OPENAI_AVAILABLE and self._api_key:
             self._client = OpenAI(
@@ -79,7 +79,7 @@ class OpenAIEmbeddingProvider(IEmbeddingProvider):
             )
         return self._client
 
-    def embed(self, text: str) -> Optional[EmbeddingResult]:
+    def embed(self, text: str) -> EmbeddingResult | None:
         """Generate embedding for single text.
 
         Args:
@@ -121,7 +121,7 @@ class OpenAIEmbeddingProvider(IEmbeddingProvider):
             print(f"OpenAI embedding error: {e}")
             return None
 
-    def embed_batch(self, texts: List[str]) -> List[EmbeddingResult]:
+    def embed_batch(self, texts: list[str]) -> list[EmbeddingResult]:
         """Generate embeddings for multiple texts efficiently.
 
         OpenAI API accepts up to 2048 inputs in a single request.
