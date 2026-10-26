@@ -4,8 +4,6 @@ Postman Collection Prompt Builder
 Builds system + user prompts for LLM-based generation of Postman Collections
 from user story descriptions and acceptance criteria.
 """
-import json
-from typing import List
 
 
 class PostmanPromptBuilder:
@@ -94,7 +92,7 @@ Return ONLY valid JSON matching Postman Collection v2.1 schema. No markdown fenc
 9. If no clear API endpoints exist, infer RESTful endpoints from the feature
 """
 
-    def build_user_prompt(self, description: str, acceptance_criteria: List[str]) -> str:
+    def build_user_prompt(self, description: str, acceptance_criteria: list[str]) -> str:
         """User prompt with story context for API extraction."""
         ac_text = '\n'.join(f"- {ac}" for ac in acceptance_criteria)
         return f"""Generate a Postman Collection v2.1 JSON for this user story.

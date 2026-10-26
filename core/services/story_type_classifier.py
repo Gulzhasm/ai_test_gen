@@ -4,7 +4,6 @@ StoryTypeClassifier: Rule-based story classification.
 This module classifies stories into types to gate scenario templates
 and prevent cross-story leakage (e.g., tool-state text in fullscreen mode).
 """
-from typing import List, Set
 from enum import Enum
 
 
@@ -73,7 +72,7 @@ class StoryTypeClassifier:
     }
 
     @classmethod
-    def classify(cls, story_title: str, ac_bullets: List[str], qa_prep: str = "", description: str = "") -> StoryType:
+    def classify(cls, story_title: str, ac_bullets: list[str], qa_prep: str = "", description: str = "") -> StoryType:
         """
         Classify story based on title, description, AC, and QA Prep.
 
@@ -122,7 +121,7 @@ class StoryTypeClassifier:
         return StoryType.UNKNOWN
 
     @staticmethod
-    def _count_keywords(text: str, keywords: Set[str]) -> int:
+    def _count_keywords(text: str, keywords: set[str]) -> int:
         """Count how many keywords appear in text using word-boundary matching."""
         import re
         count = 0
@@ -135,7 +134,7 @@ class StoryTypeClassifier:
         return count
 
     @staticmethod
-    def get_allowed_scenario_templates(story_type: StoryType) -> Set[str]:
+    def get_allowed_scenario_templates(story_type: StoryType) -> set[str]:
         """
         Get allowed scenario templates for a story type.
 
@@ -224,7 +223,7 @@ class StoryTypeClassifier:
             }
 
     @staticmethod
-    def get_default_edge_cases(story_type: StoryType) -> List[str]:
+    def get_default_edge_cases(story_type: StoryType) -> list[str]:
         """
         Get default edge cases for a story type.
 
@@ -324,7 +323,7 @@ class StoryTypeClassifier:
         }
 
     @staticmethod
-    def get_typical_entry_points(story_type: StoryType) -> List[str]:
+    def get_typical_entry_points(story_type: StoryType) -> list[str]:
         """
         Get typical entry points for a story type.
 

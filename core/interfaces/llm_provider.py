@@ -4,9 +4,9 @@ LLM Provider interface for AI-powered test enhancement.
 Abstracts LLM interactions to enable different providers (OpenAI, Ollama, etc.).
 """
 from abc import ABC, abstractmethod
-from typing import List, Dict, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 
 class LLMProvider(Enum):
@@ -22,8 +22,8 @@ class LLMConfig:
     """Configuration for LLM provider."""
     provider: LLMProvider
     model: str
-    api_key: Optional[str] = None
-    base_url: Optional[str] = None
+    api_key: str | None = None
+    base_url: str | None = None
     temperature: float = 0.3
     max_tokens: int = 4000
     timeout: int = 60
@@ -34,8 +34,8 @@ class LLMResponse:
     """Response from LLM provider."""
     content: str
     model: str
-    usage: Optional[Dict[str, int]] = None
-    finish_reason: Optional[str] = None
+    usage: dict[str, int] | None = None
+    finish_reason: str | None = None
 
 
 class ILLMProvider(ABC):
@@ -45,19 +45,17 @@ class ILLMProvider(ABC):
     @abstractmethod
     def provider_name(self) -> str:
         """Name of the provider."""
-        pass
 
     @property
     @abstractmethod
     def model(self) -> str:
         """Model being used."""
-        pass
 
     @abstractmethod
     def generate(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         **kwargs
     ) -> LLMResponse:
         """Generate text completion.
@@ -70,15 +68,14 @@ class ILLMProvider(ABC):
         Returns:
             LLMResponse with generated content
         """
-        pass
 
     @abstractmethod
     def generate_json(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate JSON response.
 
         Args:
@@ -89,7 +86,6 @@ class ILLMProvider(ABC):
         Returns:
             Parsed JSON dictionary
         """
-        pass
 
     @abstractmethod
     def is_available(self) -> bool:
@@ -98,7 +94,6 @@ class ILLMProvider(ABC):
         Returns:
             True if provider can be used
         """
-        pass
 
 
 class ITestCaseCorrector(ABC):
@@ -107,12 +102,12 @@ class ITestCaseCorrector(ABC):
     @abstractmethod
     def correct_test_cases(
         self,
-        test_cases: List[Dict],
+        test_cases: list[dict],
         story_id: str,
         feature_name: str,
-        acceptance_criteria: List[str],
-        qa_prep: Optional[str] = None
-    ) -> List[Dict]:
+        acceptance_criteria: list[str],
+        qa_prep: str | None = None
+    ) -> list[dict]:
         """Correct and enhance test cases using LLM.
 
         Args:
@@ -125,14 +120,13 @@ class ITestCaseCorrector(ABC):
         Returns:
             Corrected test cases
         """
-        pass
 
     @abstractmethod
     def validate_and_fix(
         self,
-        test_case: Dict,
-        rules: Dict[str, Any]
-    ) -> Dict:
+        test_case: dict,
+        rules: dict[str, Any]
+    ) -> dict:
         """Validate test case and fix issues using LLM.
 
         Args:
@@ -142,4 +136,3 @@ class ITestCaseCorrector(ABC):
         Returns:
             Fixed test case
         """
-        pass

@@ -3,17 +3,16 @@ Unit tests for Validator module.
 
 Tests test case validation and quality gate functionality.
 """
-import pytest
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.services.test_validator import (
-    TestCaseValidator,
     QualityGate,
+    TestCaseValidator,
     ValidationResult,
-    ValidationSeverity
+    ValidationSeverity,
 )
 
 

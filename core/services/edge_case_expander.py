@@ -4,10 +4,9 @@ EdgeCaseExpander: Systematic edge case generation based on story type.
 This module generates edge case tests based on story type and signals,
 ensuring comprehensive coverage without LLM guesswork.
 """
-from typing import List, Dict, Optional
 from core.domain.grounded_spec import GroundedSpec
-from core.services.story_type_classifier import StoryType, StoryTypeClassifier
 from core.services.action_chain_builder import ActionChainBuilder
+from core.services.story_type_classifier import StoryType
 
 
 class EdgeCaseExpander:
@@ -21,7 +20,7 @@ class EdgeCaseExpander:
         self.grounded_spec = grounded_spec
         self.story_type = story_type
 
-    def generate_edge_case_tests(self, story_id: int, feature_name: str) -> List[Dict]:
+    def generate_edge_case_tests(self, story_id: int, feature_name: str) -> list[dict]:
         """
         Generate edge case tests based on story type and grounded spec.
 
@@ -52,7 +51,7 @@ class EdgeCaseExpander:
 
         return edge_case_tests
 
-    def _generate_mode_layout_edge_cases(self, story_id: int, feature_name: str, test_id_counter: int) -> List[Dict]:
+    def _generate_mode_layout_edge_cases(self, story_id: int, feature_name: str, test_id_counter: int) -> list[dict]:
         """Generate edge cases for Mode/Layout stories."""
         edge_cases = []
 
@@ -92,7 +91,7 @@ class EdgeCaseExpander:
 
         return edge_cases
 
-    def _generate_dialog_edge_cases(self, story_id: int, feature_name: str, test_id_counter: int) -> List[Dict]:
+    def _generate_dialog_edge_cases(self, story_id: int, feature_name: str, test_id_counter: int) -> list[dict]:
         """Generate edge cases for Dialog stories."""
         edge_cases = []
         entry_point = self.grounded_spec.get_primary_entry_point() or "File Menu"
@@ -128,7 +127,7 @@ class EdgeCaseExpander:
 
         return edge_cases
 
-    def _generate_tool_edge_cases(self, story_id: int, feature_name: str, test_id_counter: int) -> List[Dict]:
+    def _generate_tool_edge_cases(self, story_id: int, feature_name: str, test_id_counter: int) -> list[dict]:
         """Generate edge cases for Tool stories.
 
         Only generates object-related edge cases (no_selection, multi-object)
@@ -182,7 +181,7 @@ class EdgeCaseExpander:
 
         return edge_cases
 
-    def _generate_measurement_edge_cases(self, story_id: int, feature_name: str, test_id_counter: int) -> List[Dict]:
+    def _generate_measurement_edge_cases(self, story_id: int, feature_name: str, test_id_counter: int) -> list[dict]:
         """Generate edge cases for Measurement stories."""
         edge_cases = []
         entry_point = self.grounded_spec.get_primary_entry_point() or "Dimensions Menu"
@@ -260,7 +259,7 @@ class EdgeCaseExpander:
 
         return edge_cases
 
-    def _generate_file_ops_edge_cases(self, story_id: int, feature_name: str, test_id_counter: int) -> List[Dict]:
+    def _generate_file_ops_edge_cases(self, story_id: int, feature_name: str, test_id_counter: int) -> list[dict]:
         """Generate edge cases for File Operations stories."""
         edge_cases = []
         entry_point = self.grounded_spec.get_primary_entry_point() or "File Menu"
@@ -289,12 +288,12 @@ class EdgeCaseExpander:
             {"action": "Verify recent files list shows files in reverse chronological order.", "expected": "Recent files are ordered correctly."},
             {"action": "Close/Exit the QuickDraw application", "expected": ""}
         ]
-        objective = f"Verify that <b>recent files list</b> displays files in <b>reverse chronological order</b>"
+        objective = "Verify that <b>recent files list</b> displays files in <b>reverse chronological order</b>"
         edge_cases.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
 
         return edge_cases
 
-    def _generate_help_documentation_edge_cases(self, story_id: int, feature_name: str, test_id_counter: int) -> List[Dict]:
+    def _generate_help_documentation_edge_cases(self, story_id: int, feature_name: str, test_id_counter: int) -> list[dict]:
         """Generate edge cases for Help/Documentation stories.
 
         These edge cases focus on:
@@ -360,11 +359,7 @@ class EdgeCaseExpander:
         Returns:
             Estimated count of edge case tests
         """
-        if self.story_type == StoryType.MODE_LAYOUT:
-            return 2
-        elif self.story_type == StoryType.DIALOG:
-            return 2
-        elif self.story_type == StoryType.TOOL:
+        if self.story_type == StoryType.MODE_LAYOUT or self.story_type == StoryType.DIALOG or self.story_type == StoryType.TOOL:
             return 2
         elif self.story_type == StoryType.MEASUREMENT:
             return 3  # Can be up to 4 if units mentioned

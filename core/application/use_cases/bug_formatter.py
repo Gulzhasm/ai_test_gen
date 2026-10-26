@@ -20,7 +20,7 @@ Formatting rules:
     - No extra blank lines anywhere
     - Menu arrows use → character
 """
-from core.domain.bug_report import BugReport, RecreateStep, BugObservation
+from core.domain.bug_report import BugObservation, BugReport
 
 
 class BugHtmlFormatter:
@@ -80,7 +80,7 @@ class BugHtmlFormatter:
             if step.observations:
                 # Close the main <ol> temporarily and open a nested one
                 # ADO uses nested <ol> inside the parent <ol> for sub-items
-                html += f'<ol style="padding-left:40px;list-style:lower-alpha;">'
+                html += '<ol style="padding-left:40px;list-style:lower-alpha;">'
                 for obs in step.observations:
                     obs_html = self._format_observation(obs)
                     html += f'<li>{obs_html}</li>'

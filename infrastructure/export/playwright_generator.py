@@ -6,7 +6,6 @@ Follows the same export pattern as CSVGenerator and ObjectiveGenerator.
 """
 import os
 import re
-from typing import Dict, List, Optional
 
 
 class PlaywrightGenerator:
@@ -26,10 +25,10 @@ class PlaywrightGenerator:
         self,
         app_name: str = "Application",
         app_type: str = "desktop",
-        provider_type: Optional[str] = None,
-        model: Optional[str] = None,
-        api_key: Optional[str] = None,
-        inventory_path: Optional[str] = None,
+        provider_type: str | None = None,
+        model: str | None = None,
+        api_key: str | None = None,
+        inventory_path: str | None = None,
     ):
         self._app_name = app_name
         self._app_type = app_type
@@ -78,7 +77,7 @@ class PlaywrightGenerator:
 
     def generate_script(
         self,
-        test_cases: List[Dict],
+        test_cases: list[dict],
         story_id: str,
         feature_name: str,
         output_file: str
@@ -92,7 +91,7 @@ class PlaywrightGenerator:
 
     def generate_script_string(
         self,
-        test_cases: List[Dict],
+        test_cases: list[dict],
         story_id: str,
         feature_name: str
     ) -> str:
@@ -115,7 +114,7 @@ class PlaywrightGenerator:
 
         return self._generate_deterministic(functional_tests, story_id, feature_name)
 
-    def _generate_with_llm(self, test_cases: List[Dict], story_id: str, feature_name: str) -> Optional[str]:
+    def _generate_with_llm(self, test_cases: list[dict], story_id: str, feature_name: str) -> str | None:
         """Generate script using LLM."""
         from core.services.llm.playwright_prompt_builder import PlaywrightPromptBuilder
 
@@ -193,12 +192,12 @@ class PlaywrightGenerator:
         if n_ungrounded_comments:
             print(f"  Note: {n_ungrounded_comments} step(s) marked // UNGROUNDED (no matching element)")
 
-    def _generate_deterministic(self, test_cases: List[Dict], story_id: str, feature_name: str) -> str:
+    def _generate_deterministic(self, test_cases: list[dict], story_id: str, feature_name: str) -> str:
         """Deterministic fallback: generate skeleton .spec.ts from test cases."""
         lines = [
             f"// Story: {story_id} - {feature_name}",
-            f"// Auto-generated Playwright test skeleton",
-            f"// TODO: Update selectors for actual application UI",
+            "// Auto-generated Playwright test skeleton",
+            "// TODO: Update selectors for actual application UI",
             "",
             "import { test, expect } from '@playwright/test';",
             "",
@@ -260,7 +259,7 @@ _RE_GET_BY_PLACEHOLDER = re.compile(r"getByPlaceholder\(\s*['\"]([^'\"]+)['\"]")
 _RE_GET_BY_TESTID = re.compile(r"getByTestId\(\s*['\"]([^'\"]+)['\"]")
 
 
-def analyze_grounding(script: str, inventory) -> Dict:
+def analyze_grounding(script: str, inventory) -> dict:
     """
     Parse selectors out of generated TypeScript and check them against the
     inventory of real elements.
@@ -273,7 +272,7 @@ def analyze_grounding(script: str, inventory) -> Dict:
 
     total = 0
     grounded = 0
-    ungrounded: List[str] = []
+    ungrounded: list[str] = []
 
     def mark(ok: bool, label: str):
         nonlocal total, grounded

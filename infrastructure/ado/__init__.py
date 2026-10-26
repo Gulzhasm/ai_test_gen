@@ -3,21 +3,20 @@ Azure DevOps infrastructure implementations.
 
 Provides repository implementations for ADO data access.
 """
-from .http_client import ADOHttpClient
+from .ado_bug_repository import ADOBugRepository
 from .ado_repository import (
     ADOStoryRepository,
-    ADOTestSuiteRepository,
     ADOTestCaseRepository,
-    HtmlParser
+    ADOTestSuiteRepository,
+    HtmlParser,
 )
-
-from .ado_bug_repository import ADOBugRepository
+from .http_client import ADOHttpClient
 
 __all__ = [
+    'ADOBugRepository',
     'ADOHttpClient',
     'ADOStoryRepository',
-    'ADOTestSuiteRepository',
     'ADOTestCaseRepository',
-    'ADOBugRepository',
+    'ADOTestSuiteRepository',
     'HtmlParser'
 ]

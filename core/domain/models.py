@@ -3,7 +3,6 @@ Domain Models for Test Generation
 Clean, typed data classes representing core domain concepts.
 """
 from dataclasses import dataclass, field
-from typing import List, Optional
 from enum import Enum
 
 
@@ -53,12 +52,12 @@ class TestCase:
     """Test case with steps and metadata."""
     test_id: str
     title: str
-    steps: List[TestStep]
+    steps: list[TestStep]
     area: str
     requires_object: bool = False
     is_accessibility: bool = False
-    device: Optional[str] = None
-    objective: Optional[str] = None
+    device: str | None = None
+    objective: str | None = None
     
     def to_dict(self) -> dict:
         """Convert to dictionary for legacy compatibility."""
@@ -81,7 +80,7 @@ class Objective:
     title: str
     objective_text: str
     
-    def format_for_ado(self, key_terms: List[str]) -> str:
+    def format_for_ado(self, key_terms: list[str]) -> str:
         """Format with HTML for ADO Summary field."""
         import re
         
@@ -105,12 +104,12 @@ class Objective:
 class SummaryPlan:
     """QA Planning Summary structure before rendering."""
     intro_facts: str
-    bullet_themes: List[str]
-    dependencies: List[str]
+    bullet_themes: list[str]
+    dependencies: list[str]
     accessibility_clause: str
     platform_clause: str
     
-    def validate(self) -> tuple[bool, List[str]]:
+    def validate(self) -> tuple[bool, list[str]]:
         """Validate the summary plan structure."""
         errors = []
         
@@ -137,12 +136,12 @@ class SummaryPlan:
 @dataclass
 class EvidenceModel:
     """Evidence sources for guardrails."""
-    allowed_entry_points: List[str] = field(default_factory=list)
-    allowed_behaviors: List[str] = field(default_factory=list)
-    forbidden_words: List[str] = field(default_factory=list)
+    allowed_entry_points: list[str] = field(default_factory=list)
+    allowed_behaviors: list[str] = field(default_factory=list)
+    forbidden_words: list[str] = field(default_factory=list)
     description_text: str = ""
     ac_text: str = ""
-    test_titles: List[str] = field(default_factory=list)
+    test_titles: list[str] = field(default_factory=list)
     
     def is_supported(self, term: str) -> bool:
         """Check if term is supported by evidence."""
@@ -176,8 +175,8 @@ class EvidenceModel:
 class LintResult:
     """Result of linting operation."""
     ok: bool
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
     
     def __bool__(self) -> bool:
         """Boolean conversion for easy checking."""

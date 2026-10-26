@@ -4,16 +4,15 @@ Test Quality Analyzer - Evaluates test case quality against standards.
 Domain-agnostic quality analysis using pattern matching and heuristics.
 """
 import re
-from typing import List, Dict, Optional
 
 from core.interfaces.quality_standards import (
-    IQualityAnalyzer,
-    TestCaseQualityMetrics,
-    StepQualityMetrics,
-    QualityIssue,
     GENERIC_PHRASES,
     HIGH_QUALITY_PATTERNS,
     QUALITY_THRESHOLDS,
+    IQualityAnalyzer,
+    QualityIssue,
+    StepQualityMetrics,
+    TestCaseQualityMetrics,
 )
 
 
@@ -40,7 +39,7 @@ class TestQualityAnalyzer(IQualityAnalyzer):
             re.IGNORECASE
         )
 
-    def analyze_test_case(self, test_case: Dict) -> TestCaseQualityMetrics:
+    def analyze_test_case(self, test_case: dict) -> TestCaseQualityMetrics:
         """Analyze quality of a complete test case."""
         # Analyze title first
         title = test_case.get('title', '')
@@ -90,7 +89,7 @@ class TestQualityAnalyzer(IQualityAnalyzer):
         for pattern in self._generic_patterns:
             if pattern.search(action) or pattern.search(expected):
                 metrics.has_generic_phrases = True
-                metrics.issues.append(f"Contains generic phrase")
+                metrics.issues.append("Contains generic phrase")
                 break
 
         # Calculate action specificity
@@ -107,7 +106,7 @@ class TestQualityAnalyzer(IQualityAnalyzer):
 
         return metrics
 
-    def find_issues(self, test_case: Dict) -> List[QualityIssue]:
+    def find_issues(self, test_case: dict) -> list[QualityIssue]:
         """Find quality issues in a test case."""
         issues = []
 

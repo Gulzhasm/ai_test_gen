@@ -5,18 +5,19 @@ Integrates quality enhancement for high-quality, deterministic output.
 Uses StoryTypeClassifier to avoid irrelevant edge cases.
 Uses story description to generate context-rich, meaningful test scenarios.
 """
-from typing import List, Dict, Optional, Any, Tuple
-import re
-from dataclasses import dataclass, field
-
-import sys
 import os
+import re
+import sys
+from dataclasses import dataclass, field
+from typing import Any
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from core.services.embeddings.test_step_embedder import TestStepEmbedder
+from core.services.story_type_classifier import StoryType, StoryTypeClassifier
 from projects.project_config import ProjectConfig
 from projects.test_suite_creator import QAPrepGenerator
-from core.services.story_type_classifier import StoryType, StoryTypeClassifier
-from core.services.embeddings.test_step_embedder import TestStepEmbedder
+
 # Note: clean_acceptance_criteria is imported lazily in generate_test_cases to avoid circular import
 
 
@@ -28,8 +29,8 @@ from core.services.embeddings.test_step_embedder import TestStepEmbedder
 class DescriptionContext:
     """Parsed context from story description."""
     menu_path: str = ""  # e.g., "Help → User Manual"
-    user_flow: List[str] = field(default_factory=list)  # e.g., ["User selects Help → User Manual", "the app opens the built-in manual viewer"]
-    key_features: List[str] = field(default_factory=list)  # e.g., ["offline access", "in-app viewer", "PDF manuals"]
+    user_flow: list[str] = field(default_factory=list)  # e.g., ["User selects Help → User Manual", "the app opens the built-in manual viewer"]
+    key_features: list[str] = field(default_factory=list)  # e.g., ["offline access", "in-app viewer", "PDF manuals"]
     main_purpose: str = ""  # e.g., "provides users with direct access to official documentation"
     raw_description: str = ""
 
@@ -90,7 +91,7 @@ class DescriptionParser:
         return ""
 
     @classmethod
-    def _extract_user_flow(cls, description: str) -> List[str]:
+    def _extract_user_flow(cls, description: str) -> list[str]:
         """Extract user flow steps from description."""
         flow_steps = []
 
@@ -112,7 +113,7 @@ class DescriptionParser:
         return flow_steps
 
     @classmethod
-    def _extract_key_features(cls, description: str) -> List[str]:
+    def _extract_key_features(cls, description: str) -> list[str]:
         """Extract key features/characteristics from description."""
         features = []
         desc_lower = description.lower()
@@ -124,8 +125,12 @@ class DescriptionParser:
             r'(?:in-app|built-in|native)\s+(\w+)',
             r'(\w+)\s+(?:is\s+)?(?:displayed|shown)\s+(?:in|within)\s+(?:the\s+)?app',
             r'(?:offline|online)\s+(\w+)',
-            r'(?:PDF|document|manual)\s+(\w+)',
         ]
+        # Single-word captures that carry no feature meaning ("manual that",
+        # "document review", "pdf from")
+        filler = {'that', 'this', 'from', 'with', 'which', 'there', 'their', 'will',
+                  'have', 'been', 'should', 'must', 'also', 'into', 'when', 'where',
+                  'what', 'review', 'changes', 'form'}
 
         for pattern in feature_patterns:
             matches = re.findall(pattern, desc_lower)
@@ -143,7 +148,7 @@ class DescriptionParser:
         unique_features = []
         for f in features:
             f_lower = f.lower()
-            if f_lower not in seen and len(f) > 3:
+            if f_lower not in seen and len(f) > 3 and f_lower not in filler:
                 seen.add(f_lower)
                 unique_features.append(f)
 
@@ -171,7 +176,7 @@ class DescriptionParser:
         return ""
 
 
-def detect_redundant_acs(criteria: List[str]) -> List[Tuple[int, int, str]]:
+def detect_redundant_acs(criteria: list[str]) -> list[tuple[int, int, str]]:
     """
     Detect redundant/similar acceptance criteria.
 
@@ -219,10 +224,10 @@ def cls_similar(text1: str, text2: str, threshold: float = 0.8) -> bool:
 # Import quality enhancement services
 try:
     from core.services.quality import (
+        BatchTestCorrector,
+        LLMTestCorrector,
         get_quality_analyzer,
         get_semantic_step_builder,
-        LLMTestCorrector,
-        BatchTestCorrector,
     )
     QUALITY_SERVICES_AVAILABLE = True
 except ImportError:
@@ -241,7 +246,7 @@ class GenericTestGenerator:
     def __init__(
         self,
         config: ProjectConfig,
-        llm_provider: Optional[Any] = None,
+        llm_provider: Any | None = None,
         enable_quality_enhancement: bool = True,
         quality_threshold: float = 0.6
     ):
@@ -275,7 +280,7 @@ class GenericTestGenerator:
         self._test_corrector = None
 
         # Description context (set during test generation)
-        self.description_context: Optional[DescriptionContext] = None
+        self.description_context: DescriptionContext | None = None
         self.story_type: StoryType = StoryType.UNKNOWN
 
         if self.enable_quality_enhancement:
@@ -284,10 +289,10 @@ class GenericTestGenerator:
 
     def generate_test_cases(
         self,
-        story_data: Dict,
-        criteria: List[str],
-        qa_prep_content: Optional[str] = None
-    ) -> List[Dict]:
+        story_data: dict,
+        criteria: list[str],
+        qa_prep_content: str | None = None
+    ) -> list[dict]:
         """
         Generate comprehensive test cases for a story.
 
@@ -311,6 +316,10 @@ class GenericTestGenerator:
         from core.services.llm.prompt_builder import clean_acceptance_criteria
         criteria = clean_acceptance_criteria(criteria)
         print(f"  Cleaned ACs: {len(criteria)} actionable items")
+
+        # Does this story need the context setup step (setup_step_policy=when_needed)?
+        self._story_needs_context = self.app.requires_object_interaction(
+            f"{story_data.get('title', '')} {' '.join(criteria)}")
 
         # Parse story DESCRIPTION to extract context
         description = story_data.get('description', '')
@@ -362,14 +371,14 @@ class GenericTestGenerator:
                 if re.search(pattern, combined_text, re.IGNORECASE):
                     qa_details['entry_points'] = ['Properties Panel']
                     properties_panel_detected = True
-                    print(f"  Entry point set to Properties Panel (detected from description/AC)")
+                    print("  Entry point set to Properties Panel (detected from description/AC)")
                     break
             else:
                 # Fallback: If story type is PROPERTIES, use Properties Panel
                 if self.story_type == StoryType.PROPERTIES:
                     qa_details['entry_points'] = ['Properties Panel']
                     properties_panel_detected = True
-                    print(f"  Entry point set to Properties Panel (PROPERTIES story type)")
+                    print("  Entry point set to Properties Panel (PROPERTIES story type)")
 
         # Use menu path from description if available (but NOT if Properties Panel was explicitly detected)
         if self.description_context.menu_path and not properties_panel_detected:
@@ -494,9 +503,9 @@ class GenericTestGenerator:
 
     def _enhance_test_quality(
         self,
-        test_cases: List[Dict],
+        test_cases: list[dict],
         feature_context: str
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         Enhance test case quality using analyzer and optional LLM correction.
 
@@ -554,9 +563,9 @@ class GenericTestGenerator:
 
     def _apply_rule_based_enhancement(
         self,
-        test_case: Dict,
+        test_case: dict,
         metrics: Any
-    ) -> Dict:
+    ) -> dict:
         """
         Apply rule-based enhancement for low-quality tests without LLM.
 
@@ -604,19 +613,19 @@ class GenericTestGenerator:
 
     # Step Template Methods
 
-    def _get_prereq_step(self) -> Dict[str, str]:
+    def _get_prereq_step(self) -> dict[str, str]:
         """Get the prerequisite step using project config."""
         return {"action": self.app.get_prereq_step(), "expected": ""}
 
-    def _get_launch_step(self) -> Dict[str, str]:
+    def _get_launch_step(self) -> dict[str, str]:
         """Get the application launch step using project config."""
         return {"action": self.app.get_launch_step(), "expected": self.app.launch_expected}
 
-    def _get_close_step(self) -> Dict[str, str]:
+    def _get_close_step(self) -> dict[str, str]:
         """Get the application close step using project config."""
         return {"action": self.app.get_close_step(), "expected": ""}
 
-    def _get_create_file_step(self) -> Dict[str, str]:
+    def _get_create_file_step(self) -> dict[str, str]:
         """Get the create file/drawing step using project config.
 
         IMPORTANT: Most menus require a file/drawing to be open first.
@@ -626,18 +635,63 @@ class GenericTestGenerator:
             "expected": self.app.get_create_file_expected()
         }
 
-    def _get_standard_setup_steps(self, include_create_file: bool = True) -> List[Dict[str, str]]:
+    def _get_standard_setup_steps(self, include_create_file: bool = True) -> list[dict[str, str]]:
         """Get standard setup steps (prereq + launch + optional create file).
 
         Args:
             include_create_file: If True, includes create file step (required for most menu access).
         """
         steps = [self._get_prereq_step(), self._get_launch_step()]
-        if include_create_file:
+        if self._should_include_setup(include_create_file):
             steps.append(self._get_create_file_step())
         return steps
 
-    def _story_type_entry_point(self, feature_name: str, entry_points: List[str]) -> str:
+    def _setup_policy(self) -> str:
+        """Context setup policy from config: always | when_needed | never."""
+        if not self.app.get_create_file_step():
+            return "never"
+        return (getattr(self.app, 'setup_step_policy', 'always') or 'always').lower()
+
+    def _should_include_setup(self, requested: bool = True) -> bool:
+        """Whether a test gets the context setup step under the project's policy.
+
+        ``always`` wins over a caller's request to skip it: on apps whose menus
+        need an open file (SiteDraft's Help menu included), a test without it
+        cannot be executed.
+        """
+        policy = self._setup_policy()
+        if policy == "always":
+            return True
+        if policy == "never":
+            return False
+        return requested and getattr(self, '_story_needs_context', True)
+
+    def _help_command_label(self, feature_name: str) -> str:
+        """Name of the Help command to select — taken from the story, never its title.
+
+        Order: last segment of a description "Menu Path", a double-quoted term
+        in the ACs, a help noun in the feature name ("User Manual"), then the
+        feature name itself.
+        """
+        desc_ctx = getattr(self, 'description_context', None)
+        if desc_ctx and desc_ctx.menu_path and '→' in desc_ctx.menu_path:
+            return desc_ctx.menu_path.split('→')[-1].strip()
+        for ac in getattr(self, '_all_criteria', None) or []:
+            quoted = re.search(r'["“]([^"”]{3,40})["”]', ac)
+            if quoted:
+                return quoted.group(1).strip()
+        noun = re.search(r'\b(user\s+manual|user\s+guide|tutorial|help\s+center|documentation'
+                         r'|manual|guide)\b', feature_name, re.IGNORECASE)
+        if noun:
+            return noun.group(1).title()
+        return feature_name
+
+    def _select_command_action(self, feature_name: str) -> str:
+        if getattr(self, 'story_type', StoryType.UNKNOWN) == StoryType.HELP_DOCUMENTATION:
+            return f"Select '{self._help_command_label(feature_name)}'."
+        return f"Select the {feature_name} command."
+
+    def _story_type_entry_point(self, feature_name: str, entry_points: list[str]) -> str:
         """Resolve entry point honoring story type — but only via surfaces this app has.
 
         Conventional surfaces like "Help Menu" / "Properties Panel" are used only
@@ -653,7 +707,7 @@ class GenericTestGenerator:
             return "Properties Panel"
         return self.app.determine_entry_point(feature_name, entry_points)
 
-    def _get_object_setup_steps(self) -> List[Dict[str, str]]:
+    def _get_object_setup_steps(self) -> list[dict[str, str]]:
         """Get object interaction setup steps (after file is created).
 
         These steps should be added AFTER the standard setup steps which
@@ -671,9 +725,9 @@ class GenericTestGenerator:
         ac_bullet: str,
         ac_index: int,
         feature_name: str,
-        story_data: Dict,
-        qa_details: Dict
-    ) -> Optional[Dict]:
+        story_data: dict,
+        qa_details: dict
+    ) -> dict | None:
         """Generate test case for an acceptance criterion."""
         ac_lower = ac_bullet.lower()
 
@@ -703,9 +757,9 @@ class GenericTestGenerator:
         test_id: str,
         ac_bullet: str,
         feature_name: str,
-        story_data: Dict,
-        qa_details: Dict
-    ) -> Dict:
+        story_data: dict,
+        qa_details: dict
+    ) -> dict:
         """Generate overall acceptance test for AC1.
 
         AC1 is an end-to-end test that verifies the core feature works:
@@ -755,26 +809,27 @@ class GenericTestGenerator:
                 {"action": f"Navigate to the {entry_point} on the right side of the screen.",
                  "expected": f"{entry_point} is displayed showing options for the selected object."},
                 {"action": f"Locate and apply the {feature_name} controls in the {entry_point}.",
-                 "expected": f"The {feature_name} controls are available and take effect."},
+                 "expected": f"The {feature_name} controls are displayed in the {entry_point}."},
                 self._grounded_verify_step(primary_ac, feature_name),
             ])
-            objective = f"Verify that <b>{feature_name}</b> can be applied from <b>{entry_point}</b> and works correctly"
         elif 'Toolbar' in entry_point:
             steps.extend([
                 {"action": f"Click the {feature_name} icon in the {entry_point}.",
                  "expected": f"{feature_name} is activated."},
                 self._grounded_verify_step(primary_ac, feature_name),
             ])
-            objective = f"Verify that <b>{feature_name}</b> can be activated from <b>{entry_point}</b> and works correctly"
         else:
             # For menus (File Menu, Edit Menu, Tools Menu, etc.)
+            is_help = story_type == StoryType.HELP_DOCUMENTATION
             steps.extend([
                 {"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens displaying available commands."},
-                {"action": f"Select the {feature_name} command.",
-                 "expected": f"The {feature_name} feature is activated."},
+                {"action": self._select_command_action(feature_name),
+                 "expected": ("The in-app viewer opens displaying the manual content." if is_help
+                              else f"The {feature_name} feature is activated.")},
                 self._grounded_verify_step(primary_ac, feature_name),
             ])
-            objective = f"Verify that <b>{feature_name}</b> command is accessible from <b>{entry_point}</b> and works correctly"
+        # Objective is the primary AC's own outcome, never "works correctly"
+        objective = f"Verify that <b>{self._humanize_objective(primary_ac, feature_name)}</b>"
 
         steps.append(self._get_close_step())
 
@@ -840,33 +895,27 @@ class GenericTestGenerator:
         test_id: str,
         ac_bullet: str,
         feature_name: str,
-        story_data: Dict,
-        qa_details: Dict
-    ) -> Dict:
+        story_data: dict,
+        qa_details: dict
+    ) -> dict:
         """Generate undo/redo test."""
         entry_point = self.app.determine_entry_point(feature_name, qa_details.get('entry_points', []))
         title = f"{test_id}: {feature_name} / {entry_point} / Undo and redo actions"
 
         steps = self._get_standard_setup_steps()
-        steps.append({"action": "Create a new document/drawing.", "expected": ""})
 
-        # Add object setup if needed
+        # Add object setup if needed (domain-appropriate steps from config)
         if self.app.requires_object_interaction(ac_bullet) or self.app.requires_object_interaction(feature_name):
-            steps.extend([
-                {"action": "Create an object in the workspace.", "expected": ""},
-                {"action": "Select the created object.", "expected": ""},
-            ])
+            steps.extend(self._get_object_setup_steps())
 
+        # No keyboard shortcuts here: the story may not mention any
         steps.extend([
-            {"action": f"Perform the {feature_name} action.", "expected": ""},
-            {"action": f"Verify the {feature_name} action is applied.",
-             "expected": f"{feature_name} action is completed successfully."},
-            {"action": "Trigger Undo (Ctrl+Z or Cmd+Z).", "expected": ""},
-            {"action": f"Verify the {feature_name} action is reversed.",
-             "expected": f"{feature_name} action is undone."},
-            {"action": "Trigger Redo (Ctrl+Y or Cmd+Shift+Z).", "expected": ""},
-            {"action": f"Verify the {feature_name} action is restored.",
-             "expected": f"{feature_name} action is restored after Redo."},
+            {"action": f"Perform the {feature_name} action.",
+             "expected": f"The {feature_name} change is applied."},
+            {"action": "Select the Undo command.",
+             "expected": f"The {feature_name} change is reversed."},
+            {"action": "Select the Redo command.",
+             "expected": f"The {feature_name} change is applied again."},
         ])
         steps.append(self._get_close_step())
 
@@ -879,9 +928,9 @@ class GenericTestGenerator:
         test_id: str,
         ac_bullet: str,
         feature_name: str,
-        story_data: Dict,
-        qa_details: Dict
-    ) -> Dict:
+        story_data: dict,
+        qa_details: dict
+    ) -> dict:
         """Generate a SPECIFIC test based on AC content - never generic."""
         story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
         entry_points = qa_details.get('entry_points', [])
@@ -931,7 +980,7 @@ class GenericTestGenerator:
         ac_bullet: str,
         feature_name: str,
         entry_point: str
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """Derive SPECIFIC test steps from AC text - never generic.
 
         Context-aware based on story type to generate appropriate steps
@@ -949,98 +998,74 @@ class GenericTestGenerator:
         if entry_point == "Properties Panel" or story_type == StoryType.PROPERTIES:
             return self._derive_properties_panel_steps(ac_bullet, feature_name, entry_point)
 
-        # Pattern-based step generation for specific AC types
+        # Pattern-based seed steps. Expected results come from the AC itself;
+        # nothing here may assume a particular application (no canvases,
+        # presets or documents unless the AC names them) — these seeds anchor
+        # the LLM, so an invented seed becomes an invented test.
+        verification = self._format_expected_result(
+            self._extract_verification(ac_bullet, feature_name))
+        surfaces = set(self.app.main_ui_surfaces)
 
         # 1. Dialog/menu opening ACs
         if 'opens' in ac_lower or 'open' in ac_lower:
-            menu_match = re.search(r'(file|edit|view|tools?|insert|help)\s*(?:→|->|menu)?', ac_lower)
-            if menu_match:
+            menu_match = re.search(r'\b(file|edit|view|tools?|insert|help)\s*(?:→|->|menu\b)', ac_lower)
+            if menu_match and f"{menu_match.group(1).capitalize()} Menu" in surfaces:
                 menu = menu_match.group(1).capitalize()
                 steps.append({"action": f"Open the {menu} Menu.", "expected": f"{menu} Menu opens displaying available commands."})
 
             action_match = re.search(r'(?:select|click|choose)\s+["\']?(\w+)["\']?', ac_lower)
             if action_match:
-                action = action_match.group(1).capitalize()
-                steps.append({"action": f"Select '{action}'.", "expected": f"The {feature_name} dialog opens."})
-            elif re.search(r'\b(draw(?:ing)?|file|document|canvas|project)\b', ac_lower):
-                # Behavioral: a drawing/file/canvas (re)opens — this is NOT a UI
-                # command or dialog, so don't fabricate "Select the <feature> command".
-                steps.append({"action": "Open the previously saved drawing.",
-                              "expected": "The drawing opens and behaves as described in the acceptance criteria."})
+                steps.append({"action": f"Select '{action_match.group(1).capitalize()}'.",
+                              "expected": verification})
             else:
-                steps.append({"action": f"Select the {feature_name} command.", "expected": f"The {feature_name} dialog opens."})
+                steps.append({"action": self._extract_main_action(ac_bullet, feature_name),
+                              "expected": verification})
 
         # 2. Default value ACs
         elif 'default' in ac_lower:
             steps.append({"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens."})
             default_match = re.search(r'default(?:\s+preset)?\s*=\s*["\']?([^"\'\.]+)', ac_bullet, re.IGNORECASE)
-            if default_match:
-                default_val = default_match.group(1).strip()
-                steps.append({"action": f"Verify the default preset value.", "expected": f"Preset shows '{default_val}'."})
-            else:
-                steps.append({"action": "Verify the default preset values are displayed.", "expected": "Default values are shown correctly."})
+            expected = (f"The default value shown is '{default_match.group(1).strip()}'."
+                        if default_match else verification)
+            steps.append({"action": "Observe the value shown before making any change.",
+                          "expected": expected})
 
         # 3. Field/control availability ACs
         elif 'field' in ac_lower or 'available' in ac_lower or 'include' in ac_lower:
             steps.append({"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens."})
-            # Extract field names if listed
             field_match = re.search(r'fields?\s*(?:available|include)?:?\s*([^\.]+)', ac_bullet, re.IGNORECASE)
+            fields = []
             if field_match:
-                fields_str = field_match.group(1)
-                fields = [f.strip() for f in re.split(r'[,;]', fields_str) if f.strip() and len(f.strip()) > 1]
-                for field in fields[:5]:  # Limit to 5 fields
-                    clean_field = re.sub(r'\([^)]+\)', '', field).strip()
-                    if clean_field:
-                        steps.append({"action": f"Verify {clean_field} is displayed.", "expected": f"{clean_field} field/control is visible."})
-            else:
-                steps.append({"action": f"Verify all required controls are displayed.", "expected": "All controls are visible and functional."})
+                fields = [re.sub(r'\([^)]+\)', '', f).strip() for f in re.split(r'[,;]', field_match.group(1))]
+                fields = [f for f in fields if len(f) > 1][:5]
+            for field_name in fields:
+                steps.append({"action": f"Locate the {field_name} control.",
+                              "expected": f"The {field_name} control is displayed."})
+            if not fields:
+                steps.append({"action": f"Observe the controls in the {entry_point}.",
+                              "expected": verification})
 
-        # 4. Setting dependency ACs
-        elif 'follow' in ac_lower and 'setting' in ac_lower:
-            # Extract what setting
-            setting_match = re.search(r'follow(?:s)?\s+(?:the\s+)?(?:current\s+)?(\w+(?:\s+\w+)?)\s+setting', ac_lower)
-            setting_name = setting_match.group(1) if setting_match else "Unit of Measure"
-            steps.append({"action": f"Open Settings.", "expected": "Settings panel/dialog opens."})
-            steps.append({"action": f"Note the current {setting_name} setting.", "expected": ""})
+        # 4. Setting dependency ACs ("follows the current X setting")
+        elif ('follow' in ac_lower and 'setting' in ac_lower and "Settings" in surfaces
+              and re.search(r'follow(?:s)?\s+(?:the\s+)?(?:current\s+)?(\w+(?:\s+\w+)?)\s+setting', ac_lower)):
+            setting_name = re.search(
+                r'follow(?:s)?\s+(?:the\s+)?(?:current\s+)?(\w+(?:\s+\w+)?)\s+setting', ac_lower).group(1)
+            steps.append({"action": "Open Settings.", "expected": "Settings opens."})
+            steps.append({"action": f"Note the current {setting_name} setting.",
+                          "expected": f"The current {setting_name} setting is displayed."})
             steps.append({"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens."})
-            steps.append({"action": f"Verify the dropdown reflects the current {setting_name} setting.", "expected": f"Dropdown value matches the {setting_name} setting."})
+            steps.append({"action": f"Observe the value that depends on the {setting_name} setting.",
+                          "expected": f"The value matches the {setting_name} setting noted earlier."})
 
-        # 5. Recent items ACs
-        elif 'recent' in ac_lower:
-            steps.append({"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens."})
-            steps.append({"action": "Locate the Recent Items section.", "expected": "Recent Items section is displayed."})
-            steps.append({"action": "Verify Recent Items shows previously used presets.", "expected": "Most recently used canvas presets are listed."})
-
-        # 6. Create/action button ACs
-        elif 'create' in ac_lower or 'initialize' in ac_lower:
-            steps.append({"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens."})
-            steps.append({"action": "Set desired size and unit values.", "expected": ""})
-            steps.append({"action": "Click 'Create' button.", "expected": "A new blank canvas is created with the selected settings."})
-            steps.append({"action": "Verify the canvas reflects the chosen dimensions.", "expected": "Canvas matches the specified size and units."})
-
-        # 7. Close/cancel button ACs
-        elif 'close' in ac_lower or 'cancel' in ac_lower or 'exit' in ac_lower:
-            steps.append({"action": "Open an existing document.", "expected": "Document is displayed."})
-            steps.append({"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens."})
-            steps.append({"action": "Modify some values in the dialog.", "expected": ""})
-            steps.append({"action": "Click 'Close' button.", "expected": "Dialog closes without creating a new document."})
-            steps.append({"action": "Verify the previous document is still displayed.", "expected": "User returns to the previously open document."})
-
-        # 8. Accessibility/WCAG ACs (handled separately, skip here)
+        # 5. Accessibility/WCAG ACs (handled separately, skip here)
         elif 'accessibility' in ac_lower or 'wcag' in ac_lower or '508' in ac_lower:
             pass  # Will be generated by accessibility test generator
 
-        # 9. Fallback: Extract specific action from AC text
+        # 6. Everything else: the AC's own action and outcome
         else:
-            steps.append({"action": f"Navigate to {entry_point}.", "expected": f"{entry_point} is accessible."})
-
-            # Extract the main action verb and object
-            action = self._extract_main_action(ac_bullet, feature_name)
-            expected = self._extract_verification(ac_bullet, feature_name)
-            expected_formatted = self._format_expected_result(expected)
-
-            steps.append({"action": action, "expected": ""})
-            steps.append({"action": f"Verify: {expected}", "expected": expected_formatted})
+            steps.append({"action": f"Open the {entry_point}.", "expected": f"{entry_point} is displayed."})
+            steps.append({"action": self._extract_main_action(ac_bullet, feature_name),
+                          "expected": verification})
 
         return steps
 
@@ -1049,7 +1074,7 @@ class GenericTestGenerator:
         ac_bullet: str,
         feature_name: str,
         entry_point: str
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """Derive steps for Help/Documentation features.
 
         These features don't involve object manipulation, so we focus on:
@@ -1059,80 +1084,58 @@ class GenericTestGenerator:
         - Offline access verification
         - No external browser verification
         """
-        steps = []
         ac_lower = ac_bullet.lower()
+        # The command comes from the story (menu path, quoted term, help noun),
+        # never the story title — "Select the <story title> command" was a
+        # hallucinated menu item.
+        command = self._help_command_label(feature_name)
+        open_menu = {"action": f"Open the {entry_point}.",
+                     "expected": f"{entry_point} opens displaying available commands."}
 
-        # Step 1: Open Help Menu
-        steps.append({
-            "action": f"Open the {entry_point}.",
-            "expected": f"{entry_point} opens displaying available commands."
-        })
-
-        # Step 2: Select User Manual
-        steps.append({
-            "action": f"Select the {feature_name} command.",
-            "expected": "The in-app viewer opens displaying the manual content."
-        })
-
-        # Step 3: Context-specific verification based on AC content
         if 'appear' in ac_lower and 'menu' in ac_lower:
             # AC: "User Manual" appears under the Help menu
-            steps.clear()  # Reset steps
-            steps.append({
-                "action": f"Open the {entry_point}.",
-                "expected": f"{entry_point} opens."
-            })
-            steps.append({
-                "action": f"Verify \"{feature_name}\" appears in the menu.",
-                "expected": f"\"{feature_name}\" is visible in the {entry_point}."
-            })
+            return [
+                open_menu,
+                {"action": f"Observe the commands listed in the {entry_point}.",
+                 "expected": f"\"{command}\" is listed in the {entry_point}."},
+            ]
 
-        elif 'viewer' in ac_lower and 'open' in ac_lower:
-            # AC: Selecting it opens an in-app viewer
-            steps.append({
-                "action": "Verify the manual content is displayed in the in-app viewer.",
-                "expected": "PDF manual content is displayed correctly."
-            })
+        steps = [
+            open_menu,
+            {"action": f"Select '{command}'.",
+             "expected": "The in-app viewer opens displaying the manual content."},
+        ]
 
-        elif 'offline' in ac_lower or 'internet' in ac_lower:
-            # AC: Viewer displays content without requiring internet
-            steps.append({
-                "action": "Disconnect from the internet (disable WiFi/network).",
-                "expected": ""
+        if 'offline' in ac_lower or 'internet' in ac_lower:
+            # AC: content is available without a connection — go offline first
+            steps.insert(0, {
+                "action": "Disconnect the device from the network (turn off Wi-Fi and wired networking).",
+                "expected": "The device has no network connection."
             })
             steps.append({
-                "action": "Verify the manual content is still displayed without errors.",
-                "expected": "Content remains accessible without internet connection."
+                "action": "Scroll through the manual.",
+                "expected": "The manual content is displayed with no network error."
             })
-
         elif 'remain' in ac_lower and ('open' in ac_lower or 'behind' in ac_lower):
-            # AC: the application remains open behind the viewer
             steps.append({
-                "action": f"Verify the {self.app.name} workspace is visible behind the viewer.",
-                "expected": f"{self.app.name} application remains accessible behind the viewer."
+                "action": f"Observe the {self.app.name} window behind the viewer.",
+                "expected": f"{self.app.name} remains open behind the viewer."
             })
-
         elif 'browser' in ac_lower or 'external' in ac_lower:
-            # AC: No external browser or online hosting is used
             steps.append({
-                "action": "Verify no external browser window is launched.",
-                "expected": "No external browser is opened. Content is displayed in-app."
+                "action": "Observe the open windows on the device.",
+                "expected": "No external browser window opens; the manual is displayed inside the application."
+            })
+        elif not ('viewer' in ac_lower and 'open' in ac_lower):
+            steps.append({
+                "action": "Scroll through the manual.",
+                "expected": "The manual content is displayed in the in-app viewer."
             })
 
-        else:
-            # Generic Help verification
-            steps.append({
-                "action": f"Verify the {feature_name} content is displayed correctly.",
-                "expected": "Manual content is displayed in the in-app viewer."
-            })
-
-        # Step 4: Close the viewer (if applicable)
-        if 'viewer' in ac_lower or 'open' in ac_lower:
-            steps.append({
-                "action": "Close the viewer.",
-                "expected": ""
-            })
-
+        steps.append({
+            "action": "Close the viewer.",
+            "expected": f"The viewer closes and {self.app.name} is displayed."
+        })
         return steps
 
     def _derive_properties_panel_steps(
@@ -1140,7 +1143,7 @@ class GenericTestGenerator:
         ac_bullet: str,
         feature_name: str,
         entry_point: str
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """Derive steps for Properties Panel features.
 
         Properties Panel features require object selection first, then
@@ -1284,10 +1287,10 @@ class GenericTestGenerator:
     def _generate_edge_case_test(
         self,
         test_id: str,
-        edge_case: Dict,
+        edge_case: dict,
         feature_name: str,
-        story_data: Dict
-    ) -> Optional[Dict]:
+        story_data: dict
+    ) -> dict | None:
         """Generate test for edge case scenario."""
         edge_type = edge_case['type']
         story_type = getattr(self, 'story_type', StoryType.UNKNOWN)
@@ -1306,55 +1309,45 @@ class GenericTestGenerator:
         else:
             steps = self._get_standard_setup_steps()
 
+        # Object/record setup comes from config; outcomes name ONE observable
+        # result (no "disabled or provides feedback", no "appropriately").
         if edge_type == 'no_selection':
-            # Note: Standard setup already includes file creation, so don't add another
+            # Only generated when an AC says the feature needs a selection
             steps.extend([
-                {"action": f"Navigate to {entry_point}.", "expected": f"{entry_point} is displayed."},
-                {"action": f"Attempt to use the {feature_name} feature without selecting any object.",
-                 "expected": ""},
-                {"action": "Verify appropriate feedback is provided when no object is selected.",
-                 "expected": "Feature is disabled or provides feedback that no object is selected."},
+                {"action": f"Open the {entry_point}.", "expected": f"{entry_point} is displayed."},
+                {"action": f"With nothing selected, locate the {feature_name} command.",
+                 "expected": f"The {feature_name} command is disabled while nothing is selected."},
             ])
-            objective = f"Verify that <b>{feature_name}</b> provides appropriate feedback when <b>no object is selected</b>"
+            objective = f"Verify that <b>{feature_name}</b> is unavailable when <b>nothing is selected</b>"
 
         elif edge_type == 'invalid_type':
-            # Note: Standard setup already includes file creation
             steps.extend([
-                {"action": "Create an object of incompatible type (e.g., text annotation).",
-                 "expected": "Object is created on the canvas."},
-                {"action": "Select the object.",
-                 "expected": "Object is selected with selection handles visible."},
-                {"action": f"Navigate to {entry_point}.", "expected": f"{entry_point} is displayed."},
-                {"action": f"Attempt to use the {feature_name} feature.", "expected": ""},
-                {"action": "Verify appropriate feedback is provided for incompatible object type.",
-                 "expected": "Feature is disabled or provides feedback about incompatible object type."},
+                {"action": f"Create and select an object of a type the {feature_name} does not support.",
+                 "expected": "The object is selected."},
+                {"action": f"Open the {entry_point}.", "expected": f"{entry_point} is displayed."},
+                {"action": f"Apply the {feature_name} to the selected object.",
+                 "expected": f"The {feature_name} is not applied to the selected object."},
             ])
-            objective = f"Verify that <b>{feature_name}</b> handles <b>incompatible object types</b> appropriately"
+            objective = f"Verify that <b>{feature_name}</b> is not applied to <b>unsupported object types</b>"
 
         elif edge_type == 'duplicate_prevention':
-            # Note: Standard setup already includes file creation
+            steps.extend(self._get_object_setup_steps())
             steps.extend([
-                {"action": "Draw an object/shape on the canvas.",
-                 "expected": "Object is created and displayed on the canvas."},
-                {"action": "Select the created object.",
-                 "expected": "Object is selected with selection handles visible."},
-                {"action": f"Navigate to {entry_point}.", "expected": f"{entry_point} is displayed."},
-                {"action": f"Apply the {feature_name} feature.", "expected": "Feature is applied successfully."},
-                {"action": f"Navigate to {entry_point} again.", "expected": ""},
-                {"action": f"Attempt to apply the {feature_name} feature again.", "expected": ""},
-                {"action": "Verify no duplicate is created.",
-                 "expected": "Feature prevents duplicate application."},
+                {"action": f"Open the {entry_point}.", "expected": f"{entry_point} is displayed."},
+                {"action": f"Apply the {feature_name}.", "expected": f"The {feature_name} is applied once."},
+                {"action": f"Apply the {feature_name} again to the same selection.",
+                 "expected": f"No duplicate {feature_name} is created."},
             ])
             objective = f"Verify that <b>reapplying {feature_name}</b> does not create <b>duplicates</b>"
 
         elif edge_type == 'empty_state':
             steps.extend([
-                {"action": "Create a new empty document/drawing.", "expected": ""},
-                {"action": f"Navigate to {entry_point}.", "expected": ""},
-                {"action": f"Verify the {feature_name} feature behavior with empty state.",
-                 "expected": "Feature handles empty state appropriately."},
+                {"action": f"Open the {entry_point} before any data has been added.",
+                 "expected": f"{entry_point} is displayed."},
+                {"action": f"Observe the {feature_name}.",
+                 "expected": f"The {feature_name} shows its empty state with no error message."},
             ])
-            objective = f"Verify that <b>{feature_name}</b> handles <b>empty state</b> appropriately"
+            objective = f"Verify that <b>{feature_name}</b> shows its <b>empty state</b> without errors"
 
         else:
             return None
@@ -1366,9 +1359,9 @@ class GenericTestGenerator:
         self,
         story_id: str,
         feature_name: str,
-        story_data: Dict,
-        qa_details: Dict
-    ) -> List[Dict]:
+        story_data: dict,
+        qa_details: dict
+    ) -> list[dict]:
         """Generate platform-specific tests."""
         platform_tests = []
         platforms = qa_details.get('platforms', [])
@@ -1379,8 +1372,8 @@ class GenericTestGenerator:
         entry_point = self._story_type_entry_point(feature_name, entry_points)
 
         # Check for touch platforms - separate tablets and phones
-        tablet_platforms = [p for p in platforms if p in ['iPad', 'Android Tablet']]
-        phone_platforms = [p for p in platforms if p in ['iPhone', 'Android Phone']]
+        tablet_platforms = [p for p in platforms if 'tablet' in p.lower() or 'ipad' in p.lower()]
+        phone_platforms = [p for p in platforms if 'phone' in p.lower()]
 
         # Combine tablet touch tests into a single "(Tablets)" test if both iPad and Android Tablet present
         if len(tablet_platforms) >= 2:
@@ -1408,12 +1401,12 @@ class GenericTestGenerator:
             steps.extend([
                 {"action": f"Navigate to {entry_point} using touch.", "expected": f"{entry_point} opens."},
                 {"action": f"Access the {feature_name} using touch gestures.", "expected": f"The {feature_name} feature is activated."},
-                {"action": f"Verify the {feature_name} is accessible via touch input.",
-                 "expected": f"{feature_name} works correctly with touch interaction on iPad and Android Tablet."},
+                {"action": f"Operate each {feature_name} control with a single tap.",
+                 "expected": f"Each {feature_name} control responds to touch on {' and '.join(tablet_platforms)}."},
             ])
             steps.append(self._get_close_step())
 
-            objective = f"Verify that <b>{feature_name}</b> works correctly on <b>iPad and Android Tablet</b> using <b>touch or stylus</b>"
+            objective = f"Verify that <b>{feature_name}</b> can be operated by touch on <b>{' and '.join(tablet_platforms)}</b>"
             platform_tests.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
         elif len(tablet_platforms) == 1:
             # Single tablet platform - use specific name
@@ -1441,12 +1434,12 @@ class GenericTestGenerator:
             steps.extend([
                 {"action": f"Navigate to {entry_point} using touch.", "expected": f"{entry_point} opens."},
                 {"action": f"Access the {feature_name} using touch gestures.", "expected": f"The {feature_name} feature is activated."},
-                {"action": f"Verify the {feature_name} is accessible via touch input.",
-                 "expected": f"{feature_name} works correctly with touch interaction on {platform}."},
+                {"action": f"Operate each {feature_name} control with a single tap.",
+                 "expected": f"Each {feature_name} control responds to touch on {platform}."},
             ])
             steps.append(self._get_close_step())
 
-            objective = f"Verify that <b>{feature_name}</b> works correctly on <b>{platform}</b> using <b>touch or stylus</b>"
+            objective = f"Verify that <b>{feature_name}</b> can be operated by touch on <b>{platform}</b>"
             platform_tests.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
 
         # Generate separate tests for phone platforms (if any)
@@ -1474,12 +1467,12 @@ class GenericTestGenerator:
             steps.extend([
                 {"action": f"Navigate to {entry_point} using touch.", "expected": f"{entry_point} opens."},
                 {"action": f"Access the {feature_name} using touch gestures.", "expected": f"The {feature_name} feature is activated."},
-                {"action": f"Verify the {feature_name} is accessible via touch input.",
-                 "expected": f"{feature_name} works correctly with touch interaction on {platform}."},
+                {"action": f"Operate each {feature_name} control with a single tap.",
+                 "expected": f"Each {feature_name} control responds to touch on {platform}."},
             ])
             steps.append(self._get_close_step())
 
-            objective = f"Verify that <b>{feature_name}</b> works correctly on <b>{platform}</b> using <b>touch or stylus</b>"
+            objective = f"Verify that <b>{feature_name}</b> can be operated by touch on <b>{platform}</b>"
             platform_tests.append({'id': test_id, 'title': title, 'steps': steps, 'objective': objective})
 
         return platform_tests
@@ -1488,9 +1481,9 @@ class GenericTestGenerator:
         self,
         story_id: str,
         feature_name: str,
-        story_data: Dict,
-        qa_details: Dict
-    ) -> List[Dict]:
+        story_data: dict,
+        qa_details: dict
+    ) -> list[dict]:
         """Generate accessibility tests for each platform."""
         accessibility_tests = []
         platforms = qa_details.get('platforms', self.app.supported_platforms)
@@ -1500,8 +1493,8 @@ class GenericTestGenerator:
         # Determine entry point based on story type (config-aware)
         entry_point = self._story_type_entry_point(feature_name, entry_points)
 
-        # Helper: should we include create file step?
-        include_create_file = story_type != StoryType.HELP_DOCUMENTATION
+        # Helper: should we include the context setup step? (policy-driven)
+        include_create_file = self._should_include_setup(story_type != StoryType.HELP_DOCUMENTATION)
 
         # Helper: should we include object setup?
         needs_object_setup = (
@@ -1546,8 +1539,8 @@ class GenericTestGenerator:
             else:
                 steps.extend([
                     {"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens displaying available commands."},
-                    {"action": f"Select the {feature_name} command.", "expected": "The in-app viewer opens displaying the manual content." if story_type == StoryType.HELP_DOCUMENTATION else f"The {feature_name} feature is activated."},
-                    {"action": f"Use the Tab key to navigate through the available controls.",
+                    {"action": self._select_command_action(feature_name), "expected": "The in-app viewer opens displaying the manual content." if story_type == StoryType.HELP_DOCUMENTATION else f"The {feature_name} feature is activated."},
+                    {"action": "Use the Tab key to navigate through the available controls.",
                      "expected": "Focus cycles through all interactive elements with a visible focus indicator."},
                 ])
             steps.append(self._get_close_step())
@@ -1583,7 +1576,7 @@ class GenericTestGenerator:
             else:
                 steps.extend([
                     {"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens displaying available commands."},
-                    {"action": f"Select the {feature_name} command.", "expected": "The in-app viewer opens displaying the manual content." if story_type == StoryType.HELP_DOCUMENTATION else f"The {feature_name} dialog opens."},
+                    {"action": self._select_command_action(feature_name), "expected": "The in-app viewer opens displaying the manual content." if story_type == StoryType.HELP_DOCUMENTATION else f"The {feature_name} dialog opens."},
                     {"action": "Activate VoiceOver and navigate through the viewer.",
                      "expected": "VoiceOver reads out the content and controls correctly."},
                 ])
@@ -1620,7 +1613,7 @@ class GenericTestGenerator:
             else:
                 steps.extend([
                     {"action": f"Open the {entry_point}.", "expected": f"{entry_point} opens displaying available commands."},
-                    {"action": f"Select the {feature_name} command.", "expected": "The in-app viewer opens displaying the manual content." if story_type == StoryType.HELP_DOCUMENTATION else f"The {feature_name} dialog opens."},
+                    {"action": self._select_command_action(feature_name), "expected": "The in-app viewer opens displaying the manual content." if story_type == StoryType.HELP_DOCUMENTATION else f"The {feature_name} dialog opens."},
                     {"action": "Run Accessibility Scanner on the viewer.", "expected": "Accessibility Scanner identifies all interactive elements and provides feedback."},
                 ])
             steps.append(self._get_close_step())
@@ -1639,17 +1632,26 @@ class GenericTestGenerator:
 
                 title = f"{test_id}: {feature_name} / Accessibility / Screen reader and keyboard (Web)"
 
+                from core.services.platform_scope import accessibility_profile
+                tool = accessibility_profile(
+                    web_platforms[0], 'web', getattr(self.app, 'accessibility_tools', None))['tool']
                 steps = [
                     self._get_prereq_step(),
-                    {"action": "Pre-req: Screen reader (NVDA/JAWS/VoiceOver) is enabled", "expected": ""},
+                    # web apps are never "installed" — see test_project_agnostic
+                    {"action": f"Pre-req: The NVDA screen reader is running and {tool} is available in the browser",
+                     "expected": ""},
                     self._get_launch_step(),
-                    self._get_create_file_step(),
-                    {"action": f"Navigate to {entry_point} using keyboard (Tab/Arrow keys).", "expected": ""},
-                    {"action": f"Verify the {feature_name} controls have correct ARIA roles and labels.",
-                     "expected": "Screen reader announces controls with meaningful labels."},
-                    {"action": "Verify focus indicators are visible.",
-                     "expected": "Focus is clearly visible on all interactive elements."},
                 ]
+                if include_create_file:
+                    steps.append(self._get_create_file_step())
+                steps.extend([
+                    {"action": f"Using only the keyboard (Tab, Shift+Tab, Enter, arrow keys), open the {entry_point}.",
+                     "expected": f"Focus reaches the {entry_point} in a logical order with a visible focus indicator."},
+                    {"action": f"Move through the {feature_name} controls with the screen reader on.",
+                     "expected": "The screen reader announces each control with a meaningful name and role."},
+                    {"action": f"Run {tool} FastPass on the {entry_point}.",
+                     "expected": "FastPass reports no failed automated checks."},
+                ])
                 steps.append(self._get_close_step())
 
                 objective = f"Verify that <b>{feature_name}</b> is accessible via <b>keyboard and screen reader</b>"
@@ -1659,23 +1661,17 @@ class GenericTestGenerator:
 
     # Helper Methods
 
-    def _filter_platforms_by_ac(self, acceptance_criteria: List[str]) -> List[str]:
-        """Filter platforms to only those relevant to this story's ACs.
+    def _filter_platforms_by_ac(self, acceptance_criteria: list[str]) -> list[str]:
+        """Platforms this story's ACs are in scope for (see core.services.platform_scope).
 
-        Primary platform (first in config) is always included.
-        Additional platforms (iPad, Android Tablet) only if explicitly mentioned in ACs.
+        Primary platform (first in config) is always included; others when the
+        ACs name them or an alias ("iOS", "Google Play", "each applicable package").
         """
+        from core.services.platform_scope import select_story_platforms
+
         all_platforms = list(self.app.supported_platforms)
-        if not all_platforms or len(all_platforms) <= 1:
-            return all_platforms
-
-        primary = all_platforms[0]
-        ac_text = ' '.join(acceptance_criteria).lower()
-
-        filtered = [primary]
-        for platform in all_platforms[1:]:
-            if platform.lower() in ac_text:
-                filtered.append(platform)
+        filtered = select_story_platforms(
+            all_platforms, acceptance_criteria, getattr(self.app, 'platform_aliases', None))
 
         if len(filtered) < len(all_platforms):
             excluded = [p for p in all_platforms if p not in filtered]
@@ -1683,7 +1679,7 @@ class GenericTestGenerator:
 
         return filtered
 
-    def _parse_qa_prep(self, qa_prep: str, acceptance_criteria: Optional[List[str]] = None) -> Dict:
+    def _parse_qa_prep(self, qa_prep: str, acceptance_criteria: list[str] | None = None) -> dict:
         """Parse QA Prep content to extract testing details."""
         if not qa_prep:
             return {}
@@ -1747,7 +1743,7 @@ class GenericTestGenerator:
 
         return details
 
-    def _extract_edge_cases(self, qa_details: Dict, feature_name: str) -> List[Dict]:
+    def _extract_edge_cases(self, qa_details: dict, feature_name: str) -> list[dict]:
         """Extract edge case scenarios from QA details.
 
         Filters out irrelevant edge cases based on story type.
@@ -1808,6 +1804,11 @@ class GenericTestGenerator:
         """Extract the core feature name from story title."""
         title = story_title.strip()
 
+        # Module codes lead some titles ("MODA / Require …", "MODA/MODB Implement …");
+        # a "/" left in the feature name breaks the "<ID>: Area / Component / Behavior" title.
+        title = re.sub(r'^(?:[A-Z]{3,}(?:/[A-Z]{3,})*\s*/?\s*)+(?=[A-Z][a-z])', '', title).strip()
+        title = re.sub(r'\s*/\s*', ' - ', title)
+
         # Remove user story prefixes
         prefixes = ['As a', 'As an', 'I want', 'I need', 'User can', 'Users can']
         for prefix in prefixes:
@@ -1819,6 +1820,16 @@ class GenericTestGenerator:
                     title = title.replace(prefix, '').strip()
                 break
 
+        # Titles often lead with the work to do ("Update and Verify SiteDraft
+        # User Manual …", "Rebuild the Establishment Search Page …"); the
+        # feature is what follows. Only verb chains and verb + article are
+        # stripped, so "Add Show Grid toggle" or "Update History Panel" stay.
+        verbs = r'(?:add|update|verify|validate|implement|enable|create|improve|rebuild|refactor|review|test)'
+        lead = (re.match(rf'^{verbs}(?:\s*,\s*{verbs})*\s+(?:and|&)\s+{verbs}\s+(.+)$', title, re.IGNORECASE)
+                or re.match(rf'^{verbs}\s+(?:the|a|an)\s+(.+)$', title, re.IGNORECASE))
+        if lead and len(lead.group(1).split()) >= 2:
+            title = lead.group(1).strip()
+
         # Strip trailing status brackets and parenthetical qualifiers so the
         # feature name does not leak title noise into step text, e.g.
         # "Full Screen Mode (OS native full screen)" -> "Full Screen Mode",
@@ -1828,7 +1839,7 @@ class GenericTestGenerator:
 
         return title
 
-    def _is_behavioral_feature(self, feature_name: str, story_data: Dict) -> bool:
+    def _is_behavioral_feature(self, feature_name: str, story_data: dict) -> bool:
         """True when the feature is automatic/behavioral/state rather than an
         explicitly invoked command, menu item, button, or toggle.
 
@@ -1858,14 +1869,14 @@ class GenericTestGenerator:
         # Behavioral only when persistence/automatic signals clearly dominate.
         return behavioral >= 2 and behavioral > command
 
-    def _grounded_verify_step(self, ac_bullet: str, feature_name: str) -> Dict[str, str]:
+    def _grounded_verify_step(self, ac_bullet: str, feature_name: str) -> dict[str, str]:
         """Build a verification step grounded in the AC's observable outcome.
 
         Replaces the hardcoded "applied to selected object(s)" assertion, which
         is wrong for any feature that does not manipulate objects.
         """
         verification = self._extract_verification(ac_bullet, feature_name)
-        return {"action": f"Verify: {verification}",
+        return {"action": "Observe the result.",
                 "expected": self._format_expected_result(verification)}
 
     def _validate_and_fix_title(self, title: str, feature_name: str) -> str:
@@ -2126,7 +2137,7 @@ class GenericTestGenerator:
                 'open': f"{feature_name} viewer opens",
                 'display': f"{feature_name} content is displayed",
                 'appear': f"{feature_name} is visible in the menu",
-                'viewer': "In-app viewer displays content correctly",
+                'viewer': "The manual content is displayed in the in-app viewer",
                 'offline': "Content is accessible without internet connection",
                 'browser': "No external browser is launched",
                 'remain': f"{self.app.name} application remains open behind the viewer",
@@ -2136,7 +2147,7 @@ class GenericTestGenerator:
                 if keyword in text_lower:
                     return outcome
             # Default for Help features
-            return f"{feature_name} content is displayed correctly"
+            return f"The {feature_name} content is displayed in the in-app viewer"
 
         # Action-specific observable outcomes (for object manipulation features)
         action_outcomes = {
@@ -2145,15 +2156,15 @@ class GenericTestGenerator:
             'hide': f"{feature_name} is hidden",
             'enable': f"{feature_name} is enabled",
             'disable': f"{feature_name} is disabled",
-            'rotate': f"Selected object is rotated",
-            'mirror': f"Selected object is mirrored",
-            'flip': f"Selected object is flipped",
-            'transform': f"Object transformation is applied",
+            'rotate': "Selected object is rotated",
+            'mirror': "Selected object is mirrored",
+            'flip': "Selected object is flipped",
+            'transform': "Object transformation is applied",
             'open': f"{feature_name} dialog opens",
             'close': f"{feature_name} closes",
-            'save': f"Changes are saved",
+            'save': "Changes are saved",
             'update': f"{feature_name} is updated",
-            'select': f"Object is selected",
+            'select': "Object is selected",
             'apply': f"{feature_name} is applied to the selection",
         }
 
@@ -2173,20 +2184,18 @@ class GenericTestGenerator:
 
         # Default: Context-specific outcome
         if story_type == StoryType.HELP_DOCUMENTATION:
-            return f"{feature_name} content is displayed correctly"
+            return f"The {feature_name} content is displayed in the in-app viewer"
         elif story_type in {StoryType.TOOL, StoryType.MEASUREMENT}:
             return f"{feature_name} is applied to selected object(s)"
-        elif story_type == StoryType.DIALOG:
-            return f"{feature_name} dialog operates correctly"
-        else:
-            return f"{feature_name} functionality works as expected"
+        # Otherwise restate the AC's own outcome — never "works as expected"
+        return self._humanize_objective(ac_bullet, feature_name)
 
     def _is_cancelled(self, text: str) -> bool:
         """Check if text indicates cancelled/out-of-scope."""
         text_lower = text.lower()
         return any(ind in text_lower for ind in self.rules.cancelled_indicators)
 
-    def _detect_redundant_criteria(self, criteria: List[str]) -> List[Tuple[int, int, str]]:
+    def _detect_redundant_criteria(self, criteria: list[str]) -> list[tuple[int, int, str]]:
         """
         Detect redundant/similar acceptance criteria to avoid duplicate tests.
 
@@ -2277,7 +2286,7 @@ class GenericTestGenerator:
         self,
         ac_lower: str,
         feature_name: str,
-        desc_ctx: Optional[DescriptionContext]
+        desc_ctx: DescriptionContext | None
     ) -> str:
         """
         Generate meaningful scenario titles for Help/Documentation features.
@@ -2421,4 +2430,4 @@ class GenericTestGenerator:
 
         else:
             # Default objective for Help features
-            return f"Verify that <b>{feature_name}</b> displays correctly in the in-app viewer"
+            return f"Verify that <b>{feature_name}</b> content is displayed in the in-app viewer"

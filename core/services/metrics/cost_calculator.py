@@ -4,7 +4,6 @@ Cost calculator for LLM usage.
 Calculates estimated costs based on token usage and model pricing.
 """
 from dataclasses import dataclass
-from typing import Dict, Optional
 
 
 @dataclass
@@ -32,7 +31,7 @@ class CostCalculator:
     """Calculate costs for LLM usage across different providers."""
 
     # Pricing as of January 2025 (per 1M tokens)
-    PRICING: Dict[str, ModelPricing] = {
+    PRICING: dict[str, ModelPricing] = {
         # OpenAI models
         "gpt-4o-mini": ModelPricing(0.15, 0.60),
         "gpt-4o": ModelPricing(2.50, 10.00),
@@ -60,7 +59,7 @@ class CostCalculator:
     }
 
     @classmethod
-    def get_pricing(cls, model: str) -> Optional[ModelPricing]:
+    def get_pricing(cls, model: str) -> ModelPricing | None:
         """Get pricing for a model.
 
         Args:

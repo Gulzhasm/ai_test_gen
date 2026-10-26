@@ -4,12 +4,12 @@ Cache manager for multi-level caching.
 Provides unified access to memory and file caches with automatic fallback.
 """
 import hashlib
+from collections.abc import Callable
 from datetime import timedelta
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
-from .cache_interface import CacheStats
-from .memory_cache import MemoryCache
 from .file_cache import FileCache
+from .memory_cache import MemoryCache
 
 
 class CacheManager:
@@ -22,8 +22,8 @@ class CacheManager:
         cache_dir: str = ".cache",
         memory_max_size: int = 500,
         file_max_size: int = 10000,
-        memory_ttl: Optional[timedelta] = None,
-        file_ttl: Optional[timedelta] = None
+        memory_ttl: timedelta | None = None,
+        file_ttl: timedelta | None = None
     ):
         """Initialize cache manager.
 
@@ -36,8 +36,8 @@ class CacheManager:
             memory_ttl: Memory cache TTL (default 1 hour)
             file_ttl: File cache TTL (default 7 days)
         """
-        self._memory_cache: Optional[MemoryCache] = None
-        self._file_cache: Optional[FileCache] = None
+        self._memory_cache: MemoryCache | None = None
+        self._file_cache: FileCache | None = None
         self._enable_memory = enable_memory
         self._enable_file = enable_file
 
@@ -54,7 +54,7 @@ class CacheManager:
                 default_ttl=file_ttl or timedelta(days=7)
             )
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """Get value from cache (checks memory first, then file).
 
         Args:
@@ -84,7 +84,7 @@ class CacheManager:
         self,
         key: str,
         value: Any,
-        ttl: Optional[timedelta] = None,
+        ttl: timedelta | None = None,
         memory_only: bool = False
     ) -> None:
         """Store value in cache(s).
@@ -149,7 +149,7 @@ class CacheManager:
         self,
         key: str,
         compute_fn: Callable[[], Any],
-        ttl: Optional[timedelta] = None,
+        ttl: timedelta | None = None,
         memory_only: bool = False
     ) -> Any:
         """Get from cache or compute and store.
@@ -179,8 +179,8 @@ class CacheManager:
     @staticmethod
     def hash_prompt(
         prompt: str,
-        system_prompt: Optional[str] = None,
-        model: Optional[str] = None
+        system_prompt: str | None = None,
+        model: str | None = None
     ) -> str:
         """Generate cache key from prompts.
 
@@ -196,7 +196,7 @@ class CacheManager:
         return hashlib.sha256(content.encode()).hexdigest()
 
     @property
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Get combined cache statistics.
 
         Returns:
@@ -238,7 +238,7 @@ class CacheManager:
 
         return result
 
-    def cleanup_expired(self) -> Dict[str, int]:
+    def cleanup_expired(self) -> dict[str, int]:
         """Clean up expired entries from all caches.
 
         Returns:
@@ -254,7 +254,7 @@ class CacheManager:
 
         return result
 
-    def keys(self) -> Dict[str, List[str]]:
+    def keys(self) -> dict[str, list[str]]:
         """Get all valid keys from all caches.
 
         Returns:
@@ -272,7 +272,7 @@ class CacheManager:
 
 
 # Global cache manager instance
-_global_cache: Optional[CacheManager] = None
+_global_cache: CacheManager | None = None
 
 
 def get_cache_manager(

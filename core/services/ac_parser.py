@@ -10,7 +10,6 @@ Intelligently parses acceptance criteria to extract:
 This enables automatic generation of comprehensive, balanced test cases.
 """
 
-from typing import Dict, List, Optional, Tuple
 import re
 from dataclasses import dataclass
 
@@ -21,8 +20,8 @@ class ACSemantics:
     action: str  # e.g., "Bring to Front", "Enable", "Disable"
     target: str  # e.g., "selected object", "diameter measurement", "Draw Order actions"
     outcome: str  # e.g., "moves to highest z-order", "becomes visible", "are enabled"
-    conditions: List[str]  # e.g., ["when object is selected", "for ellipse only"]
-    boundary_cases: List[str]  # e.g., ["at top", "at bottom", "no selection"]
+    conditions: list[str]  # e.g., ["when object is selected", "for ellipse only"]
+    boundary_cases: list[str]  # e.g., ["at top", "at bottom", "no selection"]
     negation: bool  # True if this is a negative scenario (disabled, hidden, etc.)
     
     def get_balanced_scenario(self) -> str:
@@ -204,7 +203,7 @@ class ACParser:
         else:
             return 'works correctly'
     
-    def _extract_conditions(self, ac_lower: str) -> List[str]:
+    def _extract_conditions(self, ac_lower: str) -> list[str]:
         """Extract conditions/constraints."""
         conditions = []
         
@@ -223,7 +222,7 @@ class ACParser:
         
         return conditions
     
-    def _detect_boundary_cases(self, ac_lower: str) -> List[str]:
+    def _detect_boundary_cases(self, ac_lower: str) -> list[str]:
         """Detect boundary cases mentioned in AC."""
         boundary_cases = []
         
@@ -252,8 +251,8 @@ class BoundaryCaseGenerator:
         feature_name: str,
         semantics: ACSemantics,
         base_test_id: str,
-        context: Dict
-    ) -> List[Dict]:
+        context: dict
+    ) -> list[dict]:
         """Generate boundary case tests based on AC semantics."""
         boundary_tests = []
         
@@ -276,8 +275,8 @@ class BoundaryCaseGenerator:
         story_id: int,
         feature_name: str,
         semantics: ACSemantics,
-        context: Dict
-    ) -> List[Dict]:
+        context: dict
+    ) -> list[dict]:
         """Generate stacking operation boundary tests."""
         tests = []
         
@@ -310,8 +309,8 @@ class BoundaryCaseGenerator:
         story_id: int,
         feature_name: str,
         semantics: ACSemantics,
-        context: Dict
-    ) -> Optional[Dict]:
+        context: dict
+    ) -> dict | None:
         """Generate 'no selection' boundary test."""
         return {
             'type': 'boundary',
@@ -351,8 +350,8 @@ class ComprehensiveStepBuilder:
         self,
         semantics: ACSemantics,
         feature_name: str,
-        context: Dict
-    ) -> List[Dict]:
+        context: dict
+    ) -> list[dict]:
         """Build test steps from AC semantics."""
         steps = []
 
@@ -379,7 +378,7 @@ class ComprehensiveStepBuilder:
         
         return steps
     
-    def _build_setup_steps(self, semantics: ACSemantics, context: Dict) -> List[Dict]:
+    def _build_setup_steps(self, semantics: ACSemantics, context: dict) -> list[dict]:
         """Build setup steps based on semantics."""
         steps = []
         
@@ -407,7 +406,7 @@ class ComprehensiveStepBuilder:
 
         return steps
 
-    def _get_object_setup_steps(self) -> List[Dict]:
+    def _get_object_setup_steps(self) -> list[dict]:
         """Object setup steps from config, with a generic fallback."""
         if self._app_config is not None:
             getter = getattr(self._app_config, 'get_object_setup_steps', None)
@@ -424,8 +423,8 @@ class ComprehensiveStepBuilder:
         self,
         semantics: ACSemantics,
         feature_name: str,
-        context: Dict
-    ) -> List[Dict]:
+        context: dict
+    ) -> list[dict]:
         """Build action steps based on semantics."""
         steps = []
         entry_point = context.get('entry_point', 'Menu')
@@ -446,7 +445,7 @@ class ComprehensiveStepBuilder:
         
         return steps
     
-    def _build_verification(self, semantics: ACSemantics) -> Dict:
+    def _build_verification(self, semantics: ACSemantics) -> dict:
         """Build verification step from semantics."""
         # Build verification based on outcome
         if 'highest z-order' in semantics.outcome:

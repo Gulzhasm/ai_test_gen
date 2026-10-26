@@ -4,9 +4,8 @@ GroundedSpec: Evidence-backed specification extractor.
 This module extracts ONLY explicit information from AC and QA Prep,
 preventing the generator from inventing context.
 """
-from dataclasses import dataclass, field
-from typing import List, Dict, Set, Optional
 import re
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -30,7 +29,7 @@ class PlatformRequirement:
     """Represents platform/device requirements from AC/QA Prep."""
     platform: str  # e.g., "Windows 11", "iPad", "Android Tablet"
     interaction_model: str  # e.g., "mouse/keyboard", "touch", "stylus"
-    accessibility_tool: Optional[str] = None  # e.g., "Accessibility Insights", "VoiceOver"
+    accessibility_tool: str | None = None  # e.g., "Accessibility Insights", "VoiceOver"
     evidence_ref: str = ""
 
 
@@ -52,38 +51,38 @@ class GroundedSpec:
     feature_name: str
 
     # Explicit entry points from evidence
-    entry_points: List[EntryPoint] = field(default_factory=list)
+    entry_points: list[EntryPoint] = field(default_factory=list)
 
     # Explicit UI surfaces from evidence
-    surfaces: Set[str] = field(default_factory=set)
+    surfaces: set[str] = field(default_factory=set)
 
     # Explicit controls from evidence
-    controls: List[Control] = field(default_factory=list)
+    controls: list[Control] = field(default_factory=list)
 
     # Platform requirements
-    platform_requirements: List[PlatformRequirement] = field(default_factory=list)
+    platform_requirements: list[PlatformRequirement] = field(default_factory=list)
 
     # Explicit out-of-scope items
-    out_of_scope: Set[str] = field(default_factory=set)
+    out_of_scope: set[str] = field(default_factory=set)
 
     # Explicit constraints
-    constraints: List[str] = field(default_factory=list)
+    constraints: list[str] = field(default_factory=list)
 
     # Explicit object type requirements
-    object_types: Set[str] = field(default_factory=set)
+    object_types: set[str] = field(default_factory=set)
 
     # Explicit actions mentioned in AC
-    actions: List[str] = field(default_factory=list)
+    actions: list[str] = field(default_factory=list)
 
     # Explicit negative scenarios
-    negative_scenarios: Set[str] = field(default_factory=set)
+    negative_scenarios: set[str] = field(default_factory=set)
 
     # Evidence bullets (for reference)
-    ac_bullets: Dict[str, str] = field(default_factory=dict)  # {id: text}
-    qa_prep_bullets: Dict[str, str] = field(default_factory=dict)  # {id: text}
+    ac_bullets: dict[str, str] = field(default_factory=dict)  # {id: text}
+    qa_prep_bullets: dict[str, str] = field(default_factory=dict)  # {id: text}
 
     @classmethod
-    def from_story_data(cls, story_data: Dict, criteria: List[str], qa_prep_content: Optional[str] = None) -> 'GroundedSpec':
+    def from_story_data(cls, story_data: dict, criteria: list[str], qa_prep_content: str | None = None) -> 'GroundedSpec':
         """
         Build GroundedSpec from story data and evidence.
 
@@ -394,7 +393,7 @@ class GroundedSpec:
         if 'invalid' in text_lower or 'incorrect' in text_lower:
             self.negative_scenarios.add('invalid_input')
 
-    def _parse_qa_prep_bullets(self, qa_prep: str) -> List[str]:
+    def _parse_qa_prep_bullets(self, qa_prep: str) -> list[str]:
         """Parse QA Prep content into individual bullets."""
         bullets = []
         for line in qa_prep.split('\n'):
@@ -422,7 +421,7 @@ class GroundedSpec:
         return title
 
     @staticmethod
-    def _extract_location_from_description(description: str) -> Optional[str]:
+    def _extract_location_from_description(description: str) -> str | None:
         """
         Extract primary entry point from 'Location: X → Y' or 'Location: X' in description.
 
@@ -478,7 +477,7 @@ class GroundedSpec:
 
         self.surfaces = filtered_surfaces
 
-    def get_primary_entry_point(self) -> Optional[str]:
+    def get_primary_entry_point(self) -> str | None:
         """Get the primary entry point surface, or None if not found."""
         if self.entry_points:
             return self.entry_points[0].surface
@@ -490,7 +489,7 @@ class GroundedSpec:
         """Check if a surface is a valid entry point."""
         return surface in self.surfaces or any(ep.surface == surface for ep in self.entry_points)
 
-    def get_platforms(self) -> List[str]:
+    def get_platforms(self) -> list[str]:
         """Get list of platform names."""
         return [pr.platform for pr in self.platform_requirements]
 

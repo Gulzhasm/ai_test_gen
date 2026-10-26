@@ -30,19 +30,19 @@ Usage:
     matches = matcher.find_similar("move above other objects", category="action")
     print(f"Best match: {matches[0].pattern_text}")  # "bring to front"
 """
+from .embedding_cache import EmbeddingCache
 from .embedding_interface import (
-    IEmbeddingProvider,
     EmbeddingResult,
+    IEmbeddingProvider,
     SimilarityMatch,
     cosine_similarity,
 )
-from .embedding_cache import EmbeddingCache
 from .pattern_index import EmbeddingPatternIndex, PatternEntry
-from .semantic_matcher import SemanticMatcher
 from .providers import (
     OpenAIEmbeddingProvider,
     create_embedding_provider,
 )
+from .semantic_matcher import SemanticMatcher
 
 __all__ = [
     # Interfaces

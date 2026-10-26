@@ -1,7 +1,6 @@
 """
 Factory for creating test case generators based on story characteristics.
 """
-from typing import List
 
 from core.domain.story import UserStory
 from core.interfaces.test_generator import ITestGenerator
@@ -10,7 +9,7 @@ from core.interfaces.test_generator import ITestGenerator
 class TestCaseGeneratorFactory:
     """Factory for selecting appropriate test generators."""
     
-    def __init__(self, generators: List[ITestGenerator]):
+    def __init__(self, generators: list[ITestGenerator]):
         """Initialize factory with available generators.
         
         Args:

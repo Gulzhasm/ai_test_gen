@@ -3,21 +3,21 @@ LLM Provider Factory
 Creates LLM providers based on configuration.
 """
 import os
-from typing import Optional, Union
-from .ollama import OllamaProvider
-from .openai_provider import OpenAIProvider
+
 from .anthropic_provider import AnthropicProvider
 from .gemini_provider import GeminiProvider
+from .ollama import OllamaProvider
+from .openai_provider import OpenAIProvider
 
 
 def create_llm_provider(
     provider_type: str = "ollama",
     endpoint: str = "http://localhost:11434",
-    model: Optional[str] = None,
+    model: str | None = None,
     timeout: int = 30,
     max_retries: int = 3,
-    api_key: Optional[str] = None
-) -> Optional[Union[OllamaProvider, OpenAIProvider, AnthropicProvider, GeminiProvider]]:
+    api_key: str | None = None
+) -> OllamaProvider | OpenAIProvider | AnthropicProvider | GeminiProvider | None:
     """Create LLM provider based on configuration.
 
     Args:
@@ -50,7 +50,7 @@ def create_llm_provider(
     elif provider == "anthropic" or provider == "claude":
         return AnthropicProvider(
             api_key=api_key or os.getenv("ANTHROPIC_API_KEY"),
-            model=model or "claude-sonnet-5",
+            model=model or "claude-opus-5-5",
             timeout=timeout,
             max_retries=max_retries
         )

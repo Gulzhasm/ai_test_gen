@@ -2,8 +2,8 @@
 Objective Linter
 Validates objectives against test case titles and evidence.
 """
-from typing import List
-from core.domain.models import Objective, TestCase, EvidenceModel, LintResult
+
+from core.domain.models import EvidenceModel, LintResult, Objective, TestCase
 
 
 class ObjectiveLinter:
@@ -43,7 +43,7 @@ class ObjectiveLinter:
         
         return result
     
-    def lint_all(self, objectives: List[Objective], test_cases: List[TestCase]) -> LintResult:
+    def lint_all(self, objectives: list[Objective], test_cases: list[TestCase]) -> LintResult:
         """Lint all objectives.
         
         Args:

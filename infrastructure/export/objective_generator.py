@@ -5,13 +5,13 @@ Generates formatted objectives for test cases with configurable key term pattern
 Supports dependency injection for project-specific bolding patterns.
 """
 import re
-from typing import Dict, List, Optional, Protocol
+from typing import Protocol
 
 
 class IObjectiveConfig(Protocol):
     """Protocol for objective configuration."""
     @property
-    def key_term_patterns(self) -> List[str]: ...
+    def key_term_patterns(self) -> list[str]: ...
 
 
 class ObjectiveGenerator:
@@ -35,7 +35,7 @@ class ObjectiveGenerator:
         r'\b(enabled|disabled|visible|hidden|active|inactive)\b',
     ]
 
-    def __init__(self, key_term_patterns: Optional[List[str]] = None):
+    def __init__(self, key_term_patterns: list[str] | None = None):
         """
         Initialize objective generator with optional key term patterns.
 
@@ -45,7 +45,7 @@ class ObjectiveGenerator:
         self._patterns = key_term_patterns or self.DEFAULT_KEY_TERM_PATTERNS
 
     @property
-    def key_term_patterns(self) -> List[str]:
+    def key_term_patterns(self) -> list[str]:
         """Get key term patterns for bolding."""
         return self._patterns
 
@@ -112,7 +112,7 @@ class ObjectiveGenerator:
 
     def generate_objectives_file(
         self,
-        test_cases: List[Dict],
+        test_cases: list[dict],
         output_file: str
     ) -> None:
         """
@@ -131,7 +131,7 @@ class ObjectiveGenerator:
             for tc in test_cases:
                 self._write_objective_entry(f, tc)
 
-    def generate_objectives_string(self, test_cases: List[Dict]) -> str:
+    def generate_objectives_string(self, test_cases: list[dict]) -> str:
         """
         Generate objectives as a string.
 
@@ -146,13 +146,13 @@ class ObjectiveGenerator:
             lines.extend(self._format_objective_entry(tc))
         return '\n'.join(lines)
 
-    def _write_objective_entry(self, f, tc: Dict) -> None:
+    def _write_objective_entry(self, f, tc: dict) -> None:
         """Write a single objective entry to file."""
         lines = self._format_objective_entry(tc)
         for line in lines:
             f.write(line + '\n')
 
-    def _format_objective_entry(self, tc: Dict) -> List[str]:
+    def _format_objective_entry(self, tc: dict) -> list[str]:
         """
         Format a single objective entry.
 

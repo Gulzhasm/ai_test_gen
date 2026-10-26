@@ -3,10 +3,10 @@
 Creates Bug work items in ADO using the PATCH _apis/wit/workitems/$Bug endpoint.
 Follows the same JSON Patch pattern as ADOTestCaseRepository.
 """
-from typing import Optional
 
 from core.domain.bug_report import BugReport
 from core.interfaces.config_provider import IADOConfig
+
 from .http_client import ADOHttpClient
 
 
@@ -25,8 +25,8 @@ class ADOBugRepository:
         self,
         bug: BugReport,
         repro_steps_html: str,
-        iteration_path: Optional[str] = None
-    ) -> Optional[int]:
+        iteration_path: str | None = None
+    ) -> int | None:
         """Create a Bug work item in ADO.
 
         Args:

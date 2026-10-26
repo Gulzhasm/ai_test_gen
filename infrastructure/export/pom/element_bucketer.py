@@ -8,9 +8,8 @@ else stays in its own page-state bucket (Scanner / Journal / Stats).
 This is the riskiest mapping in POM generation, so it is isolated here and unit-tested.
 """
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional
 
-from core.domain.ui_element import UIElement, ElementInventory
+from core.domain.ui_element import ElementInventory, UIElement
 
 DASHBOARD = "Dashboard"
 
@@ -29,15 +28,15 @@ def _norm(s: str) -> str:
 class PageBucket:
     """Elements that belong to one page object."""
     name: str                                      # e.g. "Dashboard", "Scanner"
-    elements: List[UIElement] = field(default_factory=list)
-    nav_targets: List[str] = field(default_factory=list)  # accessible names of tab buttons (Dashboard only)
+    elements: list[UIElement] = field(default_factory=list)
+    nav_targets: list[str] = field(default_factory=list)  # accessible names of tab buttons (Dashboard only)
 
 
 def bucket_elements(
     inventory: ElementInventory,
-    tab_names: Optional[List[str]] = None,
+    tab_names: list[str] | None = None,
     app_name: str = "",
-) -> List[PageBucket]:
+) -> list[PageBucket]:
     """
     Group inventory elements into ordered page buckets (Dashboard first, then tabs).
 
@@ -53,8 +52,8 @@ def bucket_elements(
     tab_names = tab_names or []
 
     # Map (role, normalized name) -> set of contexts it appears in, plus a representative element.
-    contexts_by_key: Dict[tuple, set] = {}
-    rep_by_key: Dict[tuple, UIElement] = {}
+    contexts_by_key: dict[tuple, set] = {}
+    rep_by_key: dict[tuple, UIElement] = {}
     for e in inventory.elements:
         key = (e.role, _norm(e.accessible_name))
         contexts_by_key.setdefault(key, set()).add(e.page_context or "")
@@ -88,14 +87,14 @@ def bucket_elements(
 
     # Per-tab buckets: elements unique to that context (not promoted to Dashboard).
     # Order tabs as configured; fall back to first-seen order for any extras.
-    seen_order: List[str] = []
+    seen_order: list[str] = []
     for e in inventory.elements:
         ctx = e.page_context or ""
         if ctx and ctx not in seen_order:
             seen_order.append(ctx)
     ordered_tabs = [t for t in tab_names if t in seen_order] + [t for t in seen_order if t not in tab_names]
 
-    buckets: List[PageBucket] = [dashboard]
+    buckets: list[PageBucket] = [dashboard]
     for tab in ordered_tabs:
         b = PageBucket(name=tab)
         for e in inventory.elements:

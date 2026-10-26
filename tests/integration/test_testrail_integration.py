@@ -10,11 +10,11 @@ from unittest.mock import Mock, patch
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from infrastructure.testrail.http_client import TestRailHttpClient
 from infrastructure.testrail.testrail_repository import (
     TestRailTestCaseRepository,
-    TestRailTestSuiteRepository
+    TestRailTestSuiteRepository,
 )
-from infrastructure.testrail.http_client import TestRailHttpClient
 
 
 class TestTestRailHttpClient:
@@ -248,7 +248,10 @@ class TestRepositoryFactoryTestRail:
         """Test factory creates TestRail repositories."""
         from infrastructure.repository_factory import RepositoryFactory
         from projects.project_config import (
-            ProjectConfig, ApplicationConfig, ADOProjectConfig, TestRailConfig
+            ADOProjectConfig,
+            ApplicationConfig,
+            ProjectConfig,
+            TestRailConfig,
         )
 
         config = ProjectConfig(
@@ -309,13 +312,13 @@ def run_tests():
                 print(f"  FAIL: {method_name}: {e}")
                 failed_tests.append((test_class.__name__, method_name, traceback.format_exc()))
 
-    print(f"\nTEST SUMMARY")
+    print("\nTEST SUMMARY")
     print(f"Total: {total_tests}")
     print(f"Passed: {passed_tests}")
     print(f"Failed: {len(failed_tests)}")
 
     if failed_tests:
-        print(f"\nFailed tests:")
+        print("\nFailed tests:")
         for class_name, method_name, tb in failed_tests:
             print(f"\n  {class_name}.{method_name}:")
             for line in tb.split('\n')[-5:]:

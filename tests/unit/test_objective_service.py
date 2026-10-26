@@ -1,6 +1,7 @@
 """Tests for ObjectiveService."""
 import pytest
-from core.domain.models import TestCase, TestStep, Objective, EvidenceModel
+
+from core.domain.models import EvidenceModel, TestCase, TestStep
 from core.services import ObjectiveService
 
 

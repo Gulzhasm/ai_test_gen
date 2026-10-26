@@ -14,7 +14,6 @@ Metrics (per story, then aggregated):
 This module is pure logic (no I/O) so it is fully unit-testable.
 """
 from dataclasses import dataclass, field
-from typing import List, Dict, Set
 
 
 @dataclass
@@ -28,17 +27,17 @@ class ACItem:
 class TestLabel:
     test_id: str
     title: str = ""
-    covers: List[str] = field(default_factory=list)   # AC ids this test actually covers
+    covers: list[str] = field(default_factory=list)   # AC ids this test actually covers
 
 
 @dataclass
 class StoryBaseline:
     story_id: str
-    acceptance_criteria: List[ACItem] = field(default_factory=list)
-    test_labels: List[TestLabel] = field(default_factory=list)
+    acceptance_criteria: list[ACItem] = field(default_factory=list)
+    test_labels: list[TestLabel] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, d: Dict) -> "StoryBaseline":
+    def from_dict(cls, d: dict) -> "StoryBaseline":
         acs = [
             ACItem(id=str(a["id"]), text=a.get("text", ""), in_scope=a.get("in_scope", True))
             for a in d.get("acceptance_criteria", [])
@@ -65,9 +64,9 @@ class StoryMetrics:
     recall: float
     precision: float
     f1: float
-    uncovered_acs: List[str] = field(default_factory=list)
-    spurious_tests: List[str] = field(default_factory=list)
-    unknown_ac_refs: List[str] = field(default_factory=list)   # covers referencing a non-existent AC id
+    uncovered_acs: list[str] = field(default_factory=list)
+    spurious_tests: list[str] = field(default_factory=list)
+    unknown_ac_refs: list[str] = field(default_factory=list)   # covers referencing a non-existent AC id
 
     @property
     def redundancy(self) -> float:
@@ -80,13 +79,13 @@ def _f1(precision: float, recall: float) -> float:
 
 
 def evaluate_story(baseline: StoryBaseline) -> StoryMetrics:
-    in_scope_ids: Set[str] = {ac.id for ac in baseline.acceptance_criteria if ac.in_scope}
-    all_ids: Set[str] = {ac.id for ac in baseline.acceptance_criteria}
+    in_scope_ids: set[str] = {ac.id for ac in baseline.acceptance_criteria if ac.in_scope}
+    all_ids: set[str] = {ac.id for ac in baseline.acceptance_criteria}
 
-    covered: Set[str] = set()
+    covered: set[str] = set()
     valid_tests = 0
-    spurious: List[str] = []
-    unknown_refs: Set[str] = set()
+    spurious: list[str] = []
+    unknown_refs: set[str] = set()
 
     for t in baseline.test_labels:
         covered_in_scope = [c for c in t.covers if c in in_scope_ids]
@@ -136,7 +135,7 @@ class AggregateMetrics:
     total_valid_tests: int
 
 
-def aggregate(metrics: List[StoryMetrics]) -> AggregateMetrics:
+def aggregate(metrics: list[StoryMetrics]) -> AggregateMetrics:
     n = len(metrics)
     if n == 0:
         return AggregateMetrics(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)

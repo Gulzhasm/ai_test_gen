@@ -17,7 +17,6 @@ Human QA engineers don't just test what's written - they test:
 - State persistence (if recent items tracked, create → verify → create again)
 - Error states (if commands disabled, verify they're disabled when expected)
 """
-from typing import List, Dict, Tuple, Optional
 import re
 from dataclasses import dataclass, field
 
@@ -30,10 +29,10 @@ class DerivedTestScenario:
     objective: str
     source_ac: str
     source_ac_index: int
-    steps_description: List[str]
+    steps_description: list[str]
     area: str = "Canvas"
     priority: str = "medium"  # 'high', 'medium', 'low'
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
 
 class ExpertACAnalyzer:
@@ -101,11 +100,11 @@ class ExpertACAnalyzer:
         (r'(?:has|includes?|contains?|shows?)\s+(?:a\s+)?(\w+(?:\s*,\s*\w+)*)\s+(?:field|control|button|dropdown)', 'controls_list'),
     ]
 
-    def __init__(self, feature_name: str, platforms: List[str] = None):
+    def __init__(self, feature_name: str, platforms: list[str] = None):
         self.feature_name = feature_name
         self.platforms = platforms or ['Windows 11', 'iPad', 'Android Tablet']
 
-    def analyze(self, acceptance_criteria: List[str]) -> List[DerivedTestScenario]:
+    def analyze(self, acceptance_criteria: list[str]) -> list[DerivedTestScenario]:
         """
         Analyze all ACs and derive comprehensive test scenarios.
 
@@ -158,7 +157,7 @@ class ExpertACAnalyzer:
         headers = ['acceptance criteria', 'ac:', 'requirements:', 'definition of done']
         return text.lower().strip().rstrip(':') in headers
 
-    def _derive_positive_test(self, ac: str, idx: int) -> Optional[DerivedTestScenario]:
+    def _derive_positive_test(self, ac: str, idx: int) -> DerivedTestScenario | None:
         """Derive the primary positive test from an AC."""
         # Skip ACs that are purely negative/exclusion statements
         if self._is_purely_negative(ac):
@@ -179,7 +178,7 @@ class ExpertACAnalyzer:
             tags=['core', 'positive']
         )
 
-    def _derive_negative_tests(self, ac: str, idx: int) -> List[DerivedTestScenario]:
+    def _derive_negative_tests(self, ac: str, idx: int) -> list[DerivedTestScenario]:
         """Derive negative tests from exclusion/limitation statements."""
         tests = []
         ac_lower = ac.lower()
@@ -272,7 +271,7 @@ class ExpertACAnalyzer:
 
         return tests
 
-    def _derive_workflow_tests(self, ac: str, idx: int, all_acs: List[str]) -> List[DerivedTestScenario]:
+    def _derive_workflow_tests(self, ac: str, idx: int, all_acs: list[str]) -> list[DerivedTestScenario]:
         """Derive workflow tests that verify state persistence."""
         tests = []
         ac_lower = ac.lower()
@@ -372,7 +371,7 @@ class ExpertACAnalyzer:
 
         return tests
 
-    def _derive_modal_tests(self, ac: str, idx: int) -> List[DerivedTestScenario]:
+    def _derive_modal_tests(self, ac: str, idx: int) -> list[DerivedTestScenario]:
         """Derive tests for modal dialog behavior."""
         tests = []
         ac_lower = ac.lower()
@@ -402,7 +401,7 @@ class ExpertACAnalyzer:
 
         return tests
 
-    def _derive_dual_action_tests(self, ac: str, idx: int) -> List[DerivedTestScenario]:
+    def _derive_dual_action_tests(self, ac: str, idx: int) -> list[DerivedTestScenario]:
         """Derive tests from ACs that describe two actions (e.g., Create/Close)."""
         tests = []
         ac_lower = ac.lower()
@@ -454,7 +453,7 @@ class ExpertACAnalyzer:
 
         return tests
 
-    def _derive_default_value_tests(self, ac: str, idx: int) -> List[DerivedTestScenario]:
+    def _derive_default_value_tests(self, ac: str, idx: int) -> list[DerivedTestScenario]:
         """Derive tests for default value verification."""
         tests = []
 
@@ -481,7 +480,7 @@ class ExpertACAnalyzer:
 
         return tests
 
-    def _derive_ui_control_tests(self, ac: str, idx: int) -> List[DerivedTestScenario]:
+    def _derive_ui_control_tests(self, ac: str, idx: int) -> list[DerivedTestScenario]:
         """Derive tests for UI control verification."""
         tests = []
 
@@ -572,7 +571,7 @@ class ExpertACAnalyzer:
                 return area
         return 'Canvas'
 
-    def _extract_excluded_feature(self, ac: str) -> Optional[str]:
+    def _extract_excluded_feature(self, ac: str) -> str | None:
         """Extract what feature is excluded/out of scope."""
         patterns = [
             r'(\w+(?:\s+\w+)?)\s+(?:is\s+)?out[\s-]?of[\s-]?scope',
@@ -585,7 +584,7 @@ class ExpertACAnalyzer:
                 return match.group(1).strip()
         return None
 
-    def _get_opposite_option(self, only_value: str, context: str) -> Optional[str]:
+    def _get_opposite_option(self, only_value: str, context: str) -> str | None:
         """Get the opposite of an 'only X' value."""
         opposites = {
             'portrait': 'Landscape',
@@ -627,7 +626,7 @@ class ExpertACAnalyzer:
                 return match.group(1).strip()
         return "required condition"
 
-    def _derive_positive_steps(self, ac: str) -> List[str]:
+    def _derive_positive_steps(self, ac: str) -> list[str]:
         """Derive step descriptions for positive test."""
         steps = ["Open the application", "Navigate to the feature"]
 
@@ -641,7 +640,7 @@ class ExpertACAnalyzer:
 
         return steps
 
-    def _deduplicate_scenarios(self, scenarios: List[DerivedTestScenario]) -> List[DerivedTestScenario]:
+    def _deduplicate_scenarios(self, scenarios: list[DerivedTestScenario]) -> list[DerivedTestScenario]:
         """Remove duplicate or very similar scenarios."""
         seen_titles = set()
         unique = []
@@ -656,9 +655,9 @@ class ExpertACAnalyzer:
 
 def analyze_acceptance_criteria(
     feature_name: str,
-    acceptance_criteria: List[str],
-    platforms: List[str] = None
-) -> Tuple[List[DerivedTestScenario], Dict[str, int]]:
+    acceptance_criteria: list[str],
+    platforms: list[str] = None
+) -> tuple[list[DerivedTestScenario], dict[str, int]]:
     """
     Convenience function to analyze ACs and return scenarios with stats.
 

@@ -3,13 +3,12 @@ Unit tests for TestRules module.
 
 Tests rule-based templates and patterns for test case generation.
 """
-import pytest
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.services import TestRules, StepTemplate
+from core.services import StepTemplate, TestRules
 
 
 class TestTestRulesDefaults:

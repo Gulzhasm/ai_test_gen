@@ -4,10 +4,9 @@ Output generator interfaces for test artifacts.
 Abstracts the output generation for different formats.
 """
 from abc import ABC, abstractmethod
-from typing import List, Dict, Optional
 
-from core.domain.test_case import TestCase
 from core.domain.story import UserStory
+from core.domain.test_case import TestCase
 
 
 class IOutputGenerator(ABC):
@@ -16,7 +15,7 @@ class IOutputGenerator(ABC):
     @abstractmethod
     def generate(
         self,
-        test_cases: List[TestCase],
+        test_cases: list[TestCase],
         output_path: str
     ) -> str:
         """Generate output file from test cases.
@@ -28,14 +27,13 @@ class IOutputGenerator(ABC):
         Returns:
             Path to generated file
         """
-        pass
 
 
 class ICSVGenerator(IOutputGenerator):
     """Interface for CSV file generation."""
 
     @abstractmethod
-    def generate(self, test_cases: List[TestCase], output_path: str) -> str:
+    def generate(self, test_cases: list[TestCase], output_path: str) -> str:
         """Generate CSV file from test cases.
 
         Args:
@@ -45,12 +43,11 @@ class ICSVGenerator(IOutputGenerator):
         Returns:
             Path to generated file
         """
-        pass
 
     @abstractmethod
     def generate_from_dicts(
         self,
-        test_cases: List[Dict],
+        test_cases: list[dict],
         output_file: str,
         include_headers: bool = True
     ) -> str:
@@ -64,14 +61,13 @@ class ICSVGenerator(IOutputGenerator):
         Returns:
             Path to generated CSV file
         """
-        pass
 
 
 class IObjectiveGenerator(ABC):
     """Interface for objectives file generation."""
 
     @abstractmethod
-    def generate(self, test_cases: List[TestCase], output_path: str) -> str:
+    def generate(self, test_cases: list[TestCase], output_path: str) -> str:
         """Generate objectives file from test cases.
 
         Args:
@@ -81,7 +77,6 @@ class IObjectiveGenerator(ABC):
         Returns:
             Path to generated file
         """
-        pass
 
     @abstractmethod
     def format_objective(self, objective: str) -> str:
@@ -93,7 +88,6 @@ class IObjectiveGenerator(ABC):
         Returns:
             Formatted objective with HTML bolding
         """
-        pass
 
     @abstractmethod
     def format_objective_for_ado(self, objective: str) -> str:
@@ -105,12 +99,11 @@ class IObjectiveGenerator(ABC):
         Returns:
             HTML-formatted objective for ADO
         """
-        pass
 
     @abstractmethod
     def generate_objectives_file(
         self,
-        test_cases: List[Dict],
+        test_cases: list[dict],
         output_path: str
     ) -> str:
         """Generate objectives text file from dictionaries.
@@ -122,14 +115,13 @@ class IObjectiveGenerator(ABC):
         Returns:
             Path to generated file
         """
-        pass
 
 
 class IQASummaryGenerator(ABC):
     """Interface for QA summary generation."""
 
     @abstractmethod
-    def generate(self, story: UserStory, test_cases: List[TestCase]) -> str:
+    def generate(self, story: UserStory, test_cases: list[TestCase]) -> str:
         """Generate QA planning summary.
 
         Args:
@@ -139,4 +131,3 @@ class IQASummaryGenerator(ABC):
         Returns:
             QA summary text
         """
-        pass

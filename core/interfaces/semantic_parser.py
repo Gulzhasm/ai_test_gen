@@ -6,7 +6,6 @@ Abstracts NLP-based semantic extraction to enable different implementations
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
 
 
 @dataclass
@@ -19,20 +18,20 @@ class SemanticComponents:
     direct_object: str     # What is acted upon (e.g., "button", "menu item")
 
     # Extended components
-    indirect_object: Optional[str] = None  # Secondary target
-    modifiers: List[str] = field(default_factory=list)  # Conditions, constraints
-    prepositions: List[Tuple[str, str]] = field(default_factory=list)  # (prep, obj) pairs
+    indirect_object: str | None = None  # Secondary target
+    modifiers: list[str] = field(default_factory=list)  # Conditions, constraints
+    prepositions: list[tuple[str, str]] = field(default_factory=list)  # (prep, obj) pairs
 
     # Semantic flags
     negation: bool = False          # Negative scenario indicator
-    modal: Optional[str] = None     # Modal verb (should, must, can)
+    modal: str | None = None     # Modal verb (should, must, can)
     tense: str = "present"          # Verb tense
 
     # Quality metrics
     confidence: float = 1.0         # Extraction confidence (0-1)
     method: str = "unknown"         # Parser method used
 
-    def to_action_target_outcome(self) -> Tuple[str, str, str]:
+    def to_action_target_outcome(self) -> tuple[str, str, str]:
         """Convert to action-target-outcome triple.
 
         Returns:
@@ -86,13 +85,12 @@ class ISemanticParser(ABC):
         Returns:
             SemanticComponents with extracted semantics
         """
-        pass
 
     @abstractmethod
     def extract_action_target_outcome(
         self,
         text: str
-    ) -> Tuple[str, str, str]:
+    ) -> tuple[str, str, str]:
         """Extract action-target-outcome triple.
 
         Convenience method for simple extraction.
@@ -103,10 +101,9 @@ class ISemanticParser(ABC):
         Returns:
             Tuple of (action, target, outcome)
         """
-        pass
 
     @abstractmethod
-    def extract_entities(self, text: str) -> List[str]:
+    def extract_entities(self, text: str) -> list[str]:
         """Extract named entities from text.
 
         Args:
@@ -115,7 +112,6 @@ class ISemanticParser(ABC):
         Returns:
             List of entity strings
         """
-        pass
 
     @property
     @abstractmethod
@@ -125,7 +121,6 @@ class ISemanticParser(ABC):
         Returns:
             True if parser can be used
         """
-        pass
 
     @property
     @abstractmethod
@@ -135,4 +130,3 @@ class ISemanticParser(ABC):
         Returns:
             Parser name string
         """
-        pass

@@ -4,12 +4,11 @@ Semantic Step Builder - Uses NLP to generate high-quality test steps from AC tex
 Parses acceptance criteria semantically to extract specific actions and expected results.
 """
 import re
-from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
 
 # Import hybrid parser if available
 try:
-    from core.services.nlp import HybridACParser, SPACY_AVAILABLE
+    from core.services.nlp import SPACY_AVAILABLE, HybridACParser
 except ImportError:
     HybridACParser = None
     SPACY_AVAILABLE = False
@@ -24,8 +23,8 @@ class ParsedACComponents:
     target_location: str
     condition: str
     expected_outcome: str
-    ui_elements: List[str]
-    values: List[str]
+    ui_elements: list[str]
+    values: list[str]
 
 
 class SemanticStepBuilder:
@@ -138,7 +137,7 @@ class SemanticStepBuilder:
         ac_text: str,
         feature_name: str,
         entry_point: str = "Menu"
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """
         Build test steps from acceptance criteria text.
 
@@ -172,8 +171,8 @@ class SemanticStepBuilder:
         action: str,
         expected: str,
         feature_name: str,
-        ac_text: Optional[str] = None
-    ) -> Dict[str, str]:
+        ac_text: str | None = None
+    ) -> dict[str, str]:
         """
         Enhance a generic step to be more specific.
 
@@ -243,7 +242,7 @@ class SemanticStepBuilder:
             "disable": f"{clean_feature} is disabled",
             "open": f"{clean_feature} dialog opens",
             "close": f"{clean_feature} closes",
-            "save": f"Changes are saved successfully",
+            "save": "Changes are saved successfully",
             "delete": f"{obj} is removed",
             "create": f"{obj} is created",
             "rotate": f"{obj} is rotated according to the system rotation logic",
@@ -335,7 +334,7 @@ class SemanticStepBuilder:
         components: ParsedACComponents,
         feature_name: str,
         entry_point: str
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Build the main action step."""
         action_parts = []
 
@@ -375,7 +374,7 @@ class SemanticStepBuilder:
         self,
         components: ParsedACComponents,
         feature_name: str
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Build the verification step."""
         # Determine what to verify
         if components.expected_outcome:

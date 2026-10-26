@@ -4,7 +4,8 @@ TestRail HTTP Client - Low-level HTTP interactions with TestRail.
 This class handles only HTTP concerns for TestRail API.
 """
 import base64
-from typing import Dict, Optional, Any, List
+from typing import Any
+
 import requests
 
 
@@ -45,11 +46,11 @@ class TestRailHttpClient:
         return self._base_url
 
     @property
-    def headers(self) -> Dict[str, str]:
+    def headers(self) -> dict[str, str]:
         """Headers for API calls."""
         return self._headers.copy()
 
-    def _create_headers(self) -> Dict[str, str]:
+    def _create_headers(self) -> dict[str, str]:
         """Create authentication headers."""
         # TestRail uses Basic Auth with email:api_key
         credentials = base64.b64encode(
@@ -64,7 +65,7 @@ class TestRailHttpClient:
         """Get the full API URL for an endpoint."""
         return f"{self._base_url}/index.php?/api/v2/{endpoint}"
 
-    def get(self, endpoint: str, params: Optional[Dict] = None) -> Any:
+    def get(self, endpoint: str, params: dict | None = None) -> Any:
         """Make GET request to TestRail API.
 
         Args:
@@ -91,7 +92,7 @@ class TestRailHttpClient:
     def post(
         self,
         endpoint: str,
-        data: Dict[str, Any]
+        data: dict[str, Any]
     ) -> Any:
         """Make POST request to TestRail API.
 
@@ -115,7 +116,7 @@ class TestRailHttpClient:
 
     # Projects
 
-    def get_projects(self) -> List[Dict]:
+    def get_projects(self) -> list[dict]:
         """Get all projects."""
         result = self.get("get_projects")
         # TestRail may return dict with 'projects' key or direct list
@@ -123,21 +124,21 @@ class TestRailHttpClient:
             return result.get('projects', [])
         return result
 
-    def get_project(self, project_id: int) -> Dict:
+    def get_project(self, project_id: int) -> dict:
         """Get a specific project."""
         return self.get(f"get_project/{project_id}")
 
     # Test Suites
 
-    def get_suites(self, project_id: int) -> List[Dict]:
+    def get_suites(self, project_id: int) -> list[dict]:
         """Get all test suites in a project."""
         return self.get(f"get_suites/{project_id}")
 
-    def get_suite(self, suite_id: int) -> Dict:
+    def get_suite(self, suite_id: int) -> dict:
         """Get a specific test suite."""
         return self.get(f"get_suite/{suite_id}")
 
-    def add_suite(self, project_id: int, name: str, description: str = "") -> Dict:
+    def add_suite(self, project_id: int, name: str, description: str = "") -> dict:
         """Create a new test suite.
 
         Args:
@@ -155,7 +156,7 @@ class TestRailHttpClient:
 
     # Sections
 
-    def get_sections(self, project_id: int, suite_id: Optional[int] = None) -> List[Dict]:
+    def get_sections(self, project_id: int, suite_id: int | None = None) -> list[dict]:
         """Get all sections in a project/suite."""
         endpoint = f"get_sections/{project_id}"
         params = {}
@@ -167,10 +168,10 @@ class TestRailHttpClient:
         self,
         project_id: int,
         name: str,
-        suite_id: Optional[int] = None,
-        parent_id: Optional[int] = None,
+        suite_id: int | None = None,
+        parent_id: int | None = None,
         description: str = ""
-    ) -> Dict:
+    ) -> dict:
         """Create a new section.
 
         Args:
@@ -198,9 +199,9 @@ class TestRailHttpClient:
     def get_cases(
         self,
         project_id: int,
-        suite_id: Optional[int] = None,
-        section_id: Optional[int] = None
-    ) -> List[Dict]:
+        suite_id: int | None = None,
+        section_id: int | None = None
+    ) -> list[dict]:
         """Get test cases.
 
         Args:
@@ -224,7 +225,7 @@ class TestRailHttpClient:
             return result.get('cases', [])
         return result
 
-    def get_case(self, case_id: int) -> Dict:
+    def get_case(self, case_id: int) -> dict:
         """Get a specific test case."""
         return self.get(f"get_case/{case_id}")
 
@@ -233,7 +234,7 @@ class TestRailHttpClient:
         section_id: int,
         title: str,
         **kwargs
-    ) -> Dict:
+    ) -> dict:
         """Create a new test case.
 
         Args:
@@ -255,7 +256,7 @@ class TestRailHttpClient:
         data.update(kwargs)
         return self.post(f"add_case/{section_id}", data)
 
-    def update_case(self, case_id: int, **kwargs) -> Dict:
+    def update_case(self, case_id: int, **kwargs) -> dict:
         """Update an existing test case.
 
         Args:
@@ -269,7 +270,7 @@ class TestRailHttpClient:
 
     # Test Runs
 
-    def get_runs(self, project_id: int) -> List[Dict]:
+    def get_runs(self, project_id: int) -> list[dict]:
         """Get all test runs in a project."""
         result = self.get(f"get_runs/{project_id}")
         if isinstance(result, dict):
@@ -280,11 +281,11 @@ class TestRailHttpClient:
         self,
         project_id: int,
         name: str,
-        suite_id: Optional[int] = None,
+        suite_id: int | None = None,
         description: str = "",
-        milestone_id: Optional[int] = None,
-        case_ids: Optional[List[int]] = None
-    ) -> Dict:
+        milestone_id: int | None = None,
+        case_ids: list[int] | None = None
+    ) -> dict:
         """Create a new test run.
 
         Args:
@@ -321,7 +322,7 @@ class TestRailHttpClient:
         status_id: int,
         comment: str = "",
         **kwargs
-    ) -> Dict:
+    ) -> dict:
         """Add a test result.
 
         Args:
@@ -341,18 +342,18 @@ class TestRailHttpClient:
 
     # Case Fields
 
-    def get_case_fields(self) -> List[Dict]:
+    def get_case_fields(self) -> list[dict]:
         """Get all case fields (including custom fields)."""
         return self.get("get_case_fields")
 
-    def get_case_types(self) -> List[Dict]:
+    def get_case_types(self) -> list[dict]:
         """Get all case types."""
         return self.get("get_case_types")
 
-    def get_priorities(self) -> List[Dict]:
+    def get_priorities(self) -> list[dict]:
         """Get all priorities."""
         return self.get("get_priorities")
 
-    def get_templates(self, project_id: int) -> List[Dict]:
+    def get_templates(self, project_id: int) -> list[dict]:
         """Get all templates for a project."""
         return self.get(f"get_templates/{project_id}")

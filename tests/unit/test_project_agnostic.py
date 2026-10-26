@@ -37,7 +37,6 @@ import pytest
 
 from projects.project_config import ProjectConfig
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIGS = REPO_ROOT / "projects" / "configs"
 

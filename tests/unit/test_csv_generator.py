@@ -3,15 +3,14 @@ Unit tests for CSV Generator module.
 
 Tests ADO-ready CSV generation functionality.
 """
-import pytest
+import os
 import sys
 import tempfile
-import os
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from infrastructure.export import CSVGenerator, CSVConfig
+from infrastructure.export import CSVConfig, CSVGenerator
 
 
 class TestCSVConfig:

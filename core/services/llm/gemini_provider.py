@@ -4,9 +4,9 @@ LLM provider using Google Gemini API (gemini-2.5-flash, gemini-2.5-flash-lite, e
 """
 import json
 import os
-import time
 import re
-from typing import Any, Dict, List, Optional
+import time
+from typing import Any
 
 try:
     from google import genai
@@ -15,17 +15,20 @@ except ImportError:
     GEMINI_AVAILABLE = False
 
 # Fallback chain: if primary model is rate-limited, try these in order
-# NOTE: gemini-1.5-* retired (404), gemini-2.0-* deprecated March 31, 2026
+# NOTE: gemini-1.5-* retired (404), gemini-2.0-* deprecated March 31, 2026.
+# Oct 2026: the API returns 404 for gemini-2.5-flash-lite ("no longer available to new users")
+# and names gemini-3.5-flash-lite as its replacement.
 FALLBACK_MODELS = {
-    "gemini-2.5-flash": ["gemini-2.5-flash-lite"],
-    "gemini-2.5-flash-lite": [],
-    # Legacy: if someone still has 2.0 in YAML, fall forward to 2.5
-    "gemini-2.0-flash": ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
-    "gemini-2.0-flash-lite": ["gemini-2.5-flash-lite"],
+    "gemini-2.5-flash": ["gemini-3.5-flash-lite"],
+    "gemini-2.5-flash-lite": ["gemini-3.5-flash-lite"],
+    "gemini-3.5-flash-lite": [],
+    # Legacy: if someone still has 2.0 in YAML, fall forward
+    "gemini-2.0-flash": ["gemini-2.5-flash", "gemini-3.5-flash-lite"],
+    "gemini-2.0-flash-lite": ["gemini-3.5-flash-lite"],
 }
 
 
-def _repair_truncated_json(text: str) -> Optional[Dict]:
+def _repair_truncated_json(text: str) -> dict | None:
     """
     Attempt to repair truncated JSON from a cut-off LLM response.
 
@@ -123,7 +126,7 @@ class GeminiProvider:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         model: str = "gemini-2.0-flash",
         timeout: int = 90,
         max_retries: int = 3
@@ -182,11 +185,11 @@ class GeminiProvider:
     def generate(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         temperature: float = 0.3,
         max_tokens: int = 4096,
         **kwargs
-    ) -> Optional[Dict]:
+    ) -> dict | None:
         """Generate text completion using Gemini.
 
         Tries primary model first, falls back to alternate models on rate limit.
@@ -254,17 +257,17 @@ class GeminiProvider:
                         print(f"Gemini generation error: {e}")
                         return None
 
-        print(f"Gemini generation failed: all models rate limited")
+        print("Gemini generation failed: all models rate limited")
         return None
 
     def generate_json(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         temperature: float = 0.2,
         max_tokens: int = 16000,
         **kwargs
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Generate JSON response from Gemini.
 
         Uses Gemini's native JSON response mode for reliable JSON output.
@@ -307,12 +310,9 @@ class GeminiProvider:
                     content = content.strip()
 
                     # Handle markdown code blocks (fallback)
-                    if content.startswith("```json"):
-                        content = content[7:]
-                    if content.startswith("```"):
-                        content = content[3:]
-                    if content.endswith("```"):
-                        content = content[:-3]
+                    content = content.removeprefix("```json")
+                    content = content.removeprefix("```")
+                    content = content.removesuffix("```")
                     content = content.strip()
 
                     if model_name != self._model:
@@ -326,7 +326,7 @@ class GeminiProvider:
                     # Try to repair truncated JSON first
                     repaired = _repair_truncated_json(content)
                     if repaired is not None:
-                        print(f"  Repaired truncated JSON successfully")
+                        print("  Repaired truncated JSON successfully")
                         return repaired
 
                     # Fallback: try non-JSON mode
@@ -334,12 +334,9 @@ class GeminiProvider:
                     if result and result.get("content"):
                         try:
                             text = result["content"]
-                            if text.startswith("```json"):
-                                text = text[7:]
-                            if text.startswith("```"):
-                                text = text[3:]
-                            if text.endswith("```"):
-                                text = text[:-3]
+                            text = text.removeprefix("```json")
+                            text = text.removeprefix("```")
+                            text = text.removesuffix("```")
                             return json.loads(text.strip())
                         except json.JSONDecodeError:
                             return None
@@ -357,7 +354,7 @@ class GeminiProvider:
                         print(f"Gemini generation error: {e}")
                         return None
 
-        print(f"Gemini generation failed: all models rate limited")
+        print("Gemini generation failed: all models rate limited")
         return None
 
     def is_available(self) -> bool:
@@ -375,7 +372,7 @@ class GeminiProvider:
         prompt: str,
         temperature: float = 0.3,
         max_tokens: int = 500
-    ) -> Optional[str]:
+    ) -> str | None:
         """Rewrite text using Gemini (compatibility method)."""
         result = self.generate(
             prompt=prompt,

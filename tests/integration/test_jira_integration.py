@@ -5,14 +5,13 @@ This test verifies the Jira repository works correctly without actual API calls.
 """
 import sys
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from infrastructure.jira.jira_repository import JiraStoryRepository, JiraHtmlParser
 from infrastructure.jira.http_client import JiraHttpClient
-from core.domain.story import UserStory
+from infrastructure.jira.jira_repository import JiraHtmlParser, JiraStoryRepository
 
 
 class TestJiraHtmlParser:
@@ -243,7 +242,11 @@ class TestRepositoryFactory:
     def test_create_ado_story_repository(self):
         """Test factory creates ADO repository for ADO config."""
         from infrastructure.repository_factory import RepositoryFactory
-        from projects.project_config import ProjectConfig, ApplicationConfig, ADOProjectConfig
+        from projects.project_config import (
+            ADOProjectConfig,
+            ApplicationConfig,
+            ProjectConfig,
+        )
 
         config = ProjectConfig(
             project_id='test',
@@ -267,7 +270,10 @@ class TestRepositoryFactory:
         """Test factory creates Jira repository for Jira config."""
         from infrastructure.repository_factory import RepositoryFactory
         from projects.project_config import (
-            ProjectConfig, ApplicationConfig, ADOProjectConfig, JiraProjectConfig
+            ADOProjectConfig,
+            ApplicationConfig,
+            JiraProjectConfig,
+            ProjectConfig,
         )
 
         config = ProjectConfig(
@@ -329,13 +335,13 @@ def run_tests():
                 print(f"  FAIL: {method_name}: {e}")
                 failed_tests.append((test_class.__name__, method_name, traceback.format_exc()))
 
-    print(f"\nTEST SUMMARY")
+    print("\nTEST SUMMARY")
     print(f"Total: {total_tests}")
     print(f"Passed: {passed_tests}")
     print(f"Failed: {len(failed_tests)}")
 
     if failed_tests:
-        print(f"\nFailed tests:")
+        print("\nFailed tests:")
         for class_name, method_name, tb in failed_tests:
             print(f"\n  {class_name}.{method_name}:")
             for line in tb.split('\n')[-5:]:

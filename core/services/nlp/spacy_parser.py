@@ -3,14 +3,14 @@ spaCy-based semantic parser for acceptance criteria.
 
 Uses dependency parsing for domain-agnostic semantic extraction.
 """
-from typing import List, Optional, Tuple
+from typing import Optional
 
 from core.interfaces.semantic_parser import ISemanticParser, SemanticComponents
 
 # Try to import spaCy (catch all errors including runtime/compatibility issues)
 try:
     import spacy
-    from spacy.tokens import Doc, Token, Span
+    from spacy.tokens import Doc, Span, Token
     SPACY_AVAILABLE = True
 except Exception:
     # Catches ImportError, compatibility errors (Python 3.14+), etc.
@@ -148,7 +148,7 @@ class SpacySemanticParser(ISemanticParser):
     def extract_action_target_outcome(
         self,
         text: str
-    ) -> Tuple[str, str, str]:
+    ) -> tuple[str, str, str]:
         """Extract action-target-outcome triple.
 
         Args:
@@ -160,7 +160,7 @@ class SpacySemanticParser(ISemanticParser):
         components = self.parse(text)
         return components.to_action_target_outcome()
 
-    def extract_entities(self, text: str) -> List[str]:
+    def extract_entities(self, text: str) -> list[str]:
         """Extract named entities from text.
 
         Args:
@@ -278,7 +278,7 @@ class SpacySemanticParser(ISemanticParser):
         self,
         doc: "Doc",
         root: Optional["Token"]
-    ) -> Optional[str]:
+    ) -> str | None:
         """Extract indirect object from dependency tree.
 
         Args:
@@ -301,7 +301,7 @@ class SpacySemanticParser(ISemanticParser):
         self,
         doc: "Doc",
         root: Optional["Token"]
-    ) -> List[str]:
+    ) -> list[str]:
         """Extract modifiers (adverbs, prepositional phrases).
 
         Args:
@@ -343,7 +343,7 @@ class SpacySemanticParser(ISemanticParser):
         self,
         doc: "Doc",
         root: Optional["Token"]
-    ) -> List[Tuple[str, str]]:
+    ) -> list[tuple[str, str]]:
         """Extract preposition-object pairs.
 
         Args:
@@ -403,7 +403,7 @@ class SpacySemanticParser(ISemanticParser):
         self,
         doc: "Doc",
         root: Optional["Token"]
-    ) -> Optional[str]:
+    ) -> str | None:
         """Detect modal verb.
 
         Args:

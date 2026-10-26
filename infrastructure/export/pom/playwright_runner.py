@@ -8,7 +8,6 @@ isn't re-run every time.
 import json
 import os
 import subprocess
-from typing import Dict, Optional, List
 
 
 class PlaywrightRunner:
@@ -17,7 +16,7 @@ class PlaywrightRunner:
         self.browsers_path = os.path.join(self.root, ".pwbrowsers")
         self.npm_cache = os.path.join(self.root, ".npmcache")
 
-    def _env(self) -> Dict[str, str]:
+    def _env(self) -> dict[str, str]:
         env = dict(os.environ)
         # Respect an externally-provided browsers path (lets the caller reuse an
         # already-downloaded Chromium); otherwise keep browsers project-local.
@@ -45,8 +44,8 @@ class PlaywrightRunner:
             cwd=self.root, env=env, check=True, capture_output=True, text=True,
         )
 
-    def run(self, base_url: Optional[str] = None, install: bool = True,
-            test_files: Optional[List[str]] = None) -> Dict:
+    def run(self, base_url: str | None = None, install: bool = True,
+            test_files: list[str] | None = None) -> dict:
         """
         Run `npx playwright test --reporter=json`.
 

@@ -4,7 +4,7 @@ Uses OpenAI to generate comprehensive, rule-compliant test cases.
 """
 import json
 import os
-from typing import Optional, Dict, List, Any
+from typing import Any, Optional
 
 try:
     from openai import OpenAI
@@ -161,7 +161,7 @@ class LLMTestGenerator:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         model: str = "gpt-4o-mini",
         temperature: float = 0.2,
         mode: str = "comprehensive"  # Default to comprehensive mode
@@ -170,10 +170,10 @@ class LLMTestGenerator:
         self.model = model
         self.temperature = temperature
         self.mode = mode
-        self._client: Optional[OpenAI] = None
+        self._client: OpenAI | None = None
 
     @property
-    def client(self) -> Optional[OpenAI]:
+    def client(self) -> Optional["OpenAI"]:
         if self._client is None and OPENAI_AVAILABLE and self.api_key:
             self._client = OpenAI(api_key=self.api_key, timeout=120)
         return self._client
@@ -183,11 +183,11 @@ class LLMTestGenerator:
         story_id: str,
         feature_name: str,
         description: str,
-        acceptance_criteria: List[str],
+        acceptance_criteria: list[str],
         qa_prep: str,
         area_path: str = "Env\\ENV Kanda",
         assigned_to: str = "gulzhas.mailybayeva@kandasoft.com"
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Generate test cases from story data using LLM.
 
         Generation mode affects output:
@@ -307,8 +307,8 @@ Return JSON only."""
 
     def generate_objectives(
         self,
-        test_cases: List[Dict[str, Any]]
-    ) -> Optional[Dict[str, Any]]:
+        test_cases: list[dict[str, Any]]
+    ) -> dict[str, Any] | None:
         """Generate objectives for test cases."""
 
         if not self.client:
@@ -367,10 +367,10 @@ Return JSON only."""
 
     def _validate_and_fix(
         self,
-        result: Dict[str, Any],
+        result: dict[str, Any],
         story_id: str,
         feature_name: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Validate and fix common issues in generated test cases.
 
         Performs comprehensive validation including:
@@ -530,7 +530,7 @@ Return JSON only."""
 
         return result
 
-    def _fix_or_violations(self, result: Dict[str, Any]) -> Dict[str, Any]:
+    def _fix_or_violations(self, result: dict[str, Any]) -> dict[str, Any]:
         """Use LLM to fix steps containing 'or' by splitting into separate steps."""
 
         test_cases = result.get("test_cases", [])
@@ -747,7 +747,7 @@ Return JSON only."""
         return result_steps
 
 
-def convert_to_csv_format(test_cases: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+def convert_to_csv_format(test_cases: list[dict[str, Any]]) -> list[dict[str, str]]:
     """Convert LLM output to ADO CSV format."""
     rows = []
 

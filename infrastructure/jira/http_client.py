@@ -4,7 +4,8 @@ Jira HTTP Client - Low-level HTTP interactions with Jira Cloud/Server.
 This class handles only HTTP concerns, keeping infrastructure separate from domain logic.
 """
 import base64
-from typing import Dict, Optional, Any, List
+from typing import Any
+
 import requests
 
 
@@ -50,11 +51,11 @@ class JiraHttpClient:
         return self._base_url
 
     @property
-    def headers(self) -> Dict[str, str]:
+    def headers(self) -> dict[str, str]:
         """Headers for API calls."""
         return self._headers.copy()
 
-    def _create_headers(self) -> Dict[str, str]:
+    def _create_headers(self) -> dict[str, str]:
         """Create authentication headers."""
         # Jira Cloud uses Basic Auth with email:api_token
         # Jira Server uses Basic Auth with username:password
@@ -75,7 +76,7 @@ class JiraHttpClient:
             # Jira Server uses /rest/api/2
             return f"{self._base_url}/rest/api/2"
 
-    def get(self, endpoint: str, params: Optional[Dict] = None) -> Dict[str, Any]:
+    def get(self, endpoint: str, params: dict | None = None) -> dict[str, Any]:
         """Make GET request to Jira API.
 
         Args:
@@ -102,9 +103,9 @@ class JiraHttpClient:
     def post(
         self,
         endpoint: str,
-        data: Dict[str, Any],
-        params: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        data: dict[str, Any],
+        params: dict | None = None
+    ) -> dict[str, Any]:
         """Make POST request to Jira API.
 
         Args:
@@ -130,9 +131,9 @@ class JiraHttpClient:
     def put(
         self,
         endpoint: str,
-        data: Dict[str, Any],
-        params: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        data: dict[str, Any],
+        params: dict | None = None
+    ) -> dict[str, Any]:
         """Make PUT request to Jira API.
 
         Args:
@@ -158,10 +159,10 @@ class JiraHttpClient:
     def search_issues(
         self,
         jql: str,
-        fields: Optional[List[str]] = None,
+        fields: list[str] | None = None,
         start_at: int = 0,
         max_results: int = 50
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Search issues using JQL.
 
         Args:
@@ -186,9 +187,9 @@ class JiraHttpClient:
     def get_issue(
         self,
         issue_key: str,
-        fields: Optional[List[str]] = None,
-        expand: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+        fields: list[str] | None = None,
+        expand: list[str] | None = None
+    ) -> dict[str, Any]:
         """Get a single issue by key.
 
         Args:
@@ -212,7 +213,7 @@ class JiraHttpClient:
         issue_key: str,
         start_at: int = 0,
         max_results: int = 50
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get comments for an issue.
 
         Args:

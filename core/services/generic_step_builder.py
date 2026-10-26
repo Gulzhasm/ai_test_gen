@@ -4,16 +4,14 @@ This module builds test steps dynamically based on extracted observables,
 making the generator work for ANY story type without hardcoding.
 """
 
-from typing import List, Dict, Optional
-from core.services.observable_extractor import Observable
 from core.domain.grounded_spec import GroundedSpec
-from core.services.story_type_classifier import StoryType
+from core.services.observable_extractor import Observable
 
 
 class GenericStepBuilder:
     """Build test steps from observables, not from hardcoded chains."""
 
-    def build_steps(self, observable: Observable, grounded_spec: GroundedSpec) -> List[Dict[str, str]]:
+    def build_steps(self, observable: Observable, grounded_spec: GroundedSpec) -> list[dict[str, str]]:
         """Build complete test steps from observable.
 
         Generic step pattern:
@@ -57,7 +55,7 @@ class GenericStepBuilder:
 
         return steps
 
-    def _build_object_setup(self, grounded_spec: GroundedSpec) -> List[Dict[str, str]]:
+    def _build_object_setup(self, grounded_spec: GroundedSpec) -> list[dict[str, str]]:
         """Build steps to create/select object if needed.
 
         Args:
@@ -74,7 +72,7 @@ class GenericStepBuilder:
 
         return steps
 
-    def _build_navigation(self, entry_point: str, target: str, action: str) -> List[Dict[str, str]]:
+    def _build_navigation(self, entry_point: str, target: str, action: str) -> list[dict[str, str]]:
         """Build navigation steps to reach the feature.
 
         Generic navigation patterns:
@@ -148,7 +146,7 @@ class GenericStepBuilder:
 
         return formatted
 
-    def _build_action_steps(self, observable: Observable) -> List[Dict[str, str]]:
+    def _build_action_steps(self, observable: Observable) -> list[dict[str, str]]:
         """Build action steps based on action verb.
 
         Args:
@@ -182,7 +180,7 @@ class GenericStepBuilder:
 
         elif action == 'activate':
             # Tool activation - more specific than generic "activate tool"
-            steps.append({"action": f"Activate the tool.", "expected": ""})
+            steps.append({"action": "Activate the tool.", "expected": ""})
 
         elif action == 'select':
             steps.append({"action": f"Select {target}.", "expected": ""})
@@ -225,7 +223,7 @@ class GenericStepBuilder:
 
         return steps
 
-    def _build_verification_steps(self, outcomes: List[str]) -> List[Dict[str, str]]:
+    def _build_verification_steps(self, outcomes: list[str]) -> list[dict[str, str]]:
         """Build verification steps from outcomes.
 
         Args:
@@ -286,7 +284,7 @@ class GenericStepBuilder:
 
         return False
 
-    def build_availability_steps(self, grounded_spec: GroundedSpec, feature_name: str) -> List[Dict[str, str]]:
+    def build_availability_steps(self, grounded_spec: GroundedSpec, feature_name: str) -> list[dict[str, str]]:
         """Build steps for AC1 availability test.
 
         Args:

@@ -1,14 +1,13 @@
 """
 Use case: Generate test cases from user story.
 """
-from typing import List
 
 from core.domain.story import UserStory
 from core.domain.test_case import TestCase
-from core.interfaces.test_generator import ITestGenerator
-from core.interfaces.edge_case_generator import IEdgeCaseGenerator
 from core.interfaces.accessibility_generator import IAccessibilityGenerator
 from core.interfaces.cross_platform_generator import ICrossPlatformGenerator
+from core.interfaces.edge_case_generator import IEdgeCaseGenerator
+from core.interfaces.test_generator import ITestGenerator
 
 
 class GenerateTestCasesUseCase:
@@ -34,7 +33,7 @@ class GenerateTestCasesUseCase:
         self.accessibility_generator = accessibility_generator
         self.cross_platform_generator = cross_platform_generator
     
-    def execute(self, story: UserStory) -> List[TestCase]:
+    def execute(self, story: UserStory) -> list[TestCase]:
         """Execute test case generation.
         
         Args:
@@ -43,7 +42,7 @@ class GenerateTestCasesUseCase:
         Returns:
             Complete list of generated test cases
         """
-        test_cases: List[TestCase] = []
+        test_cases: list[TestCase] = []
         
         # Generate base functional tests
         if self.test_generator.can_handle(story):

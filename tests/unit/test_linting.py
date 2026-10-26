@@ -1,7 +1,6 @@
 """Tests for linting system."""
-import pytest
 from core.domain.models import EvidenceModel, Objective, TestCase, TestStep
-from core.services.linting import SummaryLinter, ObjectiveLinter
+from core.services.linting import ObjectiveLinter, SummaryLinter
 
 
 def test_summary_linter_structure():

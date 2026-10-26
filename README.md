@@ -329,60 +329,96 @@ docker build -t test-gen:v1 .
 
 ## CLI Commands
 
-All commands use: `python workflows.py <command> [options]`
+All commands use: `python workflows.py --project <project-id> <command> [options]`
 
-For detailed CLI documentation, see [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md).
+Full documentation: [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md).
+Run `python workflows.py list-projects` to see the available `<project-id>` values.
+
+### Three gotchas
+
+1. **`--project` goes BEFORE the subcommand.** It is a top-level argument, so
+   putting it after the command fails with `unrecognized arguments: --project`.
+2. **Omitting `--project` silently uses `env-quickdraw`.** There is no
+   `DEFAULT_PROJECT` variable. The run still reports success, but with the wrong
+   project's area path, UI surfaces and vocabulary. Always pass it explicitly.
+3. **A PARTIAL result exits 0.** Only hard failures exit 1, so `&&` chains and CI
+   treat a partial run as success. Read the output.
+
+```bash
+# CORRECT
+python workflows.py --project <project-id> generate --story-id <story-id>
+
+# WRONG -> error: unrecognized arguments: --project <project-id>
+python workflows.py generate --story-id <story-id> --project <project-id>
+```
 
 ### Quick Reference
 
 | Command | Description | Example |
 |---------|-------------|---------|
 | `list-projects` | Show all configured projects | `python workflows.py list-projects` |
-| `generate` | Generate test cases locally | `python workflows.py generate --story-id 272889` |
-| `upload` | Generate AND upload to ADO | `python workflows.py upload --story-id 272889` |
-| `upload-existing` | Upload existing tests to ADO | `python workflows.py upload-existing --story-id 272889` |
+| `generate` | Generate test cases locally | `python workflows.py -p <project-id> generate --story-id <story-id>` |
+| `upload` | Generate AND upload to ADO | `python workflows.py -p <project-id> upload --story-id <story-id>` |
+| `upload-existing` | Upload existing files to ADO | `python workflows.py -p <project-id> upload-existing --story-id <story-id>` |
+| `update-objectives` | Update Summary field in ADO | `python workflows.py -p <project-id> update-objectives --story-id <story-id> --dry-run` |
+| `update-from-feedback` | Rewrite tests from reviewer feedback | `python workflows.py -p <project-id> update-from-feedback --csv t.csv --feedback f.txt` |
+| `create-bug` | Create formatted ADO bug report | `python workflows.py -p <project-id> create-bug --file bugs/my_bug.txt` |
 | `init-project` | Create new project config | `python workflows.py init-project --name "MyApp"` |
-| `discover` | Auto-discover project settings | `python workflows.py discover --story-ids 123 456` |
-| `create-bug` | Create formatted ADO bug report | `python workflows.py create-bug --file bugs/my_bug.txt` |
+| `discover` | Auto-discover project settings | `python workflows.py discover --story-ids 123 456 --project-name my-app` |
 
 ### Common Examples
 
 ```bash
-# 1. List available projects
+source venv310/bin/activate
+
+# 1. List available projects -- always start here to confirm your project ID
 python workflows.py list-projects
 
 # 2. Generate tests (saves to output/ folder)
-python workflows.py generate --story-id 272889
+python workflows.py --project <project-id> generate --story-id <story-id>
 
-# 3. Generate tests for specific project
-python workflows.py generate --story-id 272889 --project mediapedia-us
+# 3. Confirm the LLM actually ran -- SUCCESS alone does not prove it.
+#    A missing PROMPTS_DEBUG file means the template engine produced filler.
+ls -la output/<story-id>_PROMPTS_DEBUG.txt
 
-# 4. Generate tests WITHOUT LLM correction (faster)
-python workflows.py generate --story-id 272889 --skip-correction
+# 4. Generate WITHOUT LLM correction (faster, markedly lower quality)
+python workflows.py --project <project-id> generate --story-id <story-id> --skip-correction
 
-# 5. Generate AND upload to Azure DevOps
-python workflows.py upload --story-id 272889
+# 5. Preview an upload without writing to ADO
+python workflows.py --project <project-id> upload --story-id <story-id> --dry-run
 
-# 6. Preview upload without actually uploading (dry run)
-python workflows.py upload --story-id 272889 --dry-run
+# 6. Generate AND upload to Azure DevOps
+python workflows.py --project <project-id> upload --story-id <story-id>
 
-# 7. Upload EXISTING tests (skip generation, use files in output/)
-python workflows.py upload-existing --story-id 272889
+# 7. Upload EXISTING files (skip generation) -- use after reviewing the CSV
+python workflows.py --project <project-id> upload-existing --story-id <story-id>
 
-# 8. Initialize a new project
+# 8. Update objectives / Summary field on test cases already in ADO
+python workflows.py --project <project-id> update-objectives --story-id <story-id> --dry-run
+
+# 9. Initialize a new project
 python workflows.py init-project --name "MyApp" --org myorg --ado-project MyProject
 
-# 9. Create a bug report (local preview)
-python workflows.py create-bug --file bugs/my_bug.txt
-
-# 10. Create a bug report with dry-run (preview ADO fields without uploading)
-python workflows.py create-bug --file bugs/my_bug.txt --upload --dry-run
+# 10. Create a bug report (local preview)
+python workflows.py --project <project-id> create-bug --file bugs/my_bug.txt
 
 # 11. Create a bug report and upload to ADO
-python workflows.py create-bug --file bugs/my_bug.txt --upload
+python workflows.py --project <project-id> create-bug --file bugs/my_bug.txt --upload
 
 # 12. Create a bug and link to parent story
-python workflows.py create-bug --file bugs/my_bug.txt --upload --story-id 272261
+python workflows.py --project <project-id> create-bug --file bugs/my_bug.txt --upload --story-id <story-id>
+```
+
+### Working across multiple projects
+
+Every command names its project explicitly, so there is no mode to switch and
+nothing to remember between runs. If you work on one project repeatedly, define a
+personal shell alias — keep it in your own shell profile rather than the
+repository, so no shared default can be silently wrong for a teammate:
+
+```bash
+alias tg-myproject='python workflows.py --project <project-id>'
+tg-myproject generate --story-id <story-id>
 ```
 
 ---
@@ -516,12 +552,46 @@ The framework supports multiple LLM providers via a factory pattern. Set `llm_pr
 
 | Provider | Config Value | Env Variable | Models |
 |----------|-------------|--------------|--------|
-| OpenAI | `openai` | `OPENAI_API_KEY` | `gpt-4o-mini`, `gpt-4o` |
-| Google Gemini | `gemini` | `GEMINI_API_KEY` | `gemini-2.0-flash`, `gemini-1.5-pro` |
-| Anthropic | `anthropic` | `ANTHROPIC_API_KEY` | `claude-sonnet-4-5-20250929` |
+| Anthropic (recommended) | `anthropic` | `ANTHROPIC_API_KEY` | `claude-opus-5-5` (generator), `claude-sonnet-5-5` (judge), `claude-fable-5-1` |
+| OpenAI | `openai` | `OPENAI_API_KEY` | `gpt-4o`, `gpt-4o-mini` |
+| Google Gemini | `gemini` | `GEMINI_API_KEY` | `gemini-2.5-flash` (falls back to `gemini-3.5-flash-lite` when rate limited) |
 | Ollama (local) | `ollama` | N/A | Any local model |
 
-YAML config `llm_provider` takes precedence over `.env` defaults. API keys are always resolved from environment variables.
+`.env` values (`LLM_PROVIDER`, `LLM_MODEL`, `JUDGE_*`) override the YAML `llm_*` / `judge_*` settings; the YAML values are fallbacks. API keys always come from environment variables.
+
+The Anthropic provider sends an explicit `output_config.effort` (default `high`, `ANTHROPIC_EFFORT` to change; Opus 5.5 would otherwise run at `medium`), never sends sampling parameters, caches the system prompt, streams long outputs, keeps at least 32,000 output tokens because adaptive thinking shares that budget (`ANTHROPIC_MIN_OUTPUT_TOKENS`), and enables the server-side refusal fallback (`ANTHROPIC_FALLBACKS=off` to disable).
+
+### Source Grounding (strict mode)
+
+A human review of generated tests found invented menu paths, screens, fields, counties and messages, lettered roles (Admin A, P1), team-work steps, database changes and bracket notes. Prompt instructions alone did not stop this, so strict mode adds sources and code-level checks. Turn it on per project:
+
+```yaml
+qa_rules:
+  strict_grounding: true           # rules + sources in the prompt, rule checks in the judge loop
+  use_qa_prep_as_source: false     # QA Prep tasks may hold earlier unreviewed text
+  rag_reference_steps: false       # reference steps from earlier runs / other projects
+  auto_accessibility_tests: false  # only when an AC or document asks for accessibility
+  enforce_min_test_count: false    # a computed minimum makes the model pad with invented tests
+  write_qa_prep_summary: false     # auto-written summaries are read back as sources next run
+  legacy_terms: [Admin Functions, Left Navigation Menu]   # old-system names to reject
+  synonyms: {QA setup notes: the provided setup instructions}
+  glossary: {result list: the list of search results}
+
+requirement_docs:                  # story documentation kept next to the code
+  enabled: true
+  source: ado_git                  # or local (local_root: path/to/documentation)
+  ado_repo: My App
+  root: /documentation
+  story_results_dir: story-results # <story id>.md, plus the docs it links (one hop)
+  exclude: [project-planning/legacy-ui/]
+  max_chars: 120000
+```
+
+What changes in a strict run:
+- The generator and the judge see the story's requirement documents (fenced as reference data). Proposals, open decisions and "Not checked" rows are not treated as requirements.
+- The system prompt leads with the 13 reviewer rules and the project glossary. Open-ended edge-case brainstorming, derived scenarios with example values, and the legacy title-area list are dropped; edge cases must come from a source.
+- The model returns `open_questions` for details the sources do not give; they are saved as `<story>_OPEN_QUESTIONS.md`.
+- `core/services/quality/qa_rules_checker.py` checks every judge round and the final output: ungrounded quotes, identifiers, screen names and values; lettered roles; synonyms; step structure; Pre-req claims; team work; attributed evidence; database changes; inline comments; grammar; AC coverage; and scenario classes (cancel, stale edit, denied access, failure, session expiry, keyboard, narrow width...) that the ACs or the story-results file describe but no test exercises. Rule errors block a judge pass and go to the fixer; the final summary is in `<story>_QUALITY_REPORT.json` under `reviewer_rules`.
 
 ### Feature Type Detection
 

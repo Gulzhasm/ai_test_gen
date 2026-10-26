@@ -2,7 +2,6 @@
 Interface for cross-platform test generation.
 """
 from abc import ABC, abstractmethod
-from typing import List
 
 from core.domain.story import UserStory
 from core.domain.test_case import TestCase
@@ -12,7 +11,7 @@ class ICrossPlatformGenerator(ABC):
     """Interface for generating cross-platform tests."""
     
     @abstractmethod
-    def generate_platform_tests(self, story: UserStory, base_tests: List[TestCase]) -> List[TestCase]:
+    def generate_platform_tests(self, story: UserStory, base_tests: list[TestCase]) -> list[TestCase]:
         """Generate platform-specific variants of base tests.
         
         Args:
@@ -22,13 +21,11 @@ class ICrossPlatformGenerator(ABC):
         Returns:
             List of platform-specific test cases
         """
-        pass
     
     @abstractmethod
-    def get_supported_platforms(self) -> List[str]:
+    def get_supported_platforms(self) -> list[str]:
         """Get list of supported platforms.
         
         Returns:
             List of platform names
         """
-        pass

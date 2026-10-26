@@ -2,7 +2,6 @@
 Interface for edge case test generation.
 """
 from abc import ABC, abstractmethod
-from typing import List
 
 from core.domain.story import UserStory
 from core.domain.test_case import TestCase
@@ -12,7 +11,7 @@ class IEdgeCaseGenerator(ABC):
     """Interface for generating edge case tests."""
     
     @abstractmethod
-    def generate_edge_cases(self, story: UserStory, existing_tests: List[TestCase]) -> List[TestCase]:
+    def generate_edge_cases(self, story: UserStory, existing_tests: list[TestCase]) -> list[TestCase]:
         """Generate edge case tests.
         
         Args:
@@ -22,7 +21,6 @@ class IEdgeCaseGenerator(ABC):
         Returns:
             List of edge case test cases
         """
-        pass
     
     @abstractmethod
     def is_applicable(self, story: UserStory) -> bool:
@@ -34,4 +32,3 @@ class IEdgeCaseGenerator(ABC):
         Returns:
             True if edge cases should be generated
         """
-        pass

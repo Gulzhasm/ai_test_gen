@@ -9,26 +9,21 @@ to ground selectors in real, observed elements.
 
 Requires the `playwright` package (`pip install playwright && playwright install chromium`).
 """
-import json
-import os
 from datetime import datetime, timezone
-from typing import List, Dict, Optional
 
 from core.domain.ui_element import (
-    UIElement,
-    ElementInventory,
-    BoundingBox,
     STABILITY_HIGH,
-    STABILITY_MEDIUM,
     STABILITY_LOW,
+    STABILITY_MEDIUM,
+    BoundingBox,
+    ElementInventory,
+    UIElement,
 )
 from core.interfaces.element_extractor import (
+    ApiMock,
     IElementExtractor,
     PageState,
-    NavStep,
-    ApiMock,
 )
-
 
 # Roles worth capturing for selector grounding (interactive + landmarks + headers).
 GROUNDABLE_ROLES = {
@@ -154,14 +149,14 @@ def _esc(s: str) -> str:
     return s.replace("\\", "\\\\").replace("'", "\\'")
 
 
-def _build_selector(role: str, name: str, attrs: Dict[str, str], exact: bool = False) -> (str, List[str]):
+def _build_selector(role: str, name: str, attrs: dict[str, str], exact: bool = False) -> (str, list[str]):
     """Return (recommended_selector, fallback_selectors) for an element.
 
     `exact=True` emits `{ name: '...', exact: true }` so the selector is not
     ambiguous under Playwright's default substring name matching (e.g. so that
     name 'Scan' does not also match the 'Scanner' tab button).
     """
-    fallbacks: List[str] = []
+    fallbacks: list[str] = []
 
     testid = attrs.get("data-testid")
     if testid:
@@ -197,8 +192,8 @@ class PlaywrightExtractor(IElementExtractor):
     def extract(
         self,
         base_url: str,
-        page_states: List[PageState],
-        api_mocks: Optional[List[ApiMock]] = None,
+        page_states: list[PageState],
+        api_mocks: list[ApiMock] | None = None,
     ) -> ElementInventory:
         try:
             from playwright.sync_api import sync_playwright
@@ -233,7 +228,7 @@ class PlaywrightExtractor(IElementExtractor):
                     route.fulfill(status=_status, content_type="application/json", body=_body)
                 page.route(url_glob, _handler)
 
-            all_elements: List[UIElement] = []
+            all_elements: list[UIElement] = []
             for state in page_states:
                 print(f"  Crawling page state: {state.name}")
                 self._navigate(page, base_url, state)
@@ -266,20 +261,20 @@ class PlaywrightExtractor(IElementExtractor):
         # settle async renders
         page.wait_for_timeout(400)
 
-    def _build_elements(self, raw: Dict, page_context: str) -> List[UIElement]:
+    def _build_elements(self, raw: dict, page_context: str) -> list[UIElement]:
         viewport = raw.get("viewport")
         raw_els = raw.get("elements", [])
 
         # Count (role, name) occurrences to determine uniqueness on this page state.
-        counts: Dict[tuple, int] = {}
-        names_by_role: Dict[str, set] = {}
+        counts: dict[tuple, int] = {}
+        names_by_role: dict[str, set] = {}
         for r in raw_els:
             key = (r["role"], r["name"])
             counts[key] = counts.get(key, 0) + 1
             names_by_role.setdefault(r["role"], set()).add(r["name"])
 
-        seen_index: Dict[tuple, int] = {}
-        built: List[UIElement] = []
+        seen_index: dict[tuple, int] = {}
+        built: list[UIElement] = []
         for r in raw_els:
             role = r["role"]
             if role not in GROUNDABLE_ROLES:
@@ -330,7 +325,7 @@ class PlaywrightExtractor(IElementExtractor):
         return built
 
     @staticmethod
-    def _stability(role: str, name: str, is_unique: bool, attrs: Dict[str, str]) -> str:
+    def _stability(role: str, name: str, is_unique: bool, attrs: dict[str, str]) -> str:
         if attrs.get("data-testid"):
             return STABILITY_HIGH
         if not is_unique:
@@ -343,10 +338,10 @@ class PlaywrightExtractor(IElementExtractor):
         return STABILITY_LOW
 
     @staticmethod
-    def _dedupe(elements: List[UIElement]) -> List[UIElement]:
+    def _dedupe(elements: list[UIElement]) -> list[UIElement]:
         """Drop exact duplicate elements (same id) captured across page states."""
         seen = set()
-        out: List[UIElement] = []
+        out: list[UIElement] = []
         for e in elements:
             if e.element_id in seen:
                 continue

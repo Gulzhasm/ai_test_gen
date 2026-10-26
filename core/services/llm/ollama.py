@@ -2,9 +2,8 @@
 Ollama Provider
 Local LLM provider using Ollama.
 """
+
 import requests
-import json
-from typing import Optional
 
 
 class OllamaProvider:
@@ -35,7 +34,7 @@ class OllamaProvider:
         prompt: str,
         temperature: float = 0.3,
         max_tokens: int = 500
-    ) -> Optional[str]:
+    ) -> str | None:
         """Rewrite text using Ollama.
         
         Args:

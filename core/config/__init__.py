@@ -15,18 +15,18 @@ except ImportError:
 
 # Re-export environment config for backward compatibility
 from .environment import (
-    EnvironmentConfig,
     ADO_PAT,
-    LLM_ENABLED,
-    LLM_PROVIDER,
-    LLM_MODEL,
-    LLM_ENDPOINT,
-    LLM_TIMEOUT,
-    LLM_MAX_RETRIES,
-    LLM_TEMPERATURE,
-    OPENAI_API_KEY,
     DEFAULT_PROJECT,
-    OUTPUT_DIR
+    LLM_ENABLED,
+    LLM_ENDPOINT,
+    LLM_MAX_RETRIES,
+    LLM_MODEL,
+    LLM_PROVIDER,
+    LLM_TEMPERATURE,
+    LLM_TIMEOUT,
+    OPENAI_API_KEY,
+    OUTPUT_DIR,
+    EnvironmentConfig,
 )
 
 
@@ -35,7 +35,7 @@ class ADOConfig:
     """Azure DevOps configuration."""
     org: str
     project: str
-    pat: Optional[str]
+    pat: str | None
     area_path: str
     base_url: str
     
@@ -57,10 +57,10 @@ class TestCaseConfig:
     """Test case generation configuration."""
     assigned_to: str
     default_state: str
-    forbidden_words: List[str]
-    forbidden_area_terms: List[str]
-    allowed_areas: List[str]
-    objective_key_terms: List[str]
+    forbidden_words: list[str]
+    forbidden_area_terms: list[str]
+    allowed_areas: list[str]
+    objective_key_terms: list[str]
     
     @classmethod
     def default(cls) -> 'TestCaseConfig':

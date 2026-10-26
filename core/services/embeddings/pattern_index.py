@@ -6,12 +6,11 @@ Loads patterns from JSON and pre-computes embeddings for fast similarity search.
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import numpy as np
 
-from .embedding_interface import IEmbeddingProvider
 from .embedding_cache import EmbeddingCache
+from .embedding_interface import IEmbeddingProvider
 
 
 @dataclass
@@ -20,13 +19,13 @@ class PatternEntry:
     pattern_id: str
     canonical: str
     category: str
-    subcategory: Optional[str]
-    synonyms: List[str]
+    subcategory: str | None
+    synonyms: list[str]
     embedding: np.ndarray
-    synonym_embeddings: List[np.ndarray] = field(default_factory=list)
-    regex_fallback: Optional[str] = None
+    synonym_embeddings: list[np.ndarray] = field(default_factory=list)
+    regex_fallback: str | None = None
 
-    def get_all_embeddings(self) -> List[np.ndarray]:
+    def get_all_embeddings(self) -> list[np.ndarray]:
         """Get canonical + all synonym embeddings."""
         return [self.embedding] + self.synonym_embeddings
 
@@ -49,7 +48,7 @@ class EmbeddingPatternIndex:
     def __init__(
         self,
         provider: IEmbeddingProvider,
-        cache: Optional[EmbeddingCache] = None,
+        cache: EmbeddingCache | None = None,
         patterns_file: str = "patterns/ac_patterns.json"
     ):
         """Initialize pattern index.
@@ -62,8 +61,8 @@ class EmbeddingPatternIndex:
         self._provider = provider
         self._cache = cache or EmbeddingCache()
         self._patterns_file = patterns_file
-        self._patterns: Dict[str, PatternEntry] = {}
-        self._category_index: Dict[str, List[str]] = {}
+        self._patterns: dict[str, PatternEntry] = {}
+        self._category_index: dict[str, list[str]] = {}
         self._loaded = False
 
     @property
@@ -150,7 +149,7 @@ class EmbeddingPatternIndex:
         self._loaded = True
         print(f"Loaded {len(self._patterns)} patterns with embeddings")
 
-    def _embed_all(self, texts: List[str]) -> Dict[str, np.ndarray]:
+    def _embed_all(self, texts: list[str]) -> dict[str, np.ndarray]:
         """Embed all texts, using cache where possible.
 
         Args:
@@ -180,7 +179,7 @@ class EmbeddingPatternIndex:
 
         return results
 
-    def get_patterns_by_category(self, category: str) -> List[PatternEntry]:
+    def get_patterns_by_category(self, category: str) -> list[PatternEntry]:
         """Get all patterns in a category.
 
         Args:
@@ -192,11 +191,11 @@ class EmbeddingPatternIndex:
         pattern_ids = self._category_index.get(category, [])
         return [self._patterns[pid] for pid in pattern_ids if pid in self._patterns]
 
-    def get_all_patterns(self) -> List[PatternEntry]:
+    def get_all_patterns(self) -> list[PatternEntry]:
         """Get all loaded patterns."""
         return list(self._patterns.values())
 
-    def get_pattern_by_id(self, pattern_id: str) -> Optional[PatternEntry]:
+    def get_pattern_by_id(self, pattern_id: str) -> PatternEntry | None:
         """Get pattern by ID.
 
         Args:
@@ -224,11 +223,11 @@ class EmbeddingPatternIndex:
 
         return np.array([p.embedding for p in patterns])
 
-    def get_categories(self) -> List[str]:
+    def get_categories(self) -> list[str]:
         """Get list of all categories."""
         return list(self._category_index.keys())
 
-    def search_by_text(self, text: str) -> Optional[PatternEntry]:
+    def search_by_text(self, text: str) -> PatternEntry | None:
         """Find pattern by exact text match (canonical or synonym).
 
         Args:

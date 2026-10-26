@@ -2,7 +2,6 @@
 Feature extraction and analysis domain logic.
 """
 import re
-from typing import Optional
 
 
 class FeatureExtractor:

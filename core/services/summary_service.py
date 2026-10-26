@@ -3,8 +3,14 @@ QA Planning Summary Service
 Generates QA Planning Summary with evidence gates and optional LLM rewriting.
 """
 import re
-from typing import List, Optional, Dict
-from core.domain.models import UserStory, TestCase, SummaryPlan, EvidenceModel, LintResult
+
+from core.domain.models import (
+    EvidenceModel,
+    LintResult,
+    SummaryPlan,
+    TestCase,
+    UserStory,
+)
 from core.services.linting import SummaryLinter
 from core.services.llm.base import LLMProvider
 
@@ -14,7 +20,7 @@ class SummaryService:
     
     def __init__(
         self,
-        llm_provider: Optional[LLMProvider] = None,
+        llm_provider: LLMProvider | None = None,
         debug: bool = False
     ):
         """Initialize summary service.
@@ -37,7 +43,7 @@ class SummaryService:
     def generate_summary(
         self,
         story: UserStory,
-        test_cases: List[TestCase]
+        test_cases: list[TestCase]
     ) -> tuple[str, SummaryPlan, LintResult]:
         """Generate QA Planning Summary.
         
@@ -64,7 +70,7 @@ class SummaryService:
         
         if not lint_result.ok:
             if self.debug:
-                print(f"[DEBUG] Deterministic summary failed lint:")
+                print("[DEBUG] Deterministic summary failed lint:")
                 for err in lint_result.errors:
                     print(f"  - {err}")
             return deterministic_summary, plan, lint_result
@@ -95,7 +101,7 @@ class SummaryService:
     def _build_evidence(
         self,
         story: UserStory,
-        test_cases: List[TestCase]
+        test_cases: list[TestCase]
     ) -> EvidenceModel:
         """Build evidence model from story and test cases."""
         # Extract UI entry points from test titles
@@ -125,7 +131,7 @@ class SummaryService:
         
         return evidence
     
-    def _extract_behaviors(self, ac_text: str) -> List[str]:
+    def _extract_behaviors(self, ac_text: str) -> list[str]:
         """Extract behavior verbs from AC text."""
         text = ac_text.lower()
         
@@ -146,7 +152,7 @@ class SummaryService:
     def _build_summary_plan(
         self,
         story: UserStory,
-        test_cases: List[TestCase],
+        test_cases: list[TestCase],
         evidence: EvidenceModel
     ) -> SummaryPlan:
         """Build deterministic summary plan from evidence."""
@@ -230,7 +236,7 @@ class SummaryService:
         else:
             return "interact with the feature"
     
-    def _format_ui_surface(self, entry_points: List[str]) -> str:
+    def _format_ui_surface(self, entry_points: list[str]) -> str:
         """Format UI entry points naturally."""
         if not entry_points:
             return "designated entry points"
@@ -245,9 +251,9 @@ class SummaryService:
     def _build_focus_bullets(
         self,
         story: UserStory,
-        test_cases: List[TestCase],
+        test_cases: list[TestCase],
         evidence: EvidenceModel
-    ) -> List[str]:
+    ) -> list[str]:
         """Build 6-9 focus bullets from AC order."""
         bullets = []
         seen_themes = set()
@@ -302,7 +308,7 @@ class SummaryService:
         
         return bullets[:9]
     
-    def _parse_ac(self, ac_text: str) -> List[str]:
+    def _parse_ac(self, ac_text: str) -> list[str]:
         """Parse AC into ordered bullets."""
         if not ac_text:
             return []
@@ -329,7 +335,7 @@ class SummaryService:
         
         return bullets
     
-    def _ac_to_qa_bullet(self, ac_text: str, evidence: EvidenceModel) -> Optional[str]:
+    def _ac_to_qa_bullet(self, ac_text: str, evidence: EvidenceModel) -> str | None:
         """Convert AC to QA bullet using evidence only."""
         if not ac_text or len(ac_text) < 10:
             return None
@@ -364,9 +370,9 @@ class SummaryService:
     def _build_dependencies(
         self,
         story: UserStory,
-        test_cases: List[TestCase],
+        test_cases: list[TestCase],
         evidence: EvidenceModel
-    ) -> List[str]:
+    ) -> list[str]:
         """Build dependencies list from evidence."""
         deps = []
         text = f"{evidence.description_text} {evidence.ac_text}".lower()
@@ -387,7 +393,7 @@ class SummaryService:
         
         return deps
     
-    def _build_accessibility_clause(self, test_cases: List[TestCase]) -> str:
+    def _build_accessibility_clause(self, test_cases: list[TestCase]) -> str:
         """Build accessibility clause (always included)."""
         return (
             "Accessibility testing will validate compliance with Section 508 / WCAG 2.1 AA standards, "
@@ -395,7 +401,7 @@ class SummaryService:
             "to ensure the feature is usable with assistive technologies."
         )
     
-    def _build_platform_clause(self, test_cases: List[TestCase]) -> str:
+    def _build_platform_clause(self, test_cases: list[TestCase]) -> str:
         """Build platform clause. Returns empty - no hardcoded platform boilerplate."""
         return ""
     
@@ -429,7 +435,7 @@ Functional dependencies include {deps_text}, all of which must operate correctly
         deterministic_text: str,
         plan: SummaryPlan,
         evidence: EvidenceModel
-    ) -> Optional[str]:
+    ) -> str | None:
         """Rewrite summary with LLM."""
         if not self.llm_provider:
             return None

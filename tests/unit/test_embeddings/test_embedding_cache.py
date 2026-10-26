@@ -1,8 +1,6 @@
 """Tests for embedding cache."""
-import tempfile
 import numpy as np
 import pytest
-from datetime import timedelta
 
 from core.services.embeddings.embedding_cache import EmbeddingCache
 from core.services.embeddings.embedding_interface import EmbeddingResult

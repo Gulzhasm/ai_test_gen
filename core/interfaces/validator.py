@@ -4,7 +4,6 @@ Validator interfaces for test case quality assurance.
 Abstracts validation logic to enable configurable quality gates.
 """
 from abc import ABC, abstractmethod
-from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
@@ -22,15 +21,15 @@ class ValidationResult:
     is_valid: bool
     severity: ValidationSeverity
     message: str
-    field: Optional[str] = None
-    suggestion: Optional[str] = None
+    field: str | None = None
+    suggestion: str | None = None
 
 
 class IValidator(ABC):
     """Interface for test case validation."""
 
     @abstractmethod
-    def validate(self, test_case: Dict) -> List[ValidationResult]:
+    def validate(self, test_case: dict) -> list[ValidationResult]:
         """Validate a single test case.
 
         Args:
@@ -39,10 +38,9 @@ class IValidator(ABC):
         Returns:
             List of validation results
         """
-        pass
 
     @abstractmethod
-    def validate_batch(self, test_cases: List[Dict]) -> Dict[str, List[ValidationResult]]:
+    def validate_batch(self, test_cases: list[dict]) -> dict[str, list[ValidationResult]]:
         """Validate multiple test cases.
 
         Args:
@@ -51,10 +49,9 @@ class IValidator(ABC):
         Returns:
             Dict mapping test case IDs to their validation results
         """
-        pass
 
     @abstractmethod
-    def is_valid(self, test_case: Dict) -> bool:
+    def is_valid(self, test_case: dict) -> bool:
         """Check if test case passes all validations.
 
         Args:
@@ -63,7 +60,6 @@ class IValidator(ABC):
         Returns:
             True if no ERROR severity issues found
         """
-        pass
 
 
 class IQualityGate(ABC):
@@ -73,16 +69,14 @@ class IQualityGate(ABC):
     @abstractmethod
     def name(self) -> str:
         """Name of the quality gate."""
-        pass
 
     @property
     @abstractmethod
     def description(self) -> str:
         """Description of what this gate checks."""
-        pass
 
     @abstractmethod
-    def check(self, test_case: Dict) -> ValidationResult:
+    def check(self, test_case: dict) -> ValidationResult:
         """Run the quality gate check.
 
         Args:
@@ -91,7 +85,6 @@ class IQualityGate(ABC):
         Returns:
             ValidationResult with check outcome
         """
-        pass
 
 
 class ITitleValidator(IQualityGate):
@@ -108,14 +101,13 @@ class ITitleValidator(IQualityGate):
         Returns:
             ValidationResult
         """
-        pass
 
 
 class IStepValidator(IQualityGate):
     """Interface for step validation."""
 
     @abstractmethod
-    def validate_step_count(self, steps: List[Dict]) -> ValidationResult:
+    def validate_step_count(self, steps: list[dict]) -> ValidationResult:
         """Validate step count is within bounds.
 
         Args:
@@ -124,10 +116,9 @@ class IStepValidator(IQualityGate):
         Returns:
             ValidationResult
         """
-        pass
 
     @abstractmethod
-    def validate_first_step(self, steps: List[Dict]) -> ValidationResult:
+    def validate_first_step(self, steps: list[dict]) -> ValidationResult:
         """Validate first step is a prerequisite.
 
         Args:
@@ -136,10 +127,9 @@ class IStepValidator(IQualityGate):
         Returns:
             ValidationResult
         """
-        pass
 
     @abstractmethod
-    def validate_last_step(self, steps: List[Dict]) -> ValidationResult:
+    def validate_last_step(self, steps: list[dict]) -> ValidationResult:
         """Validate last step is close/exit.
 
         Args:
@@ -148,7 +138,6 @@ class IStepValidator(IQualityGate):
         Returns:
             ValidationResult
         """
-        pass
 
 
 class IContentValidator(IQualityGate):
@@ -164,7 +153,6 @@ class IContentValidator(IQualityGate):
         Returns:
             ValidationResult with any found forbidden words
         """
-        pass
 
     @abstractmethod
     def validate_area_term(self, area: str) -> ValidationResult:
@@ -176,4 +164,3 @@ class IContentValidator(IQualityGate):
         Returns:
             ValidationResult
         """
-        pass

@@ -5,15 +5,24 @@ Note: This module is intentionally ADO-specific because test plans and test suit
 are ADO concepts. For TestRail, sections are created via the TestRailTestSuiteRepository.
 The UploadWorkflow handles platform selection automatically.
 """
-from typing import Dict, Optional, List, Tuple
+import re
+from dataclasses import dataclass
+
 import requests
 from requests.auth import HTTPBasicAuth
-from dataclasses import dataclass
 
 from .project_config import ProjectConfig
 
 
+def _has_word(text: str, *words: str) -> bool:
+    """True if any word occurs as a whole word ('type' must not match 'prototype')."""
+    t = text.lower()
+    return any(re.search(rf"\b{re.escape(w)}\b", t) for w in words)
+
+
+
 @dataclass
+
 class TestPlanInfo:
     """Information about a created or found test plan."""
     id: int
@@ -116,7 +125,7 @@ class TestSuiteCreator:
         story_id: str,
         story_name: str,
         plan_name: str = None
-    ) -> Tuple[TestPlanInfo, TestSuiteInfo]:
+    ) -> tuple[TestPlanInfo, TestSuiteInfo]:
         """
         Create complete test organization for a story.
 
@@ -152,7 +161,7 @@ class TestSuiteCreator:
         self,
         suite_id: int,
         plan_id: int,
-        test_case_ids: List[int]
+        test_case_ids: list[int]
     ) -> bool:
         """
         Add test cases to a test suite.
@@ -189,7 +198,7 @@ class TestSuiteCreator:
 
     # Private Methods
 
-    def _find_test_plan(self, plan_name: str) -> Optional[TestPlanInfo]:
+    def _find_test_plan(self, plan_name: str) -> TestPlanInfo | None:
         """Find an existing test plan by name."""
         url = f"{self.base_url}/_apis/testplan/plans?api-version=7.1"
 
@@ -249,7 +258,7 @@ class TestSuiteCreator:
         except requests.exceptions.RequestException as e:
             raise RuntimeError(f"Failed to create test plan: {e}")
 
-    def _find_test_suite(self, plan_id: int, story_id: str) -> Optional[TestSuiteInfo]:
+    def _find_test_suite(self, plan_id: int, story_id: str) -> TestSuiteInfo | None:
         """Find an existing test suite by story ID prefix."""
         url = f"{self.base_url}/_apis/testplan/Plans/{plan_id}/suites?api-version=7.1"
 
@@ -323,7 +332,7 @@ class TestSuiteCreator:
             response.raise_for_status()
             data = response.json()
             return data.get('rootSuite', {}).get('id', plan_id)
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             # Fall back to plan_id as root suite
             return plan_id
 
@@ -347,9 +356,9 @@ class QAPrepGenerator:
 
     def generate_qa_prep_content(
         self,
-        story_data: Dict,
-        acceptance_criteria: List[str]
-    ) -> Dict:
+        story_data: dict,
+        acceptance_criteria: list[str]
+    ) -> dict:
         """
         Generate QA Prep equivalent content from story data.
 
@@ -392,9 +401,9 @@ class QAPrepGenerator:
 
     async def generate_with_llm(
         self,
-        story_data: Dict,
-        acceptance_criteria: List[str]
-    ) -> Dict:
+        story_data: dict,
+        acceptance_criteria: list[str]
+    ) -> dict:
         """
         Generate comprehensive QA Prep content using LLM.
 
@@ -438,40 +447,37 @@ Only return valid JSON."""
 
     # Private Methods
 
-    def _extract_entry_points(self, text: str) -> List[str]:
+    def _extract_entry_points(self, text: str) -> list[str]:
         """Extract entry points from text using project config."""
         entry_points = []
 
+        # Word-boundary prefix match ('role' must not match 'controlled', 'user'
+        # must not match 'username' only as a substring of another word).
         for keyword, entry_point in self.config.application.entry_point_mappings.items():
-            if keyword in text:
+            if re.search(rf"\b{re.escape(keyword.lower())}", text.lower()):
                 if entry_point not in entry_points:
                     entry_points.append(entry_point)
 
-        # Default to first UI surface if none found
-        if not entry_points and self.config.application.main_ui_surfaces:
-            entry_points.append(self.config.application.main_ui_surfaces[0])
+        # No default surface: inventing an entry point the story never names is a
+        # hallucination source. Callers handle an empty list.
 
         return entry_points
 
-    def _extract_platforms(self, text: str) -> List[str]:
-        """Extract platforms from text.
+    def _extract_platforms(self, text: str) -> list[str]:
+        """Platforms in scope for the story text.
 
-        Primary platform (first in config) is always included.
-        Additional platforms (iPad, Android Tablet) only if explicitly mentioned
-        in ACs. BA does not always include platforms in ACs — don't assume all.
+        Primary platform (first in config) is always included; others when the
+        text names them or an alias ("iOS", "Google Play", "each applicable
+        package") — see core.services.platform_scope. BA does not always include
+        platforms in ACs — don't assume all.
         """
-        all_platforms = list(self.config.application.supported_platforms)
-        if not all_platforms:
-            return []
+        # Imported here: core.services pulls in the generator stack
+        from core.services.platform_scope import select_story_platforms
 
-        # Primary platform always included
-        primary = all_platforms[0]
-        platforms = [primary]
-
-        # Additional platforms only if mentioned in text (which includes ACs)
-        for platform in all_platforms[1:]:
-            if platform.lower() in text:
-                platforms.append(platform)
+        app = self.config.application
+        all_platforms = list(app.supported_platforms)
+        platforms = select_story_platforms(
+            all_platforms, [text], getattr(app, 'platform_aliases', None))
 
         if len(platforms) < len(all_platforms):
             excluded = [p for p in all_platforms if p not in platforms]
@@ -479,47 +485,47 @@ Only return valid JSON."""
 
         return platforms
 
-    def _generate_edge_cases(self, text: str, acs: List[str]) -> List[str]:
+    def _generate_edge_cases(self, text: str, acs: list[str]) -> list[str]:
         """Generate edge case scenarios based on content."""
         edge_cases = []
 
         # Check for common edge case indicators
-        if 'empty' in text or 'no data' in text:
+        if _has_word(text, 'empty', 'no data'):
             edge_cases.append('empty_state')
 
-        if 'duplicate' in text or 'already exists' in text:
+        if _has_word(text, 'duplicate', 'already exists'):
             edge_cases.append('duplicate_prevention')
 
-        if 'multiple' in text or 'batch' in text:
+        if _has_word(text, 'multiple', 'batch'):
             edge_cases.append('multiple_items')
 
-        if 'large' in text or 'many' in text:
+        if _has_word(text, 'large', 'many'):
             edge_cases.append('large_dataset')
 
-        if 'concurrent' in text or 'simultaneous' in text:
+        if _has_word(text, 'concurrent', 'simultaneous'):
             edge_cases.append('concurrent_access')
 
         return edge_cases
 
-    def _generate_negative_scenarios(self, text: str) -> List[str]:
+    def _generate_negative_scenarios(self, text: str) -> list[str]:
         """Generate negative test scenarios."""
         scenarios = []
 
-        if 'select' in text or 'selection' in text:
+        if _has_word(text, 'select', 'selection'):
             scenarios.append('no_selection')
 
-        if 'type' in text or 'valid' in text:
+        if _has_word(text, 'type', 'valid'):
             scenarios.append('invalid_type')
 
-        if 'permission' in text or 'access' in text:
+        if _has_word(text, 'permission', 'access'):
             scenarios.append('insufficient_permissions')
 
-        if 'network' in text or 'connection' in text:
+        if _has_word(text, 'network', 'connection'):
             scenarios.append('network_error')
 
         return scenarios
 
-    def _extract_undo_redo_actions(self, text: str) -> List[str]:
+    def _extract_undo_redo_actions(self, text: str) -> list[str]:
         """Extract undo/redo applicable actions."""
         actions = []
 

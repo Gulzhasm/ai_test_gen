@@ -7,7 +7,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.services.metrics.ac_coverage_evaluator import (
-    StoryBaseline, evaluate_story, aggregate,
+    StoryBaseline,
+    aggregate,
+    evaluate_story,
 )
 
 

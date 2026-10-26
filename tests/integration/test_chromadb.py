@@ -1,7 +1,6 @@
 # Quick test script infrastructure/vector_db/chroma_repository.py
-from infrastructure.vector_db.chroma_repository import ChromaRepository
 from core.services.embeddings.test_step_embedder import TestStepEmbedder
-
+from infrastructure.vector_db.chroma_repository import ChromaRepository
 
 repo = ChromaRepository("test_steps")
 

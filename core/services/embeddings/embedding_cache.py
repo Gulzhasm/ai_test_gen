@@ -6,13 +6,10 @@ for embedding vectors with longer TTL (embeddings are expensive to compute).
 """
 import hashlib
 import json
-import os
 from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Lock
-from typing import Any, Dict, List, Optional
-
-import numpy as np
+from typing import Any
 
 from .embedding_interface import EmbeddingResult
 
@@ -29,7 +26,7 @@ class EmbeddingCache:
     def __init__(
         self,
         cache_dir: str = ".cache/embeddings",
-        default_ttl: Optional[timedelta] = None,
+        default_ttl: timedelta | None = None,
         max_entries: int = 50000
     ):
         """Initialize embedding cache.
@@ -52,14 +49,14 @@ class EmbeddingCache:
         """Get path to index file."""
         return self._cache_dir / self.INDEX_FILE
 
-    def _load_index(self) -> Dict[str, Dict]:
+    def _load_index(self) -> dict[str, dict]:
         """Load index from file."""
         index_path = self._get_index_path()
         if index_path.exists():
             try:
                 with open(index_path, 'r') as f:
                     return json.load(f)
-            except (json.JSONDecodeError, IOError):
+            except (OSError, json.JSONDecodeError):
                 return {}
         return {}
 
@@ -69,7 +66,7 @@ class EmbeddingCache:
         try:
             with open(index_path, 'w') as f:
                 json.dump(self._index, f, indent=2)
-        except IOError:
+        except OSError:
             pass
 
     def _get_cache_key(self, text: str, model: str) -> str:
@@ -89,7 +86,7 @@ class EmbeddingCache:
         """Get file path for cache key."""
         return self._cache_dir / f"{key[:32]}.json"
 
-    def get(self, text: str, model: str) -> Optional[EmbeddingResult]:
+    def get(self, text: str, model: str) -> EmbeddingResult | None:
         """Retrieve cached embedding.
 
         Args:
@@ -135,7 +132,7 @@ class EmbeddingCache:
 
                     return EmbeddingResult.from_dict(data["embedding"])
 
-            except (json.JSONDecodeError, IOError, KeyError):
+            except (OSError, json.JSONDecodeError, KeyError):
                 self._delete_entry(key)
                 self._misses += 1
                 return None
@@ -143,7 +140,7 @@ class EmbeddingCache:
     def set(
         self,
         result: EmbeddingResult,
-        ttl: Optional[timedelta] = None
+        ttl: timedelta | None = None
     ) -> None:
         """Store embedding in cache.
 
@@ -184,14 +181,14 @@ class EmbeddingCache:
                 }
                 self._save_index()
 
-            except (IOError, TypeError) as e:
+            except (OSError, TypeError) as e:
                 print(f"Embedding cache write error: {e}")
 
     def get_batch(
         self,
-        texts: List[str],
+        texts: list[str],
         model: str
-    ) -> Dict[str, Optional[EmbeddingResult]]:
+    ) -> dict[str, EmbeddingResult | None]:
         """Get multiple embeddings from cache.
 
         Args:
@@ -208,8 +205,8 @@ class EmbeddingCache:
 
     def set_batch(
         self,
-        results: List[EmbeddingResult],
-        ttl: Optional[timedelta] = None
+        results: list[EmbeddingResult],
+        ttl: timedelta | None = None
     ) -> None:
         """Store multiple embeddings in cache.
 
@@ -229,7 +226,7 @@ class EmbeddingCache:
         try:
             if file_path.exists():
                 file_path.unlink()
-        except IOError:
+        except OSError:
             pass
 
         del self._index[key]
@@ -255,7 +252,7 @@ class EmbeddingCache:
                 try:
                     if file_path.exists():
                         file_path.unlink()
-                except IOError:
+                except OSError:
                     pass
 
             self._index.clear()
@@ -264,7 +261,7 @@ class EmbeddingCache:
             self._misses = 0
 
     @property
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         with self._lock:
             total = self._hits + self._misses

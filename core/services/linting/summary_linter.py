@@ -2,8 +2,6 @@
 Summary Linter
 Validates QA Planning Summary against evidence sources.
 """
-import re
-from typing import List
 from core.domain.models import EvidenceModel, LintResult
 
 
@@ -135,4 +133,3 @@ class SummaryLinter:
     def _check_platform_sentence(self, summary: str, result: LintResult):
         """Check platform sentence — no longer required as hardcoded boilerplate."""
         # Platform sentence is no longer enforced; summaries end after dependencies/accessibility
-        pass

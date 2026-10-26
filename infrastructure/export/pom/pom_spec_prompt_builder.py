@@ -9,7 +9,6 @@ selectors.
 """
 import json
 import re
-from typing import List, Dict
 
 from infrastructure.export.pom.page_object_generator import PageObjectAPI
 
@@ -23,7 +22,7 @@ def _method_name(sig: str) -> str:
     return sig.split("(", 1)[0].strip()
 
 
-def _api_block(apis: List[PageObjectAPI]) -> str:
+def _api_block(apis: list[PageObjectAPI]) -> str:
     lines = []
     for a in apis:
         lines.append(f"### {a.class_name}  (fixture: `{a.fixture_name}`)")
@@ -41,7 +40,7 @@ def _api_block(apis: List[PageObjectAPI]) -> str:
 
 
 class PomSpecPromptBuilder:
-    def __init__(self, app_name: str, story_id: str, feature_name: str, apis: List[PageObjectAPI]):
+    def __init__(self, app_name: str, story_id: str, feature_name: str, apis: list[PageObjectAPI]):
         self.app_name = app_name
         self.story_id = story_id
         self.feature_name = feature_name
@@ -72,7 +71,7 @@ Return ONLY valid TypeScript for a Playwright .spec.ts file. No markdown fences.
    method or locator property.
 """
 
-    def build_user_prompt(self, test_cases: List[Dict]) -> str:
+    def build_user_prompt(self, test_cases: list[dict]) -> str:
         tc_json = json.dumps(test_cases, indent=2)
         return f"""Write a Playwright POM spec for the following test cases.
 
@@ -96,9 +95,9 @@ Return ONLY valid TypeScript for a Playwright .spec.ts file. No markdown fences.
 Return ONLY the TypeScript code."""
 
 
-def build_known_members(apis: List[PageObjectAPI]) -> Dict[str, set]:
+def build_known_members(apis: list[PageObjectAPI]) -> dict[str, set]:
     """Map fixture name -> set of valid member names (methods + locator properties)."""
-    known: Dict[str, set] = {}
+    known: dict[str, set] = {}
     for a in apis:
         members = set(a.locators)
         members |= {_method_name(s) for s in a.actions}
@@ -107,7 +106,7 @@ def build_known_members(apis: List[PageObjectAPI]) -> Dict[str, set]:
     return known
 
 
-def analyze_method_grounding(spec: str, apis: List[PageObjectAPI]) -> Dict:
+def analyze_method_grounding(spec: str, apis: list[PageObjectAPI]) -> dict:
     """
     Validate a POM spec references only real page-object members and no raw selectors.
 
@@ -121,7 +120,7 @@ def analyze_method_grounding(spec: str, apis: List[PageObjectAPI]) -> Dict:
 
     total = 0
     grounded = 0
-    ungrounded: List[str] = []
+    ungrounded: list[str] = []
     for fixture, member in _MEMBER_CALL_RE.findall(spec):
         if fixture not in fixtures:
             continue  # not a page-object reference (e.g. page.goto, expect.soft)

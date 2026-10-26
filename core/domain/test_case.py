@@ -2,7 +2,6 @@
 Test Case domain entity.
 """
 from dataclasses import dataclass, field
-from typing import List, Optional
 from enum import Enum
 
 
@@ -26,7 +25,7 @@ class TestStep:
     """Represents a single test step."""
     action: str
     expected: str
-    step_number: Optional[int] = None
+    step_number: int | None = None
 
 
 @dataclass
@@ -34,13 +33,13 @@ class TestCase:
     """Domain entity representing a test case."""
     id: str
     title: str
-    steps: List[TestStep] = field(default_factory=list)
+    steps: list[TestStep] = field(default_factory=list)
     objective: str = ""
     category: TestCategory = TestCategory.BEHAVIOR
     requires_object: bool = False
     is_accessibility: bool = False
-    device: Optional[str] = None
-    ui_area: Optional[str] = None
+    device: str | None = None
+    ui_area: str | None = None
     
     def __post_init__(self):
         """Validate test case after initialization."""

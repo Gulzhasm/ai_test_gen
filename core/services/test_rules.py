@@ -4,28 +4,28 @@ Test Generation Rules Engine
 Provides rule-based templates and patterns for generic test case generation.
 Designed to work with injected configuration for project-agnostic behavior.
 """
-from typing import List, Dict, Optional, Protocol
 from dataclasses import dataclass
+from typing import Protocol
 
 
 @dataclass
 class StepTemplate:
     """Template for generating test steps."""
     name: str
-    steps: List[Dict[str, str]]
+    steps: list[dict[str, str]]
     requires_object: bool = False
 
 
 class IRulesConfig(Protocol):
     """Protocol for rules configuration."""
     @property
-    def forbidden_words(self) -> List[str]: ...
+    def forbidden_words(self) -> list[str]: ...
     @property
-    def forbidden_area_terms(self) -> List[str]: ...
+    def forbidden_area_terms(self) -> list[str]: ...
     @property
-    def allowed_areas(self) -> List[str]: ...
+    def allowed_areas(self) -> list[str]: ...
     @property
-    def cancelled_indicators(self) -> List[str]: ...
+    def cancelled_indicators(self) -> list[str]: ...
 
 
 class IApplicationConfig(Protocol):
@@ -87,8 +87,8 @@ class TestRules:
 
     def __init__(
         self,
-        rules_config: Optional[IRulesConfig] = None,
-        app_config: Optional[IApplicationConfig] = None
+        rules_config: IRulesConfig | None = None,
+        app_config: IApplicationConfig | None = None
     ):
         """
         Initialize rules engine with optional configuration.
@@ -101,28 +101,28 @@ class TestRules:
         self._app_config = app_config
 
     @property
-    def forbidden_words(self) -> List[str]:
+    def forbidden_words(self) -> list[str]:
         """Get forbidden words list."""
         if self._rules_config:
             return self._rules_config.forbidden_words
         return self.DEFAULT_FORBIDDEN_WORDS
 
     @property
-    def forbidden_scenario_terms(self) -> List[str]:
+    def forbidden_scenario_terms(self) -> list[str]:
         """Get forbidden scenario terms."""
         if self._rules_config:
             return self._rules_config.forbidden_area_terms
         return self.DEFAULT_FORBIDDEN_SCENARIO_TERMS
 
     @property
-    def cancelled_indicators(self) -> List[str]:
+    def cancelled_indicators(self) -> list[str]:
         """Get cancelled indicators."""
         if self._rules_config:
             return self._rules_config.cancelled_indicators
         return self.DEFAULT_CANCELLED_INDICATORS
 
     @property
-    def allowed_behavior_areas(self) -> List[str]:
+    def allowed_behavior_areas(self) -> list[str]:
         """Get allowed behavior areas."""
         if self._rules_config:
             return self._rules_config.allowed_areas
@@ -156,19 +156,19 @@ class TestRules:
             return self._app_config.close_step
         return "Close the application"
 
-    def get_prereq_step(self) -> Dict[str, str]:
+    def get_prereq_step(self) -> dict[str, str]:
         """Get prerequisite step dict."""
         return {"action": self.prereq_template, "expected": ""}
 
-    def get_launch_step(self) -> Dict[str, str]:
+    def get_launch_step(self) -> dict[str, str]:
         """Get launch step dict."""
         return {"action": self.launch_template, "expected": self.launch_expected}
 
-    def get_close_step(self) -> Dict[str, str]:
+    def get_close_step(self) -> dict[str, str]:
         """Get close step dict."""
         return {"action": self.close_template, "expected": ""}
 
-    def get_object_setup_steps(self) -> List[Dict[str, str]]:
+    def get_object_setup_steps(self) -> list[dict[str, str]]:
         """Return object setup steps (config-driven when available)."""
         if self._app_config is not None:
             getter = getattr(self._app_config, 'get_object_setup_steps', None)
@@ -188,7 +188,7 @@ class TestRules:
         action_description: str,
         post_state: str,
         pre_state: str
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """
         Generate comprehensive Undo/Redo test steps.
 
@@ -214,7 +214,7 @@ class TestRules:
         add_action: str,
         added_state: str,
         remove_action: str
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """
         Generate Add/Remove pattern steps.
 
@@ -241,7 +241,7 @@ class TestRules:
         expected_output: str,
         setting_change: str,
         expected_after_change: str
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """
         Generate unit/setting-driven behavior test steps.
 

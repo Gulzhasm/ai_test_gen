@@ -6,7 +6,7 @@ Provides abstract base class for cache implementations.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Dict, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 T = TypeVar('T')
 
@@ -17,7 +17,7 @@ class CacheEntry(Generic[T]):
     key: str
     value: T
     created_at: datetime = field(default_factory=datetime.now)
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
     hit_count: int = 0
 
     @property
@@ -73,7 +73,7 @@ class CacheStats:
         """
         return (self.size / self.max_size * 100) if self.max_size > 0 else 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary.
 
         Returns:
@@ -94,7 +94,7 @@ class ICache(ABC, Generic[T]):
     """Interface for cache implementations."""
 
     @abstractmethod
-    def get(self, key: str) -> Optional[T]:
+    def get(self, key: str) -> T | None:
         """Retrieve value from cache.
 
         Args:
@@ -103,14 +103,13 @@ class ICache(ABC, Generic[T]):
         Returns:
             Cached value or None if not found/expired
         """
-        pass
 
     @abstractmethod
     def set(
         self,
         key: str,
         value: T,
-        ttl: Optional[timedelta] = None
+        ttl: timedelta | None = None
     ) -> None:
         """Store value in cache.
 
@@ -119,7 +118,6 @@ class ICache(ABC, Generic[T]):
             value: Value to cache
             ttl: Time-to-live (optional, uses default if not provided)
         """
-        pass
 
     @abstractmethod
     def delete(self, key: str) -> bool:
@@ -131,12 +129,10 @@ class ICache(ABC, Generic[T]):
         Returns:
             True if entry was deleted, False if not found
         """
-        pass
 
     @abstractmethod
     def clear(self) -> None:
         """Clear all cache entries."""
-        pass
 
     @abstractmethod
     def contains(self, key: str) -> bool:
@@ -148,7 +144,6 @@ class ICache(ABC, Generic[T]):
         Returns:
             True if key exists and is not expired
         """
-        pass
 
     @property
     @abstractmethod
@@ -158,7 +153,6 @@ class ICache(ABC, Generic[T]):
         Returns:
             CacheStats instance
         """
-        pass
 
     @abstractmethod
     def keys(self) -> list:
@@ -167,4 +161,3 @@ class ICache(ABC, Generic[T]):
         Returns:
             List of keys
         """
-        pass

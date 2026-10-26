@@ -1,9 +1,8 @@
 """Parser for structured .txt bug files into BugReport domain objects."""
 import re
 from pathlib import Path
-from typing import Dict, List, Optional
 
-from core.domain.bug_report import BugReport, RecreateStep, BugObservation
+from core.domain.bug_report import BugObservation, BugReport, RecreateStep
 
 
 class BugFileParser:
@@ -105,13 +104,13 @@ class BugFileParser:
             system_info=self._parse_bullet_list(sections.get('SYSTEM_INFO', '')),
         )
 
-    def _extract_sections(self, content: str) -> Dict[str, str]:
+    def _extract_sections(self, content: str) -> dict[str, str]:
         """Split content into section key -> raw text pairs."""
-        sections: Dict[str, str] = {}
+        sections: dict[str, str] = {}
         lines = content.split('\n')
 
-        current_key: Optional[str] = None
-        current_lines: List[str] = []
+        current_key: str | None = None
+        current_lines: list[str] = []
 
         for line in lines:
             # Check if this line starts a new section
@@ -142,18 +141,16 @@ class BugFileParser:
 
         return sections
 
-    def _parse_bullet_list(self, text: str) -> List[str]:
+    def _parse_bullet_list(self, text: str) -> list[str]:
         """Parse bulleted list (lines starting with -)."""
         items = []
         for line in text.split('\n'):
             stripped = line.strip()
-            if stripped.startswith('- '):
-                items.append(stripped[2:].strip())
-            elif stripped.startswith('* '):
+            if stripped.startswith('- ') or stripped.startswith('* '):
                 items.append(stripped[2:].strip())
         return items
 
-    def _parse_steps(self, steps_text: str) -> List[RecreateStep]:
+    def _parse_steps(self, steps_text: str) -> list[RecreateStep]:
         """Parse the STEPS section into RecreateStep objects.
 
         Handles:
@@ -163,9 +160,9 @@ class BugFileParser:
         - (see attached <filename>) references
         - Roman numeral expected items: i. ii. (deeper indented)
         """
-        steps: List[RecreateStep] = []
-        current_step: Optional[RecreateStep] = None
-        current_obs: Optional[BugObservation] = None
+        steps: list[RecreateStep] = []
+        current_step: RecreateStep | None = None
+        current_obs: BugObservation | None = None
 
         for line in steps_text.split('\n'):
             stripped = line.strip()
